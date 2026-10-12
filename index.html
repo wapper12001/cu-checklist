@@ -43,6 +43,9 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 <body>
 <div class="header">
   <h1>CU 점포 체크리스트</h1>
+  <div id="browserNotice" style="font-size:12px; margin-top:6px; opacity:0.9; display:none;">
+    카카오톡 등에서 열렸다면 메뉴에서 <strong>다른 브라우저로 열기</strong>를 눌러주세요.
+  </div>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -214,6 +217,16 @@ function refreshStoreSelect() {
 }
 loadData();
 reportDate.valueAsDate = new Date();
+
+// 인앱 브라우저 감지
+(function() {
+  const ua = navigator.userAgent || '';
+  const isInApp = /KAKAOTALK|Line|FBAN|FBAV|Instagram|Naver|Whale|Daum|Everytime/i.test(ua);
+  if (isInApp) {
+    const notice = document.getElementById('browserNotice');
+    if (notice) notice.style.display = 'block';
+  }
+})();
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
