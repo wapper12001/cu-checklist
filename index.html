@@ -32,7 +32,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
-.secret-area { height: 40px; margin-top: 20px; text-align: center; color: #bbb; font-size: 13px; padding: 8px; }
+.secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .modal-content { background: white; padding: 20px; border-radius: 12px; width: 92%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
 .shift-block { border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fafafa; }
@@ -159,7 +159,7 @@ let currentStore = "";
 let currentPhotos = {};
 let clickCount = 0;
 let clickTimer = null;
-let editingStore = null; // null = new, string = edit
+let editingStore = null;
 
 const reportScreen = document.getElementById('reportScreen');
 const adminScreen = document.getElementById('adminScreen');
@@ -180,7 +180,6 @@ function loadData() {
     try { allData = JSON.parse(saved); } catch(e) { allData = {}; }
   }
   if (Object.keys(allData).length === 0) {
-    // 샘플
     allData["소사센터점"] = {
       manager: "김점장",
       phone: "010-0000-0000",
@@ -399,10 +398,11 @@ document.getElementById('confirmBarcode').onclick = () => {
 document.getElementById('cancelBarcode').onclick = () => document.getElementById('barcodeModal').classList.add('hidden');
 
 // ===== 숨김 관리자 (10번) =====
-document.getElementById('secretArea').onclick = document.getElementById('secretArea').ontouchstart = () => {
+document.getElementById('secretArea').addEventListener('click', function(e) {
+  e.preventDefault();
   clickCount++;
   clearTimeout(clickTimer);
-  clickTimer = setTimeout(() => clickCount = 0, 2000);
+  clickTimer = setTimeout(() => { clickCount = 0; }, 2500);
   if (clickCount >= 10) {
     clickCount = 0;
     document.getElementById('pwModal').classList.remove('hidden');
@@ -410,7 +410,8 @@ document.getElementById('secretArea').onclick = document.getElementById('secretA
     document.getElementById('pwMsg').textContent = '';
     document.getElementById('adminPw').focus();
   }
-};
+});
+
 document.getElementById('confirmPw').onclick = () => {
   if (document.getElementById('adminPw').value === ADMIN_PASSWORD) {
     document.getElementById('pwModal').classList.add('hidden');
@@ -513,20 +514,6 @@ document.getElementById('addStoreBtn').onclick = () => {
   document.getElementById('adminStoreSelect').value = name;
   document.getElementById('adminStoreSelect').dispatchEvent(new Event('change'));
   alert('점포가 추가되었습니다.');
-};
-  const stores = Object.keys(allData);
-  if (!stores.length) { alert('점포가 없습니다.'); return; }
-  const name = prompt('수정할 점포명을 선택하세요:\n' + stores.join('\n'), stores[0]);
-  if (!name || !allData[name]) return;
-  editingStore = name;
-  const d = allData[name];
-  document.getElementById('editTitle').textContent = name + ' 수정';
-  document.getElementById('editStoreName').value = name;
-  document.getElementById('editManager').value = d.manager || '';
-  document.getElementById('editPhone').value = d.phone || '';
-  renderEditShifts(d.shifts || {});
-  adminScreen.classList.add('hidden');
-  editScreen.classList.remove('hidden');
 };
 
 function renderEditShifts(shifts) {
