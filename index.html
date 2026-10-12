@@ -279,10 +279,13 @@ function renderChecklist() {
   const saved = loadProgress();
   checklistContainer.innerHTML = (shift.items || []).map(item => {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
+    const hasDesc = item.desc && item.desc.trim();
     return `
       <div class="card item" data-id="${item.id}">
-        <div class="item-title">${item.title} ${item.photo_required?'📷':''}</div>
-        <div class="item-desc">${item.desc||''}</div>
+        <div class="item-title">${item.title} ${item.photo_required?'📷':''}
+          ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">상세보기</button>` : ''}
+        </div>
+        <div class="item-desc hidden">${item.desc||''}</div>
         <div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
         <div class="btn-row">
