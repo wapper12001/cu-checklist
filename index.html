@@ -129,20 +129,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
     <p style="font-size:13px; color:#555; margin:4px 0 8px;">그날의 자랑, 실수, 사건 사고, 보고해야될 사항들을 메모해서 보고하게 한다.<br>예시) 손님이 1+1인데 1개 주고 가셨어요. 제가 잘해서 겠죠? 뭐 등등 ... 편하게 메모 남기세요.</p>
     <textarea id="dayMemo" placeholder="편하게 메모 남기세요." style="min-height:90px;"></textarea>
   </div>
-  <div style="display:flex; gap:8px;">
-    <button class="btn-secondary" id="previewBtn" style="flex:1;">미리보기</button>
-    <button class="btn-primary" id="sendReportBtn" style="flex:1;">제출 / 전송</button>
-  </div>
-</div>
-
-<!-- 보고서 미리보기 모달 -->
-<div id="previewModal" class="modal hidden">
-  <div class="modal-content">
-    <h3 style="margin-top:0;">보고서 미리보기</h3>
-    <pre id="previewText" style="white-space:pre-wrap; font-size:14px; background:#f9f9f9; padding:12px; border-radius:8px; max-height:50vh; overflow-y:auto;"></pre>
-    <button class="btn-primary" id="sendFromPreview" style="width:100%; margin-top:12px;">이 내용으로 제출 / 전송</button>
-    <button class="btn-secondary" id="closePreview" style="width:100%; margin-top:8px;">닫기</button>
-  </div>
+  <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
 </div>
 
 <!-- 비밀번호 모달 -->
@@ -407,19 +394,6 @@ async function makeSummary() {
   }
   return {sum, photos};
 }
-
-document.getElementById('previewBtn').onclick = async () => {
-  const {sum} = await makeSummary();
-  document.getElementById('previewText').textContent = sum;
-  document.getElementById('previewModal').classList.remove('hidden');
-};
-document.getElementById('closePreview').onclick = () => {
-  document.getElementById('previewModal').classList.add('hidden');
-};
-document.getElementById('sendFromPreview').onclick = async () => {
-  document.getElementById('previewModal').classList.add('hidden');
-  sendReportBtn.click();
-};
 
 sendReportBtn.onclick = async () => {
   const {sum, photos} = await makeSummary();
