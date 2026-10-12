@@ -223,8 +223,12 @@ function onStoreChange() {
   const d = allData[currentStore];
   if (!d) return;
   storeInfo.textContent = d.phone ? `관리자: ${d.manager||''} / ${d.phone}` : '';
-  const keys = Object.keys(d.shifts || {});
-  shiftSelect.innerHTML = keys.map(k => `<option value="${k}">${k} (${d.shifts[k].name||''})</option>`).join('');
+  // 항상 P1~P4 표시
+  const defaultShifts = ['P1','P2','P3','P4'];
+  shiftSelect.innerHTML = defaultShifts.map(k => {
+    const name = (d.shifts && d.shifts[k] && d.shifts[k].name) ? d.shifts[k].name : k;
+    return `<option value="${k}">${k} (${name})</option>`;
+  }).join('');
   renderChecklist();
 }
 
@@ -258,8 +262,10 @@ function loadProgress() {
 function renderChecklist() {
   const d = allData[currentStore];
   if (!d) return;
-  const shift = d.shifts[shiftSelect.value];
-  if (!shift) return;
+  if (!d.shifts) d.shifts = {};
+  const key = shiftSelect.value;
+  if (!d.shifts[key]) d.shifts[key] = { name: key, items: [] };
+  const shift = d.shifts[key];
   const saved = loadProgress();
   checklistContainer.innerHTML = (shift.items || []).map(item => {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
