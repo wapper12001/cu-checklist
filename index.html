@@ -359,35 +359,63 @@ async function shareItem(id, isSms) {
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   const shiftTxt = shiftSelect.options[shiftSelect.selectedIndex]?.text || '';
-  let text = `[${currentStore}] ${shiftTxt}\n${reportDate.value} / ${staffName.value||'미입력'}\n출근: ${document.getElementById('clockTime').textContent||'-'}\n\n${d.title}\n${d.done?'완료':'미완료'}`;
-  if (d.memo) text += `\n메모: ${d.memo}`;
+  const itemEl = document.querySelector(`.item[data-id="${id}"]`);
+  const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
+
+  let text = `[${currentStore}] ${shiftTxt}\n`;
+  text += `날짜: ${reportDate.value}\n`;
+  text += `근무자: ${staffName.value || '미입력'}\n`;
+  text += `출근: ${document.getElementById('clockTime').textContent || '-'}\n\n`;
+  text += `▶ 업무: ${d.title}\n`;
+  if (desc) text += `상세: ${desc}\n`;
+  text += `상태: ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
+  if (d.memo) text += `메모: ${d.memo}\n`;
+  text += `사진: ${d.photos.length}장`;
+
   if (isSms) {
     location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
     return;
   }
   if (navigator.share) {
-    const sd = { title: '체크리스트', text };
+    const sd = { title: '체크리스트 업무보고', text };
     if (d.photos.length) sd.files = d.photos;
-    try { await navigator.share(sd); } catch(e){}
-  } else {
-    navigator.clipboard.writeText(text).then(() => alert('복사됨'));
+    try { await navigator.share(sd); return; } catch(e){}
   }
+  navigator.clipboard.writeText(text).then(() => alert('업무 내용이 복사되었습니다.\n카카오톡이나 문자에 붙여넣기 하세요.'));
 }
 
 async function makeSummary() {
   const store = allData[currentStore] || {};
   const shift = store.shifts?.[shiftSelect.value] || {name:'', items:[]};
-  let sum = `📋 CU 체크리스트 보고서\n점포: ${currentStore}\n관리자: ${store.manager||''}\n근무타입: ${shiftSelect.value} (${shift.name})\n날짜: ${reportDate.value}\n근무자: ${staffName.value||'미입력'}\n근무시간대: ${workPeriod.value||'-'}\n출근시간: ${document.getElementById('clockTime').textContent||'-'}\n시간: ${new Date().toLocaleString('ko-KR')}\n━━━━━━━━━━━━━━━━━━━━━━━━`;
+  let sum = `📋 CU 체크리스트 보고서\n`;
+  sum += `점포: ${currentStore}\n`;
+  sum += `관리자: ${store.manager || ''}\n`;
+  sum += `근무타입: ${shiftSelect.value} (${shift.name})\n`;
+  sum += `날짜: ${reportDate.value}\n`;
+  sum += `근무자: ${staffName.value || '미입력'}\n`;
+  sum += `근무시간대: ${workPeriod.value || '-'}\n`;
+  sum += `출근시간: ${document.getElementById('clockTime').textContent || '-'}\n`;
+  sum += `보고시간: ${new Date().toLocaleString('ko-KR')}\n`;
+  sum += `━━━━━━━━━━━━━━━━━━━━━━━━`;
+
   let photos = [], done = 0;
-  (shift.items||[]).forEach(it => {
+  (shift.items || []).forEach(it => {
     const d = getItemData(it.id); if (!d) return;
     if (d.done) done++;
-    sum += `\n\n▶ ${it.title}\n  ${d.done?'✅ 완료':'❌ 미완료'}`;
-    if (d.memo) sum += `\n  메모: ${d.memo}`;
-    sum += `\n  사진: ${d.photos.length}장`;
+    const itemEl = document.querySelector(`.item[data-id="${it.id}"]`);
+    const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
+
+    sum += `\n\n▶ ${it.title}\n`;
+    if (desc) sum += `  상세: ${desc}\n`;
+    sum += `  ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
+    if (d.memo) sum += `  메모: ${d.memo}\n`;
+    sum += `  사진: ${d.photos.length}장`;
     photos.push(...d.photos);
   });
-  sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n완료: ${done}/${(shift.items||[]).length}`;
+
+  sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  sum += `완료: ${done}/${(shift.items || []).length}`;
+
   const dayMemo = document.getElementById('dayMemo')?.value.trim();
   if (dayMemo) {
     sum += `\n\n📝 오늘 메모\n${dayMemo}`;
