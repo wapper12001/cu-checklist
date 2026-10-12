@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CU 점포 체크리스트</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif; margin: 0; padding: 0; background: #f5f5f5; color: #222; }
+.header { background: #e31837; color: white; padding: 16px; text-align: center; position: sticky; top: 0; z-index: 100; }
+.header h1 { margin: 0; font-size: 18px; }
+.container { padding: 12px; max-width: 650px; margin: 0 auto; padding-bottom: 100px; }
+.card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+select, input[type="text"], input[type="password"], input[type="time"], textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+textarea { min-height: 50px; resize: vertical; }
+button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-primary { background: #e31837; color: white; }
+.btn-secondary { background: #f0f0f0; color: #333; }
+.btn-kakao { background: #FEE500; color: #3C1E1E; }
+.btn-sms { background: #4CAF50; color: white; }
+.btn-photo { background: #2196F3; color: white; }
+.btn-danger { background: #ff5252; color: white; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.item { border-left: 4px solid #e31837; padding-left: 12px; margin-bottom: 16px; }
+.item-title { font-weight: 700; font-size: 16px; }
+.item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; }
+.done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.done-check input { width: 20px; height: 20px; }
+.photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
+.bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
+.hidden { display: none !important; }
+.secret-area { height: 40px; margin-top: 20px; text-align: center; color: #bbb; font-size: 13px; padding: 8px; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.modal-content { background: white; padding: 20px; border-radius: 12px; width: 92%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
+.shift-block { border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fafafa; }
+.edit-item { background: white; padding: 8px; margin-bottom: 8px; border-radius: 6px; }
+.info-line { font-size: 14px; margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>CU 점포 체크리스트</h1>
+</div>
+<div class="container">
+  <!-- 보고 화면 -->
+  <div id="reportScreen">
+    <div class="card">
+      <button class="btn-primary" id="clockInBtn" style="width:100%; margin-bottom:12px;">출근 (바코드 스캔)</button>
+      <div id="clockInfo" class="hidden">
+        <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
+        <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
+      </div>
+      <label style="margin-top:12px;">날짜</label>
+      <input type="date" id="reportDate">
+      <label style="margin-top:12px;">점포 선택</label>
+      <select id="storeSelect"></select>
+      <label style="margin-top:12px;">근무타입</label>
+      <select id="shiftSelect"></select>
+      <label style="margin-top:12px;">근무자 이름</label>
+      <input type="text" id="staffName" placeholder="이름">
+      <label style="margin-top:12px;">근무시간대</label>
+      <input type="text" id="workPeriod" placeholder="예: 09:00-15:00">
+      <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
+    </div>
+    <div id="checklistContainer"></div>
+    <div class="secret-area" id="secretArea">CU (관리자)</div>
+  </div>
+
+  <!-- 관리자 화면 -->
+  <div id="adminScreen" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0;">관리자</h3>
+      <label>점포 선택</label>
+      <select id="adminStoreSelect"></select>
+      <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
+      <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
+    </div>
+
+    <!-- 선택된 점포 상세 -->
+    <div id="storeDetail" class="hidden">
+      <div class="card">
+        <h4 style="margin-top:0;" id="detailTitle">점포 정보</h4>
+        <label>점포코드</label>
+        <input type="text" id="detailCode">
+        <label style="margin-top:8px;">점장</label>
+        <input type="text" id="detailManager">
+        <label style="margin-top:8px;">전화번호</label>
+        <input type="text" id="detailPhone">
+        <label style="margin-top:8px;">운영시간</label>
+        <select id="detailHours">
+          <option value="19">19시간</option>
+          <option value="24">24시간</option>
+        </select>
+        <button class="btn-primary" id="saveDetailBtn" style="width:100%; margin-top:12px;">점포 정보 저장</button>
+      </div>
+
+      <div class="card">
+        <h4 style="margin-top:0;">체크리스트</h4>
+        <div id="shiftButtons"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 점포 작성/수정 화면 -->
+  <div id="editScreen" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0;" id="editTitle">점포 체크리스트</h3>
+      <label>점포명</label>
+      <input type="text" id="editStoreName">
+      <label style="margin-top:12px;">관리자명</label>
+      <input type="text" id="editManager">
+      <label style="margin-top:12px;">전화번호</label>
+      <input type="text" id="editPhone" placeholder="010-1234-5678">
+    </div>
+    <div id="editShifts"></div>
+    <div class="card">
+      <button class="btn-primary" id="saveStoreBtn">저장</button>
+      <button class="btn-secondary" id="addShiftBtn" style="margin-left:8px;">근무타입 추가</button>
+      <button class="btn-secondary" id="cancelEdit" style="margin-left:8px;">취소</button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar hidden" id="bottomBar">
+  <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
+</div>
+
+<!-- 비밀번호 모달 -->
+<div id="pwModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 style="margin-top:0;">관리자 비밀번호</h3>
+    <input type="password" id="adminPw">
+    <button class="btn-primary" id="confirmPw" style="width:100%; margin-top:10px;">확인</button>
+    <button class="btn-secondary" id="cancelPw" style="width:100%; margin-top:8px;">취소</button>
+    <p id="pwMsg" style="color:#e31837; text-align:center;"></p>
+  </div>
+</div>
+
+<!-- 바코드 입력 모달 (카메라 스캔 대체) -->
+<div id="barcodeModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 style="margin-top:0;">바코드 스캔</h3>
+    <p style="font-size:14px;">카메라로 바코드를 찍거나 번호를 입력하세요.</p>
+    <input type="file" id="barcodeFile" accept="image/*" capture="environment" style="margin-bottom:10px;">
+    <input type="text" id="barcodeInput" placeholder="바코드 번호 입력">
+    <button class="btn-primary" id="confirmBarcode" style="width:100%; margin-top:10px;">출근 처리</button>
+    <button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button>
+  </div>
+</div>
+
+<script>
+const ADMIN_PASSWORD = "1234";
+
+let allData = {};
+let currentStore = "";
+let currentPhotos = {};
+let clickCount = 0;
+let clickTimer = null;
+let editingStore = null; // null = new, string = edit
+
+const reportScreen = document.getElementById('reportScreen');
+const adminScreen = document.getElementById('adminScreen');
+const editScreen = document.getElementById('editScreen');
+const storeSelect = document.getElementById('storeSelect');
+const shiftSelect = document.getElementById('shiftSelect');
+const staffName = document.getElementById('staffName');
+const workPeriod = document.getElementById('workPeriod');
+const reportDate = document.getElementById('reportDate');
+const checklistContainer = document.getElementById('checklistContainer');
+const storeInfo = document.getElementById('storeInfo');
+const bottomBar = document.getElementById('bottomBar');
+const sendReportBtn = document.getElementById('sendReportBtn');
+
+function loadData() {
+  const saved = localStorage.getItem('cu_stores');
+  if (saved) {
+    try { allData = JSON.parse(saved); } catch(e) { allData = {}; }
+  }
+  if (Object.keys(allData).length === 0) {
+    // 샘플
+    allData["소사센터점"] = {
+      manager: "김점장",
+      phone: "010-0000-0000",
+      shifts: {
+        "P1": { name: "오픈.오전", items: [
+          {id:"p1-1", title:"매장 오픈 준비", desc:"간판·조명·POS", photo_required:true},
+          {id:"p1-2", title:"시재금 확인", desc:"현금 시재", photo_required:true},
+          {id:"p1-3", title:"온도 확인", desc:"냉장·냉동", photo_required:true}
+        ]},
+        "P2": { name: "주간.오후", items: [
+          {id:"p2-1", title:"진열 보충", desc:"", photo_required:false},
+          {id:"p2-2", title:"중간 점검", desc:"", photo_required:true}
+        ]}
+      }
+    };
+    saveAll();
+  }
+  refreshStoreSelect();
+}
+function saveAll() {
+  localStorage.setItem('cu_stores', JSON.stringify(allData));
+}
+function refreshStoreSelect() {
+  const stores = Object.keys(allData);
+  storeSelect.innerHTML = stores.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (stores.length) {
+    storeSelect.value = stores[0];
+    onStoreChange();
+  }
+}
+loadData();
+reportDate.valueAsDate = new Date();
+
+storeSelect.onchange = onStoreChange;
+shiftSelect.onchange = () => { renderChecklist(); checkAllDone(); };
+staffName.oninput = saveProgress;
+workPeriod.oninput = saveProgress;
+reportDate.onchange = () => { saveProgress(); renderChecklist(); };
+
+function onStoreChange() {
+  currentStore = storeSelect.value;
+  const d = allData[currentStore];
+  if (!d) return;
+  storeInfo.textContent = d.phone ? `관리자: ${d.manager||''} / ${d.phone}` : '';
+  const keys = Object.keys(d.shifts || {});
+  shiftSelect.innerHTML = keys.map(k => `<option value="${k}">${k} (${d.shifts[k].name||''})</option>`).join('');
+  renderChecklist();
+}
+
+function getKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
+function saveProgress() {
+  const data = {
+    staff: staffName.value,
+    period: workPeriod.value,
+    items: {}
+  };
+  document.querySelectorAll('.item').forEach(el => {
+    const id = el.dataset.id;
+    data.items[id] = { done: el.querySelector('.done-cb').checked, memo: el.querySelector('textarea')?.value || '' };
+  });
+  try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
+  checkAllDone();
+}
+function loadProgress() {
+  try {
+    const s = localStorage.getItem(getKey());
+    if (s) {
+      const d = JSON.parse(s);
+      if (d.staff) staffName.value = d.staff;
+      if (d.period) workPeriod.value = d.period;
+      return d;
+    }
+  } catch(e){}
+  return null;
+}
+
+function renderChecklist() {
+  const d = allData[currentStore];
+  if (!d) return;
+  const shift = d.shifts[shiftSelect.value];
+  if (!shift) return;
+  const saved = loadProgress();
+  checklistContainer.innerHTML = (shift.items || []).map(item => {
+    const sv = (saved && saved.items && saved.items[item.id]) || {};
+    return `
+      <div class="card item" data-id="${item.id}">
+        <div class="item-title">${item.title} ${item.photo_required?'📷':''}</div>
+        <div class="item-desc">${item.desc||''}</div>
+        <div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div>
+        <label>메모</label><textarea>${sv.memo||''}</textarea>
+        <div class="btn-row">
+          <button class="btn-photo" onclick="takePhoto('${item.id}')">📷 사진찍기</button>
+          <button class="btn-kakao" onclick="shareItem('${item.id}')">카톡</button>
+          <button class="btn-sms" onclick="shareItem('${item.id}',true)">문자</button>
+        </div>
+        <div class="photo-preview" id="photos-${item.id}"></div>
+      </div>`;
+  }).join('');
+  Object.keys(currentPhotos).forEach(id => renderPhotoPreview(id));
+  checklistContainer.querySelectorAll('.done-cb, textarea').forEach(el => {
+    el.addEventListener('change', saveProgress);
+    el.addEventListener('input', saveProgress);
+  });
+  saveProgress();
+}
+
+function checkAllDone() {
+  const boxes = checklistContainer.querySelectorAll('.done-cb');
+  if (boxes.length === 0) {
+    bottomBar.classList.add('hidden');
+    return;
+  }
+  const allDone = Array.from(boxes).every(cb => cb.checked);
+  bottomBar.classList.toggle('hidden', !allDone);
+}
+
+function takePhoto(id) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+  inp.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (!currentPhotos[id]) currentPhotos[id] = [];
+    currentPhotos[id].push(f);
+    renderPhotoPreview(id);
+  };
+  inp.click();
+}
+function renderPhotoPreview(id) {
+  const c = document.getElementById('photos-'+id);
+  if (!c) return;
+  const ps = currentPhotos[id] || [];
+  c.innerHTML = ps.map((f,i) => `<img src="${URL.createObjectURL(f)}" onclick="removePhoto('${id}',${i})">`).join('');
+}
+function removePhoto(id, i) {
+  if (currentPhotos[id]) { currentPhotos[id].splice(i,1); renderPhotoPreview(id); }
+}
+
+function getItemData(id) {
+  const el = document.querySelector(`.item[data-id="${id}"]`);
+  if (!el) return null;
+  return {
+    title: el.querySelector('.item-title').textContent.replace('📷','').trim(),
+    done: el.querySelector('.done-cb').checked,
+    memo: el.querySelector('textarea').value.trim(),
+    photos: currentPhotos[id] || []
+  };
+}
+
+async function shareItem(id, isSms) {
+  const d = getItemData(id); if (!d) return;
+  const store = allData[currentStore] || {};
+  const phone = (store.phone || '').replace(/-/g,'');
+  const shiftTxt = shiftSelect.options[shiftSelect.selectedIndex]?.text || '';
+  let text = `[${currentStore}] ${shiftTxt}\n${reportDate.value} / ${staffName.value||'미입력'}\n출근: ${document.getElementById('clockTime').textContent||'-'}\n\n${d.title}\n${d.done?'완료':'미완료'}`;
+  if (d.memo) text += `\n메모: ${d.memo}`;
+  if (isSms) {
+    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
+    return;
+  }
+  if (navigator.share) {
+    const sd = { title: '체크리스트', text };
+    if (d.photos.length) sd.files = d.photos;
+    try { await navigator.share(sd); } catch(e){}
+  } else {
+    navigator.clipboard.writeText(text).then(() => alert('복사됨'));
+  }
+}
+
+async function makeSummary() {
+  const store = allData[currentStore] || {};
+  const shift = store.shifts?.[shiftSelect.value] || {name:'', items:[]};
+  let sum = `📋 CU 체크리스트 보고서\n점포: ${currentStore}\n관리자: ${store.manager||''}\n근무타입: ${shiftSelect.value} (${shift.name})\n날짜: ${reportDate.value}\n근무자: ${staffName.value||'미입력'}\n근무시간대: ${workPeriod.value||'-'}\n출근시간: ${document.getElementById('clockTime').textContent||'-'}\n시간: ${new Date().toLocaleString('ko-KR')}\n━━━━━━━━━━━━━━━━━━━━━━━━`;
+  let photos = [], done = 0;
+  (shift.items||[]).forEach(it => {
+    const d = getItemData(it.id); if (!d) return;
+    if (d.done) done++;
+    sum += `\n\n▶ ${it.title}\n  ${d.done?'✅ 완료':'❌ 미완료'}`;
+    if (d.memo) sum += `\n  메모: ${d.memo}`;
+    sum += `\n  사진: ${d.photos.length}장`;
+    photos.push(...d.photos);
+  });
+  sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n완료: ${done}/${(shift.items||[]).length}`;
+  return {sum, photos};
+}
+
+sendReportBtn.onclick = async () => {
+  const {sum, photos} = await makeSummary();
+  const store = allData[currentStore] || {};
+  const phone = (store.phone || '').replace(/-/g,'');
+  if (navigator.share) {
+    const sd = { title: 'CU 보고서', text: sum };
+    if (photos.length && photos.length <= 10) sd.files = photos;
+    try { await navigator.share(sd); return; } catch(e){}
+  }
+  if (confirm('문자로 보낼까요?')) {
+    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
+  } else {
+    navigator.clipboard.writeText(sum).then(() => alert('복사되었습니다.'));
+  }
+};
+
+// ===== 출근 / 바코드 =====
+document.getElementById('clockInBtn').onclick = () => {
+  document.getElementById('barcodeModal').classList.remove('hidden');
+  document.getElementById('barcodeInput').value = '';
+};
+document.getElementById('confirmBarcode').onclick = () => {
+  const code = document.getElementById('barcodeInput').value.trim() || '스캔됨';
+  const now = new Date();
+  document.getElementById('clockTime').textContent = now.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('barcodeValue').textContent = code;
+  document.getElementById('clockInfo').classList.remove('hidden');
+  document.getElementById('barcodeModal').classList.add('hidden');
+  alert('출근 처리되었습니다.');
+};
+document.getElementById('cancelBarcode').onclick = () => document.getElementById('barcodeModal').classList.add('hidden');
+
+// ===== 숨김 관리자 (10번) =====
+document.getElementById('secretArea').onclick = document.getElementById('secretArea').ontouchstart = () => {
+  clickCount++;
+  clearTimeout(clickTimer);
+  clickTimer = setTimeout(() => clickCount = 0, 2000);
+  if (clickCount >= 10) {
+    clickCount = 0;
+    document.getElementById('pwModal').classList.remove('hidden');
+    document.getElementById('adminPw').value = '';
+    document.getElementById('pwMsg').textContent = '';
+    document.getElementById('adminPw').focus();
+  }
+};
+document.getElementById('confirmPw').onclick = () => {
+  if (document.getElementById('adminPw').value === ADMIN_PASSWORD) {
+    document.getElementById('pwModal').classList.add('hidden');
+    reportScreen.classList.add('hidden');
+    adminScreen.classList.remove('hidden');
+    refreshAdminStoreSelect();
+  } else {
+    document.getElementById('pwMsg').textContent = '비밀번호가 틀렸습니다.';
+  }
+};
+document.getElementById('cancelPw').onclick = () => document.getElementById('pwModal').classList.add('hidden');
+document.getElementById('backFromAdmin').onclick = () => {
+  adminScreen.classList.add('hidden');
+  reportScreen.classList.remove('hidden');
+};
+
+// ===== 관리자 점포 선택 =====
+function refreshAdminStoreSelect() {
+  const sel = document.getElementById('adminStoreSelect');
+  const stores = Object.keys(allData);
+  sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
+  document.getElementById('storeDetail').classList.add('hidden');
+}
+document.getElementById('adminStoreSelect').onchange = function() {
+  const name = this.value;
+  const detail = document.getElementById('storeDetail');
+  if (!name || !allData[name]) {
+    detail.classList.add('hidden');
+    return;
+  }
+  const d = allData[name];
+  document.getElementById('detailTitle').textContent = name + ' 정보';
+  document.getElementById('detailCode').value = d.code || '';
+  document.getElementById('detailManager').value = d.manager || '';
+  document.getElementById('detailPhone').value = d.phone || '';
+  document.getElementById('detailHours').value = d.hours || '19';
+  renderShiftButtons(name);
+  detail.classList.remove('hidden');
+};
+
+document.getElementById('saveDetailBtn').onclick = () => {
+  const name = document.getElementById('adminStoreSelect').value;
+  if (!name || !allData[name]) return;
+  allData[name].code = document.getElementById('detailCode').value.trim();
+  allData[name].manager = document.getElementById('detailManager').value.trim();
+  allData[name].phone = document.getElementById('detailPhone').value.trim();
+  allData[name].hours = document.getElementById('detailHours').value;
+  saveAll();
+  alert('점포 정보가 저장되었습니다.');
+};
+
+function renderShiftButtons(storeName) {
+  const container = document.getElementById('shiftButtons');
+  container.innerHTML = '';
+  ['P1','P2','P3','P4'].forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-primary';
+    btn.style.cssText = 'width:100%; margin-bottom:8px;';
+    btn.textContent = `점포체크리스트 ${p}`;
+    btn.onclick = () => openShiftEdit(storeName, p);
+    container.appendChild(btn);
+  });
+}
+
+function openShiftEdit(storeName, shiftKey) {
+  editingStore = storeName;
+  const d = allData[storeName];
+  if (!d.shifts) d.shifts = {};
+  if (!d.shifts[shiftKey]) d.shifts[shiftKey] = { name: shiftKey, items: [] };
+  document.getElementById('editTitle').textContent = `${storeName} - ${shiftKey} 체크리스트`;
+  document.getElementById('editStoreName').value = storeName;
+  document.getElementById('editStoreName').disabled = true;
+  document.getElementById('editManager').value = d.manager || '';
+  document.getElementById('editPhone').value = d.phone || '';
+  renderEditShifts({ [shiftKey]: d.shifts[shiftKey] });
+  adminScreen.classList.add('hidden');
+  editScreen.classList.remove('hidden');
+}
+
+document.getElementById('addStoreBtn').onclick = () => {
+  const name = prompt('새 점포명을 입력하세요');
+  if (!name || allData[name]) {
+    if (allData[name]) alert('이미 있는 점포입니다.');
+    return;
+  }
+  allData[name] = {
+    code: '',
+    manager: '',
+    phone: '',
+    hours: '19',
+    shifts: {
+      P1: { name: '오픈.오전', items: [] },
+      P2: { name: '주간.오후', items: [] },
+      P3: { name: '오후.저녁', items: [] },
+      P4: { name: '마감.야간', items: [] }
+    }
+  };
+  saveAll();
+  refreshAdminStoreSelect();
+  document.getElementById('adminStoreSelect').value = name;
+  document.getElementById('adminStoreSelect').dispatchEvent(new Event('change'));
+  alert('점포가 추가되었습니다.');
+};
+  const stores = Object.keys(allData);
+  if (!stores.length) { alert('점포가 없습니다.'); return; }
+  const name = prompt('수정할 점포명을 선택하세요:\n' + stores.join('\n'), stores[0]);
+  if (!name || !allData[name]) return;
+  editingStore = name;
+  const d = allData[name];
+  document.getElementById('editTitle').textContent = name + ' 수정';
+  document.getElementById('editStoreName').value = name;
+  document.getElementById('editManager').value = d.manager || '';
+  document.getElementById('editPhone').value = d.phone || '';
+  renderEditShifts(d.shifts || {});
+  adminScreen.classList.add('hidden');
+  editScreen.classList.remove('hidden');
+};
+
+function renderEditShifts(shifts) {
+  const container = document.getElementById('editShifts');
+  container.innerHTML = '';
+  Object.entries(shifts).forEach(([key, sh]) => {
+    const block = document.createElement('div');
+    block.className = 'card shift-block';
+    block.innerHTML = `
+      <label>근무타입 코드</label><input class="s-key" value="${key}">
+      <label>근무타입 이름</label><input class="s-name" value="${sh.name||''}">
+      <div class="items"></div>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">항목 추가</button>
+      <button class="btn btn-danger" style="margin-top:8px; margin-left:8px;" onclick="this.parentElement.remove()">삭제</button>
+    `;
+    const itemsDiv = block.querySelector('.items');
+    (sh.items||[]).forEach(it => addItem(itemsDiv, it));
+    container.appendChild(block);
+  });
+}
+function addItem(container, item = {title:'', desc:'', photo_required:false}) {
+  const d = document.createElement('div');
+  d.className = 'edit-item';
+  d.innerHTML = `
+    <input class="i-title" value="${item.title||''}" placeholder="항목 이름" style="margin-bottom:4px;">
+    <textarea class="i-desc" placeholder="설명">${item.desc||''}</textarea>
+    <label><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
+    <button class="btn btn-danger btn-small" onclick="this.parentElement.remove()">삭제</button>
+  `;
+  container.appendChild(d);
+}
+document.getElementById('addShiftBtn').onclick = () => {
+  const container = document.getElementById('editShifts');
+  const block = document.createElement('div');
+  block.className = 'card shift-block';
+  block.innerHTML = `
+    <label>근무타입 코드</label><input class="s-key" value="P${container.children.length+1}">
+    <label>근무타입 이름</label><input class="s-name" value="새 근무타입">
+    <div class="items"></div>
+    <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">항목 추가</button>
+  `;
+  container.appendChild(block);
+};
+
+document.getElementById('saveStoreBtn').onclick = () => {
+  const name = document.getElementById('editStoreName').value.trim();
+  if (!name) { alert('점포명을 입력하세요.'); return; }
+  const shifts = {};
+  document.querySelectorAll('.shift-block').forEach(b => {
+    const key = b.querySelector('.s-key').value.trim();
+    if (!key) return;
+    const items = [];
+    b.querySelectorAll('.edit-item').forEach((el, i) => {
+      const title = el.querySelector('.i-title').value.trim();
+      if (!title) return;
+      items.push({
+        id: key.toLowerCase() + '-' + (i+1),
+        title,
+        desc: el.querySelector('.i-desc').value.trim(),
+        photo_required: el.querySelector('.i-photo').checked
+      });
+    });
+    shifts[key] = { name: b.querySelector('.s-name').value.trim(), items };
+  });
+  if (editingStore && editingStore !== name) delete allData[editingStore];
+  allData[name] = {
+    manager: document.getElementById('editManager').value.trim(),
+    phone: document.getElementById('editPhone').value.trim(),
+    shifts
+  };
+  saveAll();
+  alert('저장되었습니다.');
+  editScreen.classList.add('hidden');
+  adminScreen.classList.remove('hidden');
+  refreshStoreSelect();
+};
+document.getElementById('cancelEdit').onclick = () => {
+  editScreen.classList.add('hidden');
+  adminScreen.classList.remove('hidden');
+};
+</script>
+</body>
+</html>
