@@ -526,7 +526,7 @@ function renderEditShifts(shifts) {
       <label>근무타입 코드</label><input class="s-key" value="${key}">
       <label>근무타입 이름</label><input class="s-name" value="${sh.name||''}">
       <div class="items"></div>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">항목 추가</button>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가 (순서대로)</button>
       <button class="btn btn-danger" style="margin-top:8px; margin-left:8px;" onclick="this.parentElement.remove()">삭제</button>
     `;
     const itemsDiv = block.querySelector('.items');
@@ -534,17 +534,39 @@ function renderEditShifts(shifts) {
     container.appendChild(block);
   });
 }
+
 function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   const d = document.createElement('div');
   d.className = 'edit-item';
+  d.style.cssText = 'border:1px solid #eee; padding:10px; margin-bottom:8px; border-radius:6px; background:#fff;';
   d.innerHTML = `
-    <input class="i-title" value="${item.title||''}" placeholder="항목 이름" style="margin-bottom:4px;">
-    <textarea class="i-desc" placeholder="설명">${item.desc||''}</textarea>
-    <label><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
-    <button class="btn btn-danger btn-small" onclick="this.parentElement.remove()">삭제</button>
+    <div style="display:flex; gap:6px; margin-bottom:6px; align-items:center;">
+      <span style="font-weight:700; color:#e31837;">순서</span>
+      <button class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
+      <button class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
+      <button class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="this.closest('.edit-item').remove()">삭제</button>
+    </div>
+    <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
+    <textarea class="i-desc" placeholder="설명 (선택)">${item.desc||''}</textarea>
+    <label style="margin-top:4px;"><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
   `;
   container.appendChild(d);
 }
+
+function moveItem(btn, dir) {
+  const item = btn.closest('.edit-item');
+  const container = item.parentElement;
+  const items = Array.from(container.querySelectorAll('.edit-item'));
+  const idx = items.indexOf(item);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= items.length) return;
+  if (dir < 0) {
+    container.insertBefore(item, items[newIdx]);
+  } else {
+    container.insertBefore(item, items[newIdx].nextSibling);
+  }
+}
+
 document.getElementById('addShiftBtn').onclick = () => {
   const container = document.getElementById('editShifts');
   const block = document.createElement('div');
@@ -553,7 +575,7 @@ document.getElementById('addShiftBtn').onclick = () => {
     <label>근무타입 코드</label><input class="s-key" value="P${container.children.length+1}">
     <label>근무타입 이름</label><input class="s-name" value="새 근무타입">
     <div class="items"></div>
-    <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">항목 추가</button>
+    <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가 (순서대로)</button>
   `;
   container.appendChild(block);
 };
