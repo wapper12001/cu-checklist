@@ -66,7 +66,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
-    <div class="secret-area" id="secretArea">CU (관리자)</div>
+    <div class="secret-area" id="secretArea">CU</div>
   </div>
 
   <!-- 관리자 화면 -->
@@ -118,7 +118,6 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
     <div id="editShifts"></div>
     <div class="card">
       <button class="btn-primary" id="saveStoreBtn">저장</button>
-      <button class="btn-secondary" id="addShiftBtn" style="margin-left:8px;">근무타입 추가</button>
       <button class="btn-secondary" id="cancelEdit" style="margin-left:8px;">취소</button>
     </div>
   </div>
@@ -526,7 +525,7 @@ function renderEditShifts(shifts) {
       <label>근무타입 코드</label><input class="s-key" value="${key}">
       <label>근무타입 이름</label><input class="s-name" value="${sh.name||''}">
       <div class="items"></div>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가 (순서대로)</button>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가</button>
       <button class="btn btn-danger" style="margin-top:8px; margin-left:8px;" onclick="this.parentElement.remove()">삭제</button>
     `;
     const itemsDiv = block.querySelector('.items');
@@ -547,7 +546,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <button class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="this.closest('.edit-item').remove()">삭제</button>
     </div>
     <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
-    <textarea class="i-desc" placeholder="설명 (선택)">${item.desc||''}</textarea>
+    <button class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.nextElementSibling.classList.toggle('hidden')">상세순서</button>
+    <textarea class="i-desc hidden" placeholder="상세 순서 설명">${item.desc||''}</textarea>
     <label style="margin-top:4px;"><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
   `;
   container.appendChild(d);
@@ -566,19 +566,6 @@ function moveItem(btn, dir) {
     container.insertBefore(item, items[newIdx].nextSibling);
   }
 }
-
-document.getElementById('addShiftBtn').onclick = () => {
-  const container = document.getElementById('editShifts');
-  const block = document.createElement('div');
-  block.className = 'card shift-block';
-  block.innerHTML = `
-    <label>근무타입 코드</label><input class="s-key" value="P${container.children.length+1}">
-    <label>근무타입 이름</label><input class="s-name" value="새 근무타입">
-    <div class="items"></div>
-    <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가 (순서대로)</button>
-  `;
-  container.appendChild(block);
-};
 
 document.getElementById('saveStoreBtn').onclick = () => {
   const name = document.getElementById('editStoreName').value.trim();
