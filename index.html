@@ -203,17 +203,14 @@ function saveAll() {
 }
 function refreshStoreSelect() {
   const stores = Object.keys(allData);
-  storeSelect.innerHTML = stores.map(s => `<option value="${s}">${s}</option>`).join('');
-  if (stores.length) {
-    storeSelect.value = stores[0];
-    onStoreChange();
-  }
+  storeSelect.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
+  shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
+  checklistContainer.innerHTML = '';
 }
 loadData();
 reportDate.valueAsDate = new Date();
 
 storeSelect.onchange = onStoreChange;
-shiftSelect.onchange = () => { renderChecklist(); checkAllDone(); };
 staffName.oninput = saveProgress;
 workPeriod.oninput = saveProgress;
 reportDate.onchange = () => { saveProgress(); renderChecklist(); };
@@ -221,16 +218,28 @@ reportDate.onchange = () => { saveProgress(); renderChecklist(); };
 function onStoreChange() {
   currentStore = storeSelect.value;
   const d = allData[currentStore];
-  if (!d) return;
+  if (!currentStore || !d) {
+    shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
+    checklistContainer.innerHTML = '';
+    return;
+  }
   storeInfo.textContent = d.phone ? `관리자: ${d.manager||''} / ${d.phone}` : '';
-  // 항상 P1~P4 표시
   const defaultShifts = ['P1','P2','P3','P4'];
-  shiftSelect.innerHTML = defaultShifts.map(k => {
+  shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>' + defaultShifts.map(k => {
     const name = (d.shifts && d.shifts[k] && d.shifts[k].name) ? d.shifts[k].name : k;
     return `<option value="${k}">${k} (${name})</option>`;
   }).join('');
-  renderChecklist();
+  checklistContainer.innerHTML = '';
 }
+
+shiftSelect.onchange = () => {
+  if (!shiftSelect.value) {
+    checklistContainer.innerHTML = '';
+    return;
+  }
+  renderChecklist();
+  checkAllDone();
+};
 
 function getKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
 function saveProgress() {
@@ -264,6 +273,7 @@ function renderChecklist() {
   if (!d) return;
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
+  if (!key) return;
   if (!d.shifts[key]) d.shifts[key] = { name: key, items: [] };
   const shift = d.shifts[key];
   const saved = loadProgress();
