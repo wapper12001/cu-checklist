@@ -124,6 +124,10 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 </div>
 
 <div class="bottom-bar hidden" id="bottomBar">
+  <div style="margin-bottom:10px;">
+    <label style="font-size:14px;">퇴근 전 메모 (자랑, 실수, 사건사고, 보고사항 등 편하게)</label>
+    <textarea id="dayMemo" placeholder="예) 손님이 1+1인데 1개 주고 가셨어요. 제가 잘해서겠죠? 뭐 등등... 편하게 메모 남기세요." style="min-height:80px;"></textarea>
+  </div>
   <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
 </div>
 
@@ -213,6 +217,7 @@ reportDate.valueAsDate = new Date();
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
 workPeriod.oninput = saveProgress;
+document.getElementById('dayMemo').oninput = saveProgress;
 reportDate.onchange = () => { saveProgress(); renderChecklist(); };
 
 function onStoreChange() {
@@ -246,6 +251,7 @@ function saveProgress() {
   const data = {
     staff: staffName.value,
     period: workPeriod.value,
+    dayMemo: document.getElementById('dayMemo')?.value || '',
     items: {}
   };
   document.querySelectorAll('.item').forEach(el => {
@@ -262,6 +268,7 @@ function loadProgress() {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
       if (d.period) workPeriod.value = d.period;
+      if (d.dayMemo && document.getElementById('dayMemo')) document.getElementById('dayMemo').value = d.dayMemo;
       return d;
     }
   } catch(e){}
@@ -380,6 +387,10 @@ async function makeSummary() {
     photos.push(...d.photos);
   });
   sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n완료: ${done}/${(shift.items||[]).length}`;
+  const dayMemo = document.getElementById('dayMemo')?.value.trim();
+  if (dayMemo) {
+    sum += `\n\n📝 오늘 메모\n${dayMemo}`;
+  }
   return {sum, photos};
 }
 
