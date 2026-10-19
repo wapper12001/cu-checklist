@@ -309,6 +309,7 @@ function takePhoto(id) {
   };
   inp.click();
 }
+window.takePhoto = takePhoto;
 function renderPhotoPreview(id) {
   const c = document.getElementById('photos-'+id);
   if (!c) return;
@@ -318,6 +319,7 @@ function renderPhotoPreview(id) {
 function removePhoto(id, i) {
   if (currentPhotos[id]) { currentPhotos[id].splice(i,1); renderPhotoPreview(id); }
 }
+window.removePhoto = removePhoto;
 function getItemData(id) {
   const el = document.querySelector(`.item[data-id="${id}"]`);
   if (!el) return null;
@@ -328,20 +330,25 @@ async function shareItem(id, isSms) {
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   const shiftTxt = shiftSelect.options[shiftSelect.selectedIndex]?.text || '';
-  let text = `[${currentStore}] ${shiftTxt}\n${reportDate.value} / ${staffName.value||'미입력'}\n출근: ${document.getElementById('clockTime').textContent||'-'}\n\n${d.title}\n${d.done?'완료':'미완료'}`;
-  if (d.memo) text += `\n메모: ${d.memo}`;
+  const itemEl = document.querySelector(`.item[data-id="${id}"]`);
+  const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
+  let text = `[${currentStore}] ${shiftTxt}\n날짜: ${reportDate.value}\n근무자: ${staffName.value || '미입력'}\n출근: ${document.getElementById('clockTime').textContent || '-'}\n\n▶ 업무: ${d.title}\n`;
+  if (desc) text += `상세: ${desc}\n`;
+  text += `상태: ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
+  if (d.memo) text += `메모: ${d.memo}\n`;
+  text += `사진: ${d.photos.length}장`;
   if (isSms) {
     location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
     return;
   }
   if (navigator.share) {
-    const sd = { title: '체크리스트', text };
+    const sd = { title: '체크리스트 업무보고', text };
     if (d.photos.length) sd.files = d.photos;
-    try { await navigator.share(sd); } catch(e){}
-  } else {
-    navigator.clipboard.writeText(text).then(() => alert('복사됨'));
+    try { await navigator.share(sd); return; } catch(e){}
   }
+  navigator.clipboard.writeText(text).then(() => alert('업무 내용이 복사되었습니다.\n카카오톡이나 문자에 붙여넣기 하세요.'));
 }
+window.shareItem = shareItem;
 async function makeSummary() {
   const store = allData[currentStore] || {};
   const shift = store.shifts?.[shiftSelect.value] || {name:'', items:[]};
