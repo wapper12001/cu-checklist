@@ -283,7 +283,7 @@ function renderChecklist() {
   checklistContainer.innerHTML = items.map(item => {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
-    return `<div class="card item" data-id="${item.id}"><div class="item-title">${item.title} ${item.photo_required?'📷':''} ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">상세보기</button>` : ''}</div><div class="item-desc hidden">${item.desc||''}</div><div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div><label>메모</label><textarea>${sv.memo||''}</textarea><div class="btn-row"><button class="btn-photo" onclick="takePhoto('${item.id}')">📷 사진찍기</button><button class="btn-kakao" onclick="shareItem('${item.id}')">카톡</button><button class="btn-sms" onclick="shareItem('${item.id}',true)">문자</button></div><div class="photo-preview" id="photos-${item.id}"></div></div>`;
+    return `<div class="card item" data-id="${item.id}"><div class="item-title">${item.title} ${item.photo_required?'📷':''} ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}</div><div class="item-desc hidden">${item.desc||''}</div><div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div><label>메모</label><textarea>${sv.memo||''}</textarea><div class="btn-row"><button class="btn-photo" data-action="photo" data-id="${item.id}">📷 사진찍기</button><button class="btn-kakao" data-action="kakao" data-id="${item.id}">카톡</button><button class="btn-sms" data-action="sms" data-id="${item.id}">문자</button></div><div class="photo-preview" id="photos-${item.id}"></div></div>`;
   }).join('');
   Object.keys(currentPhotos).forEach(id => renderPhotoPreview(id));
   checklistContainer.querySelectorAll('.done-cb, textarea').forEach(el => {
@@ -292,6 +292,17 @@ function renderChecklist() {
   });
   saveProgress();
 }
+// 버튼 이벤트 위임
+checklistContainer.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  if (action === 'photo') takePhoto(id);
+  else if (action === 'kakao') shareItem(id);
+  else if (action === 'sms') shareItem(id, true);
+  else if (action === 'toggle-desc') btn.parentElement.nextElementSibling.classList.toggle('hidden');
+});
 function checkAllDone() {
   const boxes = checklistContainer.querySelectorAll('.done-cb');
   if (boxes.length === 0) { bottomBar.classList.add('hidden'); return; }
