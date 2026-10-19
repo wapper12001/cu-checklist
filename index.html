@@ -80,7 +80,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v5</h1>
+  <h1>CU 점포 체크리스트 v6</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -264,6 +264,7 @@ async function loadData() {
       });
     });
     refreshStoreSelect();
+    restoreAdmin();
   } catch (e) {
     console.error(e);
     alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
@@ -271,6 +272,7 @@ async function loadData() {
     const saved = localStorage.getItem('cu_stores');
     if (saved) try { allData = JSON.parse(saved); } catch(err){}
     refreshStoreSelect();
+    restoreAdmin();
   }
 }
 
@@ -625,18 +627,103 @@ document.getElementById('secretArea').addEventListener('click', function(e) {
 document.getElementById('confirmPw').onclick = () => {
   if (document.getElementById('adminPw').value === ADMIN_PASSWORD) {
     document.getElementById('pwModal').classList.add('hidden');
-    reportScreen.classList.add('hidden');
-    adminScreen.classList.remove('hidden');
-    refreshAdminStoreSelect();
+    enterAdmin();
   } else {
     document.getElementById('pwMsg').textContent = '비밀번호가 틀렸습니다.';
   }
 };
 document.getElementById('cancelPw').onclick = () => document.getElementById('pwModal').classList.add('hidden');
 document.getElementById('backFromAdmin').onclick = () => {
+  clearAdminView();
   adminScreen.classList.add('hidden');
+  editScreen.classList.add('hidden');
   reportScreen.classList.remove('hidden');
 };
+
+const ADMIN_VIEW_KEY = 'cu_admin_view';
+let restoringAdmin = false;
+function readAdminView() {
+  try { return JSON.parse(sessionStorage.getItem(ADMIN_VIEW_KEY) || 'null'); } catch (e) { return null; }
+}
+function saveAdminView(patch) {
+  const cur = readAdminView() || {};
+  sessionStorage.setItem(ADMIN_VIEW_KEY, JSON.stringify(Object.assign({ on: true }, cur, patch)));
+}
+function clearAdminView() {
+  sessionStorage.removeItem(ADMIN_VIEW_KEY);
+}
+function enterAdmin() {
+  reportScreen.classList.add('hidden');
+  editScreen.classList.add('hidden');
+  adminScreen.classList.remove('hidden');
+  refreshAdminStoreSelect();
+  saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
+}
+function captureDraft() {
+  if (restoringAdmin || editScreen.classList.contains('hidden')) return;
+  const blocks = [];
+  document.querySelectorAll('#editShifts .shift-block').forEach(b => {
+    blocks.push({
+      key: b.querySelector('.s-key').value,
+      name: b.querySelector('.s-name').value,
+      items: Array.from(b.querySelectorAll('.edit-item')).map(el => ({
+        title: el.querySelector('.i-title').value,
+        desc: el.querySelector('.i-desc').value,
+        photo: el.querySelector('.i-photo').checked,
+        descOpen: !el.querySelector('.i-desc').classList.contains('hidden')
+      }))
+    });
+  });
+  saveAdminView({
+    on: true,
+    screen: 'edit',
+    store: document.getElementById('editStoreName').value,
+    shift: (blocks[0] && blocks[0].key) || '',
+    manager: document.getElementById('editManager').value,
+    phone: document.getElementById('editPhone').value,
+    draft: blocks
+  });
+}
+function restoreAdmin() {
+  const v = readAdminView();
+  if (!v || !v.on) return;
+  reportScreen.classList.add('hidden');
+  if (v.screen === 'edit' && v.store && allData[v.store] && v.shift) {
+    restoringAdmin = true;
+    openShiftEdit(v.store, v.shift);
+    if (v.manager != null) document.getElementById('editManager').value = v.manager;
+    if (v.phone != null) document.getElementById('editPhone').value = v.phone;
+    if (v.draft && v.draft.length) {
+      const shifts = {};
+      v.draft.forEach(sh => {
+        shifts[sh.key] = {
+          name: sh.name,
+          items: (sh.items || []).map(it => ({ title: it.title, desc: it.desc, photo_required: !!it.photo }))
+        };
+      });
+      renderEditShifts(shifts);
+      const els = document.querySelectorAll('#editShifts .edit-item');
+      let i = 0;
+      v.draft.forEach(sh => (sh.items || []).forEach(it => {
+        const el = els[i++];
+        if (el && it.descOpen) el.querySelector('.i-desc').classList.remove('hidden');
+      }));
+    }
+    restoringAdmin = false;
+    return;
+  }
+  editScreen.classList.add('hidden');
+  adminScreen.classList.remove('hidden');
+  refreshAdminStoreSelect();
+  if (v.store && allData[v.store]) {
+    const sel = document.getElementById('adminStoreSelect');
+    sel.value = v.store;
+    sel.dispatchEvent(new Event('change'));
+  }
+}
+editScreen.addEventListener('input', captureDraft);
+editScreen.addEventListener('change', captureDraft);
+editScreen.addEventListener('click', () => setTimeout(captureDraft, 0));
 
 // ===== 관리자 점포 선택 =====
 function refreshAdminStoreSelect() {
@@ -650,6 +737,7 @@ document.getElementById('adminStoreSelect').onchange = function() {
   const detail = document.getElementById('storeDetail');
   if (!name || !allData[name]) {
     detail.classList.add('hidden');
+    saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
     return;
   }
   const d = allData[name];
@@ -660,6 +748,7 @@ document.getElementById('adminStoreSelect').onchange = function() {
   document.getElementById('detailHours').value = d.hours || '19';
   renderShiftButtons(name);
   detail.classList.remove('hidden');
+  if (!restoringAdmin) saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
 };
 
 document.getElementById('saveDetailBtn').onclick = async () => {
@@ -705,6 +794,8 @@ function openShiftEdit(storeName, shiftKey) {
   renderEditShifts({ [shiftKey]: d.shifts[shiftKey] });
   adminScreen.classList.add('hidden');
   editScreen.classList.remove('hidden');
+  reportScreen.classList.add('hidden');
+  if (!restoringAdmin) saveAdminView({ on: true, screen: 'edit', store: storeName, shift: shiftKey, draft: null, manager: d.manager || '', phone: d.phone || '' });
 }
 
 document.getElementById('addStoreBtn').onclick = async () => {
@@ -788,6 +879,7 @@ function moveItem(btn, dir) {
   } else {
     container.insertBefore(item, items[newIdx].nextSibling);
   }
+  captureDraft();
 }
 window.addItem = addItem;
 window.moveItem = moveItem;
@@ -827,10 +919,14 @@ document.getElementById('saveStoreBtn').onclick = async () => {
     }
     await saveAll();
     alert('저장되었습니다.');
+    saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
     editScreen.classList.add('hidden');
     adminScreen.classList.remove('hidden');
     refreshStoreSelect();
     refreshAdminStoreSelect();
+    const sel = document.getElementById('adminStoreSelect');
+    sel.value = name;
+    sel.dispatchEvent(new Event('change'));
   } catch (e) {
     alert('저장 실패: ' + (e.message || e));
   }
@@ -838,6 +934,7 @@ document.getElementById('saveStoreBtn').onclick = async () => {
 document.getElementById('cancelEdit').onclick = () => {
   editScreen.classList.add('hidden');
   adminScreen.classList.remove('hidden');
+  saveAdminView({ on: true, screen: 'admin', store: editingStore || '', shift: '', draft: null });
 };
   } catch(err) {
     console.error('initApp error', err);
