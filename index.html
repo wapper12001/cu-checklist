@@ -80,7 +80,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v4</h1>
+  <h1>CU 점포 체크리스트 v5</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -275,8 +275,33 @@ async function loadData() {
 }
 
 async function saveAll() {
-  // 관리자 저장 시 Supabase에 반영하는 로직은 나중에 추가
   localStorage.setItem('cu_stores', JSON.stringify(allData));
+}
+async function saveStoreToDb(name) {
+  const d = allData[name];
+  if (!d) return;
+  const { error } = await supabase.from('stores').update({
+    manager: d.manager || '',
+    phone: d.phone || '',
+    hours: d.hours || '19'
+  }).eq('name', name);
+  if (error) throw error;
+}
+async function saveShiftToDb(storeName, shiftKey, shift) {
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', storeName).eq('shift_key', shiftKey);
+  if (delErr) throw delErr;
+  const rows = (shift.items || []).filter(it => it.title).map((it, i) => ({
+    store_name: storeName,
+    shift_key: shiftKey,
+    shift_name: shift.name || shiftKey,
+    item_order: i + 1,
+    title: it.title,
+    description: it.desc || '',
+    photo_required: !!it.photo_required
+  }));
+  if (!rows.length) return;
+  const { error } = await supabase.from('checklist_items').insert(rows);
+  if (error) throw error;
 }
 function refreshStoreSelect() {
   const stores = Object.keys(allData);
@@ -637,15 +662,20 @@ document.getElementById('adminStoreSelect').onchange = function() {
   detail.classList.remove('hidden');
 };
 
-document.getElementById('saveDetailBtn').onclick = () => {
+document.getElementById('saveDetailBtn').onclick = async () => {
   const name = document.getElementById('adminStoreSelect').value;
   if (!name || !allData[name]) return;
   allData[name].code = document.getElementById('detailCode').value.trim();
   allData[name].manager = document.getElementById('detailManager').value.trim();
   allData[name].phone = document.getElementById('detailPhone').value.trim();
   allData[name].hours = document.getElementById('detailHours').value;
-  saveAll();
-  alert('점포 정보가 저장되었습니다.');
+  try {
+    await saveStoreToDb(name);
+    await saveAll();
+    alert('점포 정보가 저장되었습니다.');
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e));
+  }
 };
 
 function renderShiftButtons(storeName) {
@@ -665,7 +695,8 @@ function openShiftEdit(storeName, shiftKey) {
   editingStore = storeName;
   const d = allData[storeName];
   if (!d.shifts) d.shifts = {};
-  if (!d.shifts[shiftKey]) d.shifts[shiftKey] = { name: shiftKey, items: [] };
+  const defaultNames = { P1: '오픈.오전', P2: '주간.오후', P3: '오후.저녁', P4: '마감.야간' };
+  if (!d.shifts[shiftKey]) d.shifts[shiftKey] = { name: defaultNames[shiftKey] || shiftKey, items: [] };
   document.getElementById('editTitle').textContent = `${storeName} - ${shiftKey} 체크리스트`;
   document.getElementById('editStoreName').value = storeName;
   document.getElementById('editStoreName').disabled = true;
@@ -676,7 +707,7 @@ function openShiftEdit(storeName, shiftKey) {
   editScreen.classList.remove('hidden');
 }
 
-document.getElementById('addStoreBtn').onclick = () => {
+document.getElementById('addStoreBtn').onclick = async () => {
   const name = prompt('새 점포명을 입력하세요');
   if (!name || allData[name]) {
     if (allData[name]) alert('이미 있는 점포입니다.');
@@ -694,11 +725,18 @@ document.getElementById('addStoreBtn').onclick = () => {
       P4: { name: '마감.야간', items: [] }
     }
   };
-  saveAll();
-  refreshAdminStoreSelect();
-  document.getElementById('adminStoreSelect').value = name;
-  document.getElementById('adminStoreSelect').dispatchEvent(new Event('change'));
-  alert('점포가 추가되었습니다.');
+  try {
+    const { error } = await supabase.from('stores').insert({ name, manager: '', phone: '', hours: '19' });
+    if (error) throw error;
+    await saveAll();
+    refreshAdminStoreSelect();
+    document.getElementById('adminStoreSelect').value = name;
+    document.getElementById('adminStoreSelect').dispatchEvent(new Event('change'));
+    alert('점포가 추가되었습니다.');
+  } catch (e) {
+    delete allData[name];
+    alert('점포 추가 실패: ' + (e.message || e));
+  }
 };
 
 function renderEditShifts(shifts) {
@@ -711,7 +749,7 @@ function renderEditShifts(shifts) {
       <label>근무타입 코드</label><input class="s-key" value="${key}">
       <label>근무타입 이름</label><input class="s-name" value="${sh.name||''}">
       <div class="items"></div>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가</button>
+      <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가</button>
       <button class="btn btn-danger" style="margin-top:8px; margin-left:8px;" onclick="this.parentElement.remove()">삭제</button>
     `;
     const itemsDiv = block.querySelector('.items');
@@ -726,8 +764,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   d.innerHTML = `
     <div style="display:flex; gap:6px; margin-bottom:6px; align-items:center;">
       <span style="font-weight:700; color:#e31837;">순서</span>
-      <button class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
-      <button class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
       <button class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="this.closest('.edit-item').remove()">삭제</button>
     </div>
     <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
@@ -751,8 +789,10 @@ function moveItem(btn, dir) {
     container.insertBefore(item, items[newIdx].nextSibling);
   }
 }
+window.addItem = addItem;
+window.moveItem = moveItem;
 
-document.getElementById('saveStoreBtn').onclick = () => {
+document.getElementById('saveStoreBtn').onclick = async () => {
   const name = document.getElementById('editStoreName').value.trim();
   if (!name) { alert('점포명을 입력하세요.'); return; }
   const shifts = {};
@@ -772,17 +812,28 @@ document.getElementById('saveStoreBtn').onclick = () => {
     });
     shifts[key] = { name: b.querySelector('.s-name').value.trim(), items };
   });
-  if (editingStore && editingStore !== name) delete allData[editingStore];
+  const prev = allData[name] || { hours: '19', shifts: {} };
   allData[name] = {
+    code: prev.code || '',
     manager: document.getElementById('editManager').value.trim(),
     phone: document.getElementById('editPhone').value.trim(),
-    shifts
+    hours: prev.hours || '19',
+    shifts: Object.assign({}, prev.shifts, shifts)
   };
-  saveAll();
-  alert('저장되었습니다.');
-  editScreen.classList.add('hidden');
-  adminScreen.classList.remove('hidden');
-  refreshStoreSelect();
+  try {
+    await saveStoreToDb(name);
+    for (const [key, shift] of Object.entries(shifts)) {
+      await saveShiftToDb(name, key, shift);
+    }
+    await saveAll();
+    alert('저장되었습니다.');
+    editScreen.classList.add('hidden');
+    adminScreen.classList.remove('hidden');
+    refreshStoreSelect();
+    refreshAdminStoreSelect();
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e));
+  }
 };
 document.getElementById('cancelEdit').onclick = () => {
   editScreen.classList.add('hidden');
