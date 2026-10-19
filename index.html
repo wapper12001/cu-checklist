@@ -265,6 +265,27 @@ function loadProgress() {
   } catch(e){}
   return null;
 }
+// 버튼 클릭/터치 처리
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.btn-photo, .btn-kakao, .btn-sms');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  alert('버튼 감지: ' + btn.className);
+  const item = btn.closest('.item');
+  if (!item) return;
+  const id = item.dataset.id;
+  if (btn.classList.contains('btn-photo')) {
+    if (window.takePhoto) window.takePhoto(id);
+    else alert('takePhoto 없음');
+  } else if (btn.classList.contains('btn-kakao')) {
+    if (window.shareItem) window.shareItem(id);
+    else alert('shareItem 없음');
+  } else if (btn.classList.contains('btn-sms')) {
+    if (window.shareItem) window.shareItem(id, true);
+    else alert('shareItem 없음');
+  }
+});
 function renderChecklist() {
   const d = allData[currentStore];
   if (!d) { checklistContainer.innerHTML = '<div class="card">점포를 먼저 선택하세요.</div>'; return; }
@@ -283,7 +304,7 @@ function renderChecklist() {
   checklistContainer.innerHTML = items.map(item => {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
-    return `<div class="card item" data-id="${item.id}"><div class="item-title">${item.title} ${item.photo_required?'📷':''} ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">상세보기</button>` : ''}</div><div class="item-desc hidden">${item.desc||''}</div><div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div><label>메모</label><textarea>${sv.memo||''}</textarea><div class="btn-row"><button class="btn-photo" onclick="if(window.takePhoto){window.takePhoto('${item.id}')}else{alert('테이크포토 없음')}">📷 사진찍기</button><button class="btn-kakao" onclick="if(window.shareItem){window.shareItem('${item.id}')}else{alert('실어아이템 없음')}">카톡</button><button class="btn-sms" onclick="if(window.shareItem){window.shareItem('${item.id}', true)}else{alert('실어아이템 없음')}">문자</button></div><div class="photo-preview" id="photos-${item.id}"></div></div>`;
+    return `<div class="card item" data-id="${item.id}"><div class="item-title">${item.title} ${item.photo_required?'📷':''} ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">상세보기</button>` : ''}</div><div class="item-desc hidden">${item.desc||''}</div><div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div><label>메모</label><textarea>${sv.memo||''}</textarea><div class="btn-row"><button class="btn-photo">📷 사진찍기</button><button class="btn-kakao">카톡</button><button class="btn-sms">문자</button></div><div class="photo-preview" id="photos-${item.id}"></div></div>`;
   }).join('');
   Object.keys(currentPhotos).forEach(id => renderPhotoPreview(id));
   checklistContainer.querySelectorAll('.done-cb, textarea').forEach(el => {
