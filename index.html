@@ -80,7 +80,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v3</h1>
+  <h1>CU 점포 체크리스트 v4</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -751,18 +751,6 @@ function moveItem(btn, dir) {
     container.insertBefore(item, items[newIdx].nextSibling);
   }
 }
-document.getElementById('addShiftBtn').onclick = () => {
-  const container = document.getElementById('editShifts');
-  const block = document.createElement('div');
-  block.className = 'card shift-block';
-  block.innerHTML = `
-    <label>근무타입 코드</label><input class="s-key" value="P${container.children.length+1}">
-    <label>근무타입 이름</label><input class="s-name" value="새 근무타입">
-    <div class="items"></div>
-    <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">항목 추가</button>
-  `;
-  container.appendChild(block);
-};
 
 document.getElementById('saveStoreBtn').onclick = () => {
   const name = document.getElementById('editStoreName').value.trim();
