@@ -215,21 +215,21 @@ function loadData() {
     try { allData = JSON.parse(saved); } catch(e) { allData = {}; }
   }
   if (Object.keys(allData).length === 0) {
-    allData["소사센터점"] = {
-      manager: "김점장",
-      phone: "010-0000-0000",
-      shifts: {
-        "P1": { name: "오픈.오전", items: [
-          {id:"p1-1", title:"매장 오픈 준비", desc:"간판·조명·POS", photo_required:true},
-          {id:"p1-2", title:"시재금 확인", desc:"현금 시재", photo_required:true},
-          {id:"p1-3", title:"온도 확인", desc:"냉장·냉동", photo_required:true}
-        ]},
-        "P2": { name: "주간.오후", items: [
-          {id:"p2-1", title:"진열 보충", desc:"", photo_required:false},
-          {id:"p2-2", title:"중간 점검", desc:"", photo_required:true}
-        ]}
-      }
-    };
+    const sampleItems = (prefix) => [
+      {id: prefix+"-1", title: "기본 점검 1", desc: "순서대로 확인", photo_required: false},
+      {id: prefix+"-2", title: "기본 점검 2", desc: "사진 촬영", photo_required: true}
+    ];
+    const makeShifts = () => ({
+      P1: { name: "오픈.오전", items: sampleItems("p1") },
+      P2: { name: "주간.오후", items: sampleItems("p2") },
+      P3: { name: "오후.저녁", items: sampleItems("p3") },
+      P4: { name: "마감.야간", items: sampleItems("p4") }
+    });
+    allData["소사센터점"] = { manager: "김점장", phone: "010-0000-0000", shifts: makeShifts() };
+    allData["사랑방점"] = { manager: "이점장", phone: "010-0000-0001", shifts: makeShifts() };
+    allData["부천IC점"] = { manager: "박점장", phone: "010-0000-0002", shifts: makeShifts() };
+    allData["중동그린타운점"] = { manager: "최점장", phone: "010-0000-0003", shifts: makeShifts() };
+    allData["중동롯데점"] = { manager: "정점장", phone: "010-0000-0004", shifts: makeShifts() };
     saveAll();
   }
   refreshStoreSelect();
@@ -309,14 +309,26 @@ function loadProgress() {
 
 function renderChecklist() {
   const d = allData[currentStore];
-  if (!d) return;
+  if (!d) {
+    checklistContainer.innerHTML = '<div class="card">점포를 먼저 선택하세요.</div>';
+    return;
+  }
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
-  if (!key) return;
+  if (!key) {
+    checklistContainer.innerHTML = '';
+    return;
+  }
   if (!d.shifts[key]) d.shifts[key] = { name: key, items: [] };
   const shift = d.shifts[key];
+  const items = shift.items || [];
+  if (items.length === 0) {
+    checklistContainer.innerHTML = '<div class="card" style="text-align:center; color:#888;">이 근무타입에 등록된 체크리스트가 없습니다.<br>관리자 모드에서 항목을 추가하세요.</div>';
+    checkAllDone();
+    return;
+  }
   const saved = loadProgress();
-  checklistContainer.innerHTML = (shift.items || []).map(item => {
+  checklistContainer.innerHTML = items.map(item => {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
     return `
