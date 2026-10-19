@@ -80,7 +80,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v4</h1>
+  <h1>CU 점포 체크리스트 v6</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -264,6 +264,7 @@ async function loadData() {
       });
     });
     refreshStoreSelect();
+    restoreAdmin();
   } catch (e) {
     console.error(e);
     alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
@@ -271,12 +272,38 @@ async function loadData() {
     const saved = localStorage.getItem('cu_stores');
     if (saved) try { allData = JSON.parse(saved); } catch(err){}
     refreshStoreSelect();
+    restoreAdmin();
   }
 }
 
 async function saveAll() {
-  // 관리자 저장 시 Supabase에 반영하는 로직은 나중에 추가
   localStorage.setItem('cu_stores', JSON.stringify(allData));
+}
+async function saveStoreToDb(name) {
+  const d = allData[name];
+  if (!d) return;
+  const { error } = await supabase.from('stores').update({
+    manager: d.manager || '',
+    phone: d.phone || '',
+    hours: d.hours || '19'
+  }).eq('name', name);
+  if (error) throw error;
+}
+async function saveShiftToDb(storeName, shiftKey, shift) {
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', storeName).eq('shift_key', shiftKey);
+  if (delErr) throw delErr;
+  const rows = (shift.items || []).filter(it => it.title).map((it, i) => ({
+    store_name: storeName,
+    shift_key: shiftKey,
+    shift_name: shift.name || shiftKey,
+    item_order: i + 1,
+    title: it.title,
+    description: it.desc || '',
+    photo_required: !!it.photo_required
+  }));
+  if (!rows.length) return;
+  const { error } = await supabase.from('checklist_items').insert(rows);
+  if (error) throw error;
 }
 function refreshStoreSelect() {
   const stores = Object.keys(allData);
@@ -600,18 +627,103 @@ document.getElementById('secretArea').addEventListener('click', function(e) {
 document.getElementById('confirmPw').onclick = () => {
   if (document.getElementById('adminPw').value === ADMIN_PASSWORD) {
     document.getElementById('pwModal').classList.add('hidden');
-    reportScreen.classList.add('hidden');
-    adminScreen.classList.remove('hidden');
-    refreshAdminStoreSelect();
+    enterAdmin();
   } else {
     document.getElementById('pwMsg').textContent = '비밀번호가 틀렸습니다.';
   }
 };
 document.getElementById('cancelPw').onclick = () => document.getElementById('pwModal').classList.add('hidden');
 document.getElementById('backFromAdmin').onclick = () => {
+  clearAdminView();
   adminScreen.classList.add('hidden');
+  editScreen.classList.add('hidden');
   reportScreen.classList.remove('hidden');
 };
+
+const ADMIN_VIEW_KEY = 'cu_admin_view';
+let restoringAdmin = false;
+function readAdminView() {
+  try { return JSON.parse(sessionStorage.getItem(ADMIN_VIEW_KEY) || 'null'); } catch (e) { return null; }
+}
+function saveAdminView(patch) {
+  const cur = readAdminView() || {};
+  sessionStorage.setItem(ADMIN_VIEW_KEY, JSON.stringify(Object.assign({ on: true }, cur, patch)));
+}
+function clearAdminView() {
+  sessionStorage.removeItem(ADMIN_VIEW_KEY);
+}
+function enterAdmin() {
+  reportScreen.classList.add('hidden');
+  editScreen.classList.add('hidden');
+  adminScreen.classList.remove('hidden');
+  refreshAdminStoreSelect();
+  saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
+}
+function captureDraft() {
+  if (restoringAdmin || editScreen.classList.contains('hidden')) return;
+  const blocks = [];
+  document.querySelectorAll('#editShifts .shift-block').forEach(b => {
+    blocks.push({
+      key: b.querySelector('.s-key').value,
+      name: b.querySelector('.s-name').value,
+      items: Array.from(b.querySelectorAll('.edit-item')).map(el => ({
+        title: el.querySelector('.i-title').value,
+        desc: el.querySelector('.i-desc').value,
+        photo: el.querySelector('.i-photo').checked,
+        descOpen: !el.querySelector('.i-desc').classList.contains('hidden')
+      }))
+    });
+  });
+  saveAdminView({
+    on: true,
+    screen: 'edit',
+    store: document.getElementById('editStoreName').value,
+    shift: (blocks[0] && blocks[0].key) || '',
+    manager: document.getElementById('editManager').value,
+    phone: document.getElementById('editPhone').value,
+    draft: blocks
+  });
+}
+function restoreAdmin() {
+  const v = readAdminView();
+  if (!v || !v.on) return;
+  reportScreen.classList.add('hidden');
+  if (v.screen === 'edit' && v.store && allData[v.store] && v.shift) {
+    restoringAdmin = true;
+    openShiftEdit(v.store, v.shift);
+    if (v.manager != null) document.getElementById('editManager').value = v.manager;
+    if (v.phone != null) document.getElementById('editPhone').value = v.phone;
+    if (v.draft && v.draft.length) {
+      const shifts = {};
+      v.draft.forEach(sh => {
+        shifts[sh.key] = {
+          name: sh.name,
+          items: (sh.items || []).map(it => ({ title: it.title, desc: it.desc, photo_required: !!it.photo }))
+        };
+      });
+      renderEditShifts(shifts);
+      const els = document.querySelectorAll('#editShifts .edit-item');
+      let i = 0;
+      v.draft.forEach(sh => (sh.items || []).forEach(it => {
+        const el = els[i++];
+        if (el && it.descOpen) el.querySelector('.i-desc').classList.remove('hidden');
+      }));
+    }
+    restoringAdmin = false;
+    return;
+  }
+  editScreen.classList.add('hidden');
+  adminScreen.classList.remove('hidden');
+  refreshAdminStoreSelect();
+  if (v.store && allData[v.store]) {
+    const sel = document.getElementById('adminStoreSelect');
+    sel.value = v.store;
+    sel.dispatchEvent(new Event('change'));
+  }
+}
+editScreen.addEventListener('input', captureDraft);
+editScreen.addEventListener('change', captureDraft);
+editScreen.addEventListener('click', () => setTimeout(captureDraft, 0));
 
 // ===== 관리자 점포 선택 =====
 function refreshAdminStoreSelect() {
@@ -625,6 +737,7 @@ document.getElementById('adminStoreSelect').onchange = function() {
   const detail = document.getElementById('storeDetail');
   if (!name || !allData[name]) {
     detail.classList.add('hidden');
+    saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
     return;
   }
   const d = allData[name];
@@ -635,17 +748,23 @@ document.getElementById('adminStoreSelect').onchange = function() {
   document.getElementById('detailHours').value = d.hours || '19';
   renderShiftButtons(name);
   detail.classList.remove('hidden');
+  if (!restoringAdmin) saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
 };
 
-document.getElementById('saveDetailBtn').onclick = () => {
+document.getElementById('saveDetailBtn').onclick = async () => {
   const name = document.getElementById('adminStoreSelect').value;
   if (!name || !allData[name]) return;
   allData[name].code = document.getElementById('detailCode').value.trim();
   allData[name].manager = document.getElementById('detailManager').value.trim();
   allData[name].phone = document.getElementById('detailPhone').value.trim();
   allData[name].hours = document.getElementById('detailHours').value;
-  saveAll();
-  alert('점포 정보가 저장되었습니다.');
+  try {
+    await saveStoreToDb(name);
+    await saveAll();
+    alert('점포 정보가 저장되었습니다.');
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e));
+  }
 };
 
 function renderShiftButtons(storeName) {
@@ -665,7 +784,8 @@ function openShiftEdit(storeName, shiftKey) {
   editingStore = storeName;
   const d = allData[storeName];
   if (!d.shifts) d.shifts = {};
-  if (!d.shifts[shiftKey]) d.shifts[shiftKey] = { name: shiftKey, items: [] };
+  const defaultNames = { P1: '오픈.오전', P2: '주간.오후', P3: '오후.저녁', P4: '마감.야간' };
+  if (!d.shifts[shiftKey]) d.shifts[shiftKey] = { name: defaultNames[shiftKey] || shiftKey, items: [] };
   document.getElementById('editTitle').textContent = `${storeName} - ${shiftKey} 체크리스트`;
   document.getElementById('editStoreName').value = storeName;
   document.getElementById('editStoreName').disabled = true;
@@ -674,9 +794,11 @@ function openShiftEdit(storeName, shiftKey) {
   renderEditShifts({ [shiftKey]: d.shifts[shiftKey] });
   adminScreen.classList.add('hidden');
   editScreen.classList.remove('hidden');
+  reportScreen.classList.add('hidden');
+  if (!restoringAdmin) saveAdminView({ on: true, screen: 'edit', store: storeName, shift: shiftKey, draft: null, manager: d.manager || '', phone: d.phone || '' });
 }
 
-document.getElementById('addStoreBtn').onclick = () => {
+document.getElementById('addStoreBtn').onclick = async () => {
   const name = prompt('새 점포명을 입력하세요');
   if (!name || allData[name]) {
     if (allData[name]) alert('이미 있는 점포입니다.');
@@ -694,11 +816,18 @@ document.getElementById('addStoreBtn').onclick = () => {
       P4: { name: '마감.야간', items: [] }
     }
   };
-  saveAll();
-  refreshAdminStoreSelect();
-  document.getElementById('adminStoreSelect').value = name;
-  document.getElementById('adminStoreSelect').dispatchEvent(new Event('change'));
-  alert('점포가 추가되었습니다.');
+  try {
+    const { error } = await supabase.from('stores').insert({ name, manager: '', phone: '', hours: '19' });
+    if (error) throw error;
+    await saveAll();
+    refreshAdminStoreSelect();
+    document.getElementById('adminStoreSelect').value = name;
+    document.getElementById('adminStoreSelect').dispatchEvent(new Event('change'));
+    alert('점포가 추가되었습니다.');
+  } catch (e) {
+    delete allData[name];
+    alert('점포 추가 실패: ' + (e.message || e));
+  }
 };
 
 function renderEditShifts(shifts) {
@@ -711,7 +840,7 @@ function renderEditShifts(shifts) {
       <label>근무타입 코드</label><input class="s-key" value="${key}">
       <label>근무타입 이름</label><input class="s-name" value="${sh.name||''}">
       <div class="items"></div>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가</button>
+      <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="addItem(this.previousElementSibling)">+ 항목 추가</button>
       <button class="btn btn-danger" style="margin-top:8px; margin-left:8px;" onclick="this.parentElement.remove()">삭제</button>
     `;
     const itemsDiv = block.querySelector('.items');
@@ -726,8 +855,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   d.innerHTML = `
     <div style="display:flex; gap:6px; margin-bottom:6px; align-items:center;">
       <span style="font-weight:700; color:#e31837;">순서</span>
-      <button class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
-      <button class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
       <button class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="this.closest('.edit-item').remove()">삭제</button>
     </div>
     <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
@@ -750,9 +879,12 @@ function moveItem(btn, dir) {
   } else {
     container.insertBefore(item, items[newIdx].nextSibling);
   }
+  captureDraft();
 }
+window.addItem = addItem;
+window.moveItem = moveItem;
 
-document.getElementById('saveStoreBtn').onclick = () => {
+document.getElementById('saveStoreBtn').onclick = async () => {
   const name = document.getElementById('editStoreName').value.trim();
   if (!name) { alert('점포명을 입력하세요.'); return; }
   const shifts = {};
@@ -772,21 +904,37 @@ document.getElementById('saveStoreBtn').onclick = () => {
     });
     shifts[key] = { name: b.querySelector('.s-name').value.trim(), items };
   });
-  if (editingStore && editingStore !== name) delete allData[editingStore];
+  const prev = allData[name] || { hours: '19', shifts: {} };
   allData[name] = {
+    code: prev.code || '',
     manager: document.getElementById('editManager').value.trim(),
     phone: document.getElementById('editPhone').value.trim(),
-    shifts
+    hours: prev.hours || '19',
+    shifts: Object.assign({}, prev.shifts, shifts)
   };
-  saveAll();
-  alert('저장되었습니다.');
-  editScreen.classList.add('hidden');
-  adminScreen.classList.remove('hidden');
-  refreshStoreSelect();
+  try {
+    await saveStoreToDb(name);
+    for (const [key, shift] of Object.entries(shifts)) {
+      await saveShiftToDb(name, key, shift);
+    }
+    await saveAll();
+    alert('저장되었습니다.');
+    saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
+    editScreen.classList.add('hidden');
+    adminScreen.classList.remove('hidden');
+    refreshStoreSelect();
+    refreshAdminStoreSelect();
+    const sel = document.getElementById('adminStoreSelect');
+    sel.value = name;
+    sel.dispatchEvent(new Event('change'));
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e));
+  }
 };
 document.getElementById('cancelEdit').onclick = () => {
   editScreen.classList.add('hidden');
   adminScreen.classList.remove('hidden');
+  saveAdminView({ on: true, screen: 'admin', store: editingStore || '', shift: '', draft: null });
 };
   } catch(err) {
     console.error('initApp error', err);
