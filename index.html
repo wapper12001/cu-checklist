@@ -296,12 +296,17 @@ function renderChecklist() {
 checklistContainer.addEventListener('click', function(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
+  e.preventDefault();
   const id = btn.dataset.id;
   const action = btn.dataset.action;
+  console.log('버튼 클릭:', action, id);
   if (action === 'photo') takePhoto(id);
   else if (action === 'kakao') shareItem(id);
   else if (action === 'sms') shareItem(id, true);
-  else if (action === 'toggle-desc') btn.parentElement.nextElementSibling.classList.toggle('hidden');
+  else if (action === 'toggle-desc') {
+    const desc = btn.parentElement.nextElementSibling;
+    if (desc) desc.classList.toggle('hidden');
+  }
 });
 function checkAllDone() {
   const boxes = checklistContainer.querySelectorAll('.done-cb');
@@ -311,12 +316,18 @@ function checkAllDone() {
 }
 function takePhoto(id) {
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.capture = 'environment';
+  inp.style.display = 'none';
+  document.body.appendChild(inp);
   inp.onchange = e => {
-    const f = e.target.files[0]; if (!f) return;
+    const f = e.target.files[0];
+    if (!f) { document.body.removeChild(inp); return; }
     if (!currentPhotos[id]) currentPhotos[id] = [];
     currentPhotos[id].push(f);
     renderPhotoPreview(id);
+    document.body.removeChild(inp);
   };
   inp.click();
 }
