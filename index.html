@@ -270,10 +270,11 @@ function onStoreChange() {
   const d = allData[currentStore];
   if (!currentStore || !d) {
     shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
+    storeInfo.innerHTML = '';
     checklistContainer.innerHTML = '';
     return;
   }
-  storeInfo.textContent = d.phone ? `관리자: ${d.manager||''} / ${d.phone}` : '';
+  updateManagerInfo(d);
   const defaultShifts = ['P1','P2','P3','P4'];
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>' + defaultShifts.map(k => {
     const name = (d.shifts && d.shifts[k] && d.shifts[k].name) ? d.shifts[k].name : k;
@@ -282,8 +283,22 @@ function onStoreChange() {
   checklistContainer.innerHTML = '';
 }
 
+function updateManagerInfo(d) {
+  if (!d) {
+    storeInfo.innerHTML = '';
+    return;
+  }
+  const manager = d.manager || '미등록';
+  const phone = d.phone || '미등록';
+  storeInfo.innerHTML = `
+    <div style="margin-top:10px; padding:10px; background:#f8f8f8; border-radius:8px; font-size:14px;">
+      <strong>관리자:</strong> ${manager}<br>
+      <strong>전화번호:</strong> ${phone}
+    </div>`;
+}
+
 shiftSelect.onchange = () => {
-  if (!shiftSelect.value) {
+  if (!shiftSelect.value || !currentStore) {
     checklistContainer.innerHTML = '';
     return;
   }
