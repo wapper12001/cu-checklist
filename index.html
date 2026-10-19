@@ -143,7 +143,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
   </div>
 </div>
 
-<!-- 바코드 입력 모달 (카메라 스캔 대체) -->
+<!-- 바코드 입력 모달 -->
 <div id="barcodeModal" class="modal hidden">
   <div class="modal-content">
     <h3 style="margin-top:0;">바코드 스캔</h3>
@@ -155,40 +155,39 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// 인앱 브라우저 감지 → 크롬/사파리로 열기
+// ===== Supabase 설정 =====
+const SUPABASE_URL = 'https://rfctnigrqzdqnpavwlyi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmY3RuaWdycXpkcW5wYXZ3bHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTY4OTcsImV4cCI6MjEwNzk5Mjg5N30.u3sNstTm-zJt-UhoX4TuQgMunPZVDm5FC8lu-7FaM5s';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// 인앱 브라우저 감지
 (function() {
   const ua = navigator.userAgent || '';
   const isInApp = /KAKAOTALK|NAVER|Line|Instagram|FBAN|FBAV|DaumApps|Whale/i.test(ua);
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
   if (isInApp) {
     const url = location.href;
     let openUrl = url;
     let btnText = '외부 브라우저로 열기';
-
     if (isAndroid) {
       openUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
       btnText = '크롬으로 열기';
     } else if (isIOS) {
       btnText = '사파리로 열기';
     }
-
     const banner = document.createElement('div');
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ffeb3b;color:#333;padding:14px;text-align:center;z-index:9999;font-size:15px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.25);';
-    banner.innerHTML = '크롬 또는 사파리로 열어주세요<br><a href="' + openUrl + '" style="display:inline-block;margin-top:8px;padding:8px 16px;background:#e31837;color:white;border-radius:6px;text-decoration:none;font-weight:600;">' + btnText + '</a><div style="font-size:12px;font-weight:400;margin-top:6px;color:#555;">또는 우측 상단 메뉴 → 다른 브라우저로 열기</div>';
+    banner.innerHTML = '크롬 또는 사파리로 열어주세요<br><a href="' + openUrl + '" style="display:inline-block;margin-top:8px;padding:8px 16px;background:#e31837;color:white;border-radius:6px;text-decoration:none;font-weight:600;">' + btnText + '</a>';
     document.body.prepend(banner);
-    document.body.style.paddingTop = '100px';
-
-    if (isAndroid) {
-      setTimeout(() => { location.href = openUrl; }, 1000);
-    }
+    document.body.style.paddingTop = '80px';
+    if (isAndroid) setTimeout(() => { location.href = openUrl; }, 1000);
   }
 })();
 
 const ADMIN_PASSWORD = "1234";
-
 let allData = {};
 let currentStore = "";
 let currentPhotos = {};
@@ -209,53 +208,53 @@ const storeInfo = document.getElementById('storeInfo');
 const bottomBar = document.getElementById('bottomBar');
 const sendReportBtn = document.getElementById('sendReportBtn');
 
-function loadData() {
-  const saved = localStorage.getItem('cu_stores');
-  if (saved) {
-    try { allData = JSON.parse(saved); } catch(e) { allData = {}; }
-  }
-  // 항상 5개 점포 기본 데이터 보장
-  const sampleItems = (prefix) => [
-    {id: prefix+"-1", title: "기본 점검 1", desc: "순서대로 확인", photo_required: false},
-    {id: prefix+"-2", title: "기본 점검 2", desc: "사진 촬영", photo_required: true}
-  ];
-  const makeShifts = () => ({
-    P1: { name: "오픈.오전", items: sampleItems("p1") },
-    P2: { name: "주간.오후", items: sampleItems("p2") },
-    P3: { name: "오후.저녁", items: sampleItems("p3") },
-    P4: { name: "마감.야간", items: sampleItems("p4") }
-  });
-  const defaultStores = {
-    "소사센터점": { manager: "김점장", phone: "010-0000-0000" },
-    "사랑방점": { manager: "이점장", phone: "010-0000-0001" },
-    "부천IC점": { manager: "박점장", phone: "010-0000-0002" },
-    "중동그린타운점": { manager: "최점장", phone: "010-0000-0003" },
-    "중동롯데점": { manager: "정점장", phone: "010-0000-0004" }
-  };
-  Object.entries(defaultStores).forEach(([name, info]) => {
-    if (!allData[name]) {
-      allData[name] = { ...info, shifts: makeShifts() };
-    } else {
-      if (!allData[name].shifts) allData[name].shifts = {};
-      ['P1','P2','P3','P4'].forEach(k => {
-        if (!allData[name].shifts[k] || !allData[name].shifts[k].items || allData[name].shifts[k].items.length === 0) {
-          allData[name].shifts[k] = { name: makeShifts()[k].name, items: sampleItems(k.toLowerCase()) };
-        }
-      });
+async function loadData() {
+  try {
+    const { data: stores, error } = await supabase.from('stores').select('*');
+    if (error) throw error;
+    allData = {};
+    for (const s of stores || []) {
+      allData[s.name] = {
+        manager: s.manager || '',
+        phone: s.phone || '',
+        hours: s.hours || '19',
+        shifts: {}
+      };
     }
-  });
-  saveAll();
-  refreshStoreSelect();
+    const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
+    (items || []).forEach(it => {
+      if (!allData[it.store_name]) return;
+      if (!allData[it.store_name].shifts[it.shift_key]) {
+        allData[it.store_name].shifts[it.shift_key] = { name: it.shift_name || it.shift_key, items: [] };
+      }
+      allData[it.store_name].shifts[it.shift_key].items.push({
+        id: it.id,
+        title: it.title,
+        desc: it.description || '',
+        photo_required: it.photo_required
+      });
+    });
+    refreshStoreSelect();
+  } catch (e) {
+    console.error(e);
+    alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
+    const saved = localStorage.getItem('cu_stores');
+    if (saved) try { allData = JSON.parse(saved); } catch(err){}
+    refreshStoreSelect();
+  }
 }
-function saveAll() {
+
+async function saveAll() {
   localStorage.setItem('cu_stores', JSON.stringify(allData));
 }
+
 function refreshStoreSelect() {
   const stores = Object.keys(allData);
   storeSelect.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
 }
+
 loadData();
 reportDate.valueAsDate = new Date();
 
@@ -284,10 +283,7 @@ function onStoreChange() {
 }
 
 function updateManagerInfo(d) {
-  if (!d) {
-    storeInfo.innerHTML = '';
-    return;
-  }
+  if (!d) { storeInfo.innerHTML = ''; return; }
   const manager = d.manager || '미등록';
   const phone = d.phone || '미등록';
   storeInfo.innerHTML = `
@@ -460,9 +456,7 @@ async function makeSummary() {
   });
   sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n완료: ${done}/${(shift.items||[]).length}`;
   const dayMemo = document.getElementById('dayMemo')?.value.trim();
-  if (dayMemo) {
-    sum += `\n\n📝 오늘 메모\n${dayMemo}`;
-  }
+  if (dayMemo) sum += `\n\n📝 오늘 메모\n${dayMemo}`;
   return {sum, photos};
 }
 
@@ -482,7 +476,7 @@ sendReportBtn.onclick = async () => {
   }
 };
 
-// ===== 출근 / 바코드 =====
+// 출근
 document.getElementById('clockInBtn').onclick = () => {
   document.getElementById('barcodeModal').classList.remove('hidden');
   document.getElementById('barcodeInput').value = '';
@@ -498,7 +492,7 @@ document.getElementById('confirmBarcode').onclick = () => {
 };
 document.getElementById('cancelBarcode').onclick = () => document.getElementById('barcodeModal').classList.add('hidden');
 
-// ===== 숨김 관리자 (10번) =====
+// 숨김 관리자
 document.getElementById('secretArea').addEventListener('click', function(e) {
   e.preventDefault();
   clickCount++;
@@ -529,7 +523,6 @@ document.getElementById('backFromAdmin').onclick = () => {
   reportScreen.classList.remove('hidden');
 };
 
-// ===== 관리자 점포 선택 =====
 function refreshAdminStoreSelect() {
   const sel = document.getElementById('adminStoreSelect');
   const stores = Object.keys(allData);
@@ -599,10 +592,7 @@ document.getElementById('addStoreBtn').onclick = () => {
     return;
   }
   allData[name] = {
-    code: '',
-    manager: '',
-    phone: '',
-    hours: '19',
+    code: '', manager: '', phone: '', hours: '19',
     shifts: {
       P1: { name: '오픈.오전', items: [] },
       P2: { name: '주간.오후', items: [] },
@@ -662,11 +652,8 @@ function moveItem(btn, dir) {
   const idx = items.indexOf(item);
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= items.length) return;
-  if (dir < 0) {
-    container.insertBefore(item, items[newIdx]);
-  } else {
-    container.insertBefore(item, items[newIdx].nextSibling);
-  }
+  if (dir < 0) container.insertBefore(item, items[newIdx]);
+  else container.insertBefore(item, items[newIdx].nextSibling);
 }
 
 document.getElementById('saveStoreBtn').onclick = () => {
