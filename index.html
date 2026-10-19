@@ -143,11 +143,14 @@ if (!document.documentElement.classList.contains('inapp')) {
   var s = document.createElement('script');
   s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
   s.onload = function() { initApp(); };
+  s.onerror = function() { alert('Supabase 스크립트 로드 실패'); };
   document.head.appendChild(s);
 }
 </script>
 <script>
 function initApp() {
+  console.log('initApp started');
+  try {
 const SUPABASE_URL = 'https://rfctnigrqzdqnpavwlyi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmY3RuaWdycXpkcW5wYXZ3bHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTY4OTcsImV4cCI6MjEwNzk5Mjg5N30.u3sNstTm-zJt-UhoX4TuQgMunPZVDm5FC8lu-7FaM5s';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -190,12 +193,10 @@ async function loadData() {
       allData[it.store_name].shifts[it.shift_key].items.push({ id: it.id, title: it.title, desc: it.description || '', photo_required: it.photo_required });
     });
     refreshStoreSelect();
+    console.log('로드 완료', Object.keys(allData));
   } catch (e) {
     console.error(e);
-    alert('데이터를 불러오지 못했습니다.');
-    const saved = localStorage.getItem('cu_stores');
-    if (saved) try { allData = JSON.parse(saved); } catch(err){}
-    refreshStoreSelect();
+    alert('데이터 로드 실패: ' + (e.message || e));
   }
 }
 async function saveAll() { localStorage.setItem('cu_stores', JSON.stringify(allData)); }
@@ -537,7 +538,11 @@ document.getElementById('cancelEdit').onclick = () => {
   editScreen.classList.add('hidden');
   adminScreen.classList.remove('hidden');
 };
-} // end initApp
+  } catch(err) {
+    console.error('initApp error', err);
+    alert('초기화 오류: ' + err.message);
+  }
+}
 </script>
 </body>
 </html>
