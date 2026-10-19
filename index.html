@@ -138,8 +138,16 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 <div id="pwModal" class="modal hidden"><div class="modal-content"><h3 style="margin-top:0;">관리자 비밀번호</h3><input type="password" id="adminPw"><button class="btn-primary" id="confirmPw" style="width:100%; margin-top:10px;">확인</button><button class="btn-secondary" id="cancelPw" style="width:100%; margin-top:8px;">취소</button><p id="pwMsg" style="color:#e31837; text-align:center;"></p></div></div>
 <div id="barcodeModal" class="modal hidden"><div class="modal-content"><h3 style="margin-top:0;">바코드 스캔</h3><p style="font-size:14px;">카메라로 바코드를 찍거나 번호를 입력하세요.</p><input type="file" id="barcodeFile" accept="image/*" capture="environment" style="margin-bottom:10px;"><input type="text" id="barcodeInput" placeholder="바코드 번호 입력"><button class="btn-primary" id="confirmBarcode" style="width:100%; margin-top:10px;">출근 처리</button><button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button></div></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+if (!document.documentElement.classList.contains('inapp')) {
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  s.onload = function() { initApp(); };
+  document.head.appendChild(s);
+}
+</script>
+<script>
+function initApp() {
 const SUPABASE_URL = 'https://rfctnigrqzdqnpavwlyi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmY3RuaWdycXpkcW5wYXZ3bHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTY4OTcsImV4cCI6MjEwNzk5Mjg5N30.u3sNstTm-zJt-UhoX4TuQgMunPZVDm5FC8lu-7FaM5s';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -529,6 +537,7 @@ document.getElementById('cancelEdit').onclick = () => {
   editScreen.classList.add('hidden');
   adminScreen.classList.remove('hidden');
 };
+} // end initApp
 </script>
 </body>
 </html>
