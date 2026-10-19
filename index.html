@@ -214,24 +214,37 @@ function loadData() {
   if (saved) {
     try { allData = JSON.parse(saved); } catch(e) { allData = {}; }
   }
-  if (Object.keys(allData).length === 0) {
-    const sampleItems = (prefix) => [
-      {id: prefix+"-1", title: "기본 점검 1", desc: "순서대로 확인", photo_required: false},
-      {id: prefix+"-2", title: "기본 점검 2", desc: "사진 촬영", photo_required: true}
-    ];
-    const makeShifts = () => ({
-      P1: { name: "오픈.오전", items: sampleItems("p1") },
-      P2: { name: "주간.오후", items: sampleItems("p2") },
-      P3: { name: "오후.저녁", items: sampleItems("p3") },
-      P4: { name: "마감.야간", items: sampleItems("p4") }
-    });
-    allData["소사센터점"] = { manager: "김점장", phone: "010-0000-0000", shifts: makeShifts() };
-    allData["사랑방점"] = { manager: "이점장", phone: "010-0000-0001", shifts: makeShifts() };
-    allData["부천IC점"] = { manager: "박점장", phone: "010-0000-0002", shifts: makeShifts() };
-    allData["중동그린타운점"] = { manager: "최점장", phone: "010-0000-0003", shifts: makeShifts() };
-    allData["중동롯데점"] = { manager: "정점장", phone: "010-0000-0004", shifts: makeShifts() };
-    saveAll();
-  }
+  // 항상 5개 점포 기본 데이터 보장
+  const sampleItems = (prefix) => [
+    {id: prefix+"-1", title: "기본 점검 1", desc: "순서대로 확인", photo_required: false},
+    {id: prefix+"-2", title: "기본 점검 2", desc: "사진 촬영", photo_required: true}
+  ];
+  const makeShifts = () => ({
+    P1: { name: "오픈.오전", items: sampleItems("p1") },
+    P2: { name: "주간.오후", items: sampleItems("p2") },
+    P3: { name: "오후.저녁", items: sampleItems("p3") },
+    P4: { name: "마감.야간", items: sampleItems("p4") }
+  });
+  const defaultStores = {
+    "소사센터점": { manager: "김점장", phone: "010-0000-0000" },
+    "사랑방점": { manager: "이점장", phone: "010-0000-0001" },
+    "부천IC점": { manager: "박점장", phone: "010-0000-0002" },
+    "중동그린타운점": { manager: "최점장", phone: "010-0000-0003" },
+    "중동롯데점": { manager: "정점장", phone: "010-0000-0004" }
+  };
+  Object.entries(defaultStores).forEach(([name, info]) => {
+    if (!allData[name]) {
+      allData[name] = { ...info, shifts: makeShifts() };
+    } else {
+      if (!allData[name].shifts) allData[name].shifts = {};
+      ['P1','P2','P3','P4'].forEach(k => {
+        if (!allData[name].shifts[k] || !allData[name].shifts[k].items || allData[name].shifts[k].items.length === 0) {
+          allData[name].shifts[k] = { name: makeShifts()[k].name, items: sampleItems(k.toLowerCase()) };
+        }
+      });
+    }
+  });
+  saveAll();
   refreshStoreSelect();
 }
 function saveAll() {
