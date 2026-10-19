@@ -41,9 +41,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>CU 점포 체크리스트</h1>
-</div>
+<div class="header"><h1>CU 점포 체크리스트</h1></div>
 <div class="container">
   <div id="reportScreen">
     <div class="card">
@@ -52,16 +50,11 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
         <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
         <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
       </div>
-      <label style="margin-top:12px;">날짜</label>
-      <input type="date" id="reportDate">
-      <label style="margin-top:12px;">점포 선택</label>
-      <select id="storeSelect"></select>
-      <label style="margin-top:12px;">근무타입</label>
-      <select id="shiftSelect"></select>
-      <label style="margin-top:12px;">근무자 이름</label>
-      <input type="text" id="staffName" placeholder="이름">
-      <label style="margin-top:12px;">근무시간대</label>
-      <input type="text" id="workPeriod" placeholder="예: 09:00-15:00">
+      <label style="margin-top:12px;">날짜</label><input type="date" id="reportDate">
+      <label style="margin-top:12px;">점포 선택</label><select id="storeSelect"></select>
+      <label style="margin-top:12px;">근무타입</label><select id="shiftSelect"></select>
+      <label style="margin-top:12px;">근무자 이름</label><input type="text" id="staffName" placeholder="이름">
+      <label style="margin-top:12px;">근무시간대</label><input type="text" id="workPeriod" placeholder="예: 09:00-15:00">
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
@@ -70,48 +63,32 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
   <div id="adminScreen" class="hidden">
     <div class="card">
       <h3 style="margin-top:0;">관리자</h3>
-      <label>점포 선택</label>
-      <select id="adminStoreSelect"></select>
+      <label>점포 선택</label><select id="adminStoreSelect"></select>
       <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
     <div id="storeDetail" class="hidden">
       <div class="card">
         <h4 style="margin-top:0;" id="detailTitle">점포 정보</h4>
-        <label>점포코드</label>
-        <input type="text" id="detailCode">
-        <label style="margin-top:8px;">점장</label>
-        <input type="text" id="detailManager">
-        <label style="margin-top:8px;">전화번호</label>
-        <input type="text" id="detailPhone">
+        <label>점포코드</label><input type="text" id="detailCode">
+        <label style="margin-top:8px;">점장</label><input type="text" id="detailManager">
+        <label style="margin-top:8px;">전화번호</label><input type="text" id="detailPhone">
         <label style="margin-top:8px;">운영시간</label>
-        <select id="detailHours">
-          <option value="19">19시간</option>
-          <option value="24">24시간</option>
-        </select>
+        <select id="detailHours"><option value="19">19시간</option><option value="24">24시간</option></select>
         <button class="btn-primary" id="saveDetailBtn" style="width:100%; margin-top:12px;">점포 정보 저장</button>
       </div>
-      <div class="card">
-        <h4 style="margin-top:0;">체크리스트</h4>
-        <div id="shiftButtons"></div>
-      </div>
+      <div class="card"><h4 style="margin-top:0;">체크리스트</h4><div id="shiftButtons"></div></div>
     </div>
   </div>
   <div id="editScreen" class="hidden">
     <div class="card">
       <h3 style="margin-top:0;" id="editTitle">점포 체크리스트</h3>
-      <label>점포명</label>
-      <input type="text" id="editStoreName">
-      <label style="margin-top:12px;">관리자명</label>
-      <input type="text" id="editManager">
-      <label style="margin-top:12px;">전화번호</label>
-      <input type="text" id="editPhone" placeholder="010-1234-5678">
+      <label>점포명</label><input type="text" id="editStoreName">
+      <label style="margin-top:12px;">관리자명</label><input type="text" id="editManager">
+      <label style="margin-top:12px;">전화번호</label><input type="text" id="editPhone" placeholder="010-1234-5678">
     </div>
     <div id="editShifts"></div>
-    <div class="card">
-      <button class="btn-primary" id="saveStoreBtn">저장</button>
-      <button class="btn-secondary" id="cancelEdit" style="margin-left:8px;">취소</button>
-    </div>
+    <div class="card"><button class="btn-primary" id="saveStoreBtn">저장</button><button class="btn-secondary" id="cancelEdit" style="margin-left:8px;">취소</button></div>
   </div>
 </div>
 <div class="bottom-bar hidden" id="bottomBar">
@@ -122,54 +99,32 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
   </div>
   <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
 </div>
-<div id="pwModal" class="modal hidden">
-  <div class="modal-content">
-    <h3 style="margin-top:0;">관리자 비밀번호</h3>
-    <input type="password" id="adminPw">
-    <button class="btn-primary" id="confirmPw" style="width:100%; margin-top:10px;">확인</button>
-    <button class="btn-secondary" id="cancelPw" style="width:100%; margin-top:8px;">취소</button>
-    <p id="pwMsg" style="color:#e31837; text-align:center;"></p>
-  </div>
-</div>
-<div id="barcodeModal" class="modal hidden">
-  <div class="modal-content">
-    <h3 style="margin-top:0;">바코드 스캔</h3>
-    <p style="font-size:14px;">카메라로 바코드를 찍거나 번호를 입력하세요.</p>
-    <input type="file" id="barcodeFile" accept="image/*" capture="environment" style="margin-bottom:10px;">
-    <input type="text" id="barcodeInput" placeholder="바코드 번호 입력">
-    <button class="btn-primary" id="confirmBarcode" style="width:100%; margin-top:10px;">출근 처리</button>
-    <button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button>
-  </div>
-</div>
+<div id="pwModal" class="modal hidden"><div class="modal-content"><h3 style="margin-top:0;">관리자 비밀번호</h3><input type="password" id="adminPw"><button class="btn-primary" id="confirmPw" style="width:100%; margin-top:10px;">확인</button><button class="btn-secondary" id="cancelPw" style="width:100%; margin-top:8px;">취소</button><p id="pwMsg" style="color:#e31837; text-align:center;"></p></div></div>
+<div id="barcodeModal" class="modal hidden"><div class="modal-content"><h3 style="margin-top:0;">바코드 스캔</h3><p style="font-size:14px;">카메라로 바코드를 찍거나 번호를 입력하세요.</p><input type="file" id="barcodeFile" accept="image/*" capture="environment" style="margin-bottom:10px;"><input type="text" id="barcodeInput" placeholder="바코드 번호 입력"><button class="btn-primary" id="confirmBarcode" style="width:100%; margin-top:10px;">출근 처리</button><button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://rfctnigrqzdqnpavwlyi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmY3RuaWdycXpkcW5wYXZ3bHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTY4OTcsImV4cCI6MjEwNzk5Mjg5N30.u3sNstTm-zJt-UhoX4TuQgMunPZVDm5FC8lu-7FaM5s';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 인앱 브라우저 감지 → 외부 브라우저로 강제 안내
+// 인앱 브라우저 감지 → 자동으로 외부 브라우저 열기
 (function() {
   const ua = navigator.userAgent || '';
   const isInApp = /KAKAOTALK|NAVER|Line|Instagram|FBAN|FBAV|DaumApps|Whale/i.test(ua);
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
-  if (isInApp) {
-    const url = location.href;
-    let openUrl = url;
-    let btnText = '외부 브라우저로 열기';
-    if (isAndroid) {
-      openUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-      btnText = '크롬으로 열기';
-    } else if (isIOS) {
-      btnText = '사파리로 열기';
-    }
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-    overlay.innerHTML = `<div style="background:white;border-radius:16px;padding:28px 20px;text-align:center;max-width:340px;width:100%;"><div style="font-size:48px;margin-bottom:12px;">📱</div><h2 style="margin:0 0 12px;font-size:20px;color:#222;">카카오톡에서 열림</h2><p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.5;">카카오톡 안에서는 제대로 동작하지 않습니다.<br>크롬 또는 사파리로 열어주세요.</p><a href="${openUrl}" style="display:block;background:#e31837;color:white;padding:14px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;">${btnText}</a><p style="margin:16px 0 0;font-size:13px;color:#888;">또는 우측 상단 <b>⋮</b> → <b>다른 브라우저로 열기</b></p></div>`;
-    document.body.appendChild(overlay);
-    if (isAndroid) setTimeout(() => { location.href = openUrl; }, 800);
-    return;
+  if (!isInApp) return;
+  const url = location.href;
+  let openUrl = url;
+  if (isAndroid) {
+    openUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
+    location.href = openUrl;
+    setTimeout(() => { location.href = openUrl; }, 1000);
   }
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `<div style="background:white;border-radius:16px;padding:28px 20px;text-align:center;max-width:340px;width:100%;"><div style="font-size:48px;margin-bottom:12px;">📱</div><h2 style="margin:0 0 12px;font-size:20px;color:#222;">외부 브라우저로 여는 중...</h2><p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.5;">자동으로 안 열리면 아래 버튼을 눌러주세요.</p><a href="${openUrl}" style="display:block;background:#e31837;color:white;padding:14px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;">${isAndroid ? '크롬으로 열기' : '사파리로 열기'}</a><p style="margin:16px 0 0;font-size:13px;color:#888;">또는 우측 상단 <b>⋮</b> → <b>다른 브라우저로 열기</b></p></div>`;
+  document.body.appendChild(overlay);
 })();
 
 const ADMIN_PASSWORD = "1234";
