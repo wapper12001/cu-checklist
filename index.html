@@ -41,6 +41,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; }
 .done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .done-check input { width: 20px; height: 20px; }
+.miss-msg { font-size: 13px; font-weight: 700; color: #6B2C91; margin-top: 8px; }
 .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
@@ -80,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v7</h1>
+  <h1>CU 점포 체크리스트 v8</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -375,7 +376,11 @@ function saveProgress() {
   };
   document.querySelectorAll('.item').forEach(el => {
     const id = el.dataset.id;
-    data.items[id] = { done: el.querySelector('.done-cb').checked, memo: el.querySelector('textarea')?.value || '' };
+    data.items[id] = {
+      done: el.querySelector('.done-cb').checked,
+      memo: el.querySelector('textarea')?.value || '',
+      reported: el.dataset.reported === '1'
+    };
   });
   try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
   checkAllDone();
@@ -419,12 +424,12 @@ function renderChecklist() {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
     return `
-      <div class="card item" data-id="${item.id}">
-        <div class="item-title">${item.title} ${item.photo_required?'📷':''}
+      <div class="card item" data-id="${item.id}" data-reported="${sv.reported ? '1' : '0'}">
+        <div class="item-title">${item.title} ${item.photo_required?'📷 사진 필수':''}
           ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
         <div class="item-desc hidden">${item.desc||''}</div>
-        <div class="done-check"><input type="checkbox" class="done-cb" ${sv.done?'checked':''}><span>완료</span></div>
+        <div class="done-check"><input type="checkbox" class="done-cb" ${sv.done && requiredMissing(item.id, sv.reported).length === 0 ? 'checked' : ''}><span>완료</span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 사진찍기</button>
@@ -432,12 +437,13 @@ function renderChecklist() {
           <button type="button" class="btn-sms">문자</button>
         </div>
         <div class="photo-preview" id="photos-${item.id}"></div>
+        <div class="miss-msg" id="miss-${item.id}"></div>
       </div>`;
   }).join('');
   Object.keys(currentPhotos).forEach(id => renderPhotoPreview(id));
   checklistContainer.querySelectorAll('.done-cb, textarea').forEach(el => {
-    el.addEventListener('change', saveProgress);
-    el.addEventListener('input', saveProgress);
+    el.addEventListener('change', onItemEdited);
+    el.addEventListener('input', () => { saveProgress(); refreshAllMiss(); });
   });
   checklistContainer.querySelectorAll('.btn-photo').forEach(btn => {
     btn.addEventListener('click', () => takePhoto(btn.closest('.item').dataset.id));
@@ -456,6 +462,53 @@ function renderChecklist() {
     });
   });
   saveProgress();
+  refreshAllMiss();
+}
+
+function itemById(id) {
+  const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
+  return (shift?.items || []).find(it => String(it.id) === String(id));
+}
+function missMessage(miss) {
+  if (!miss.length) return '';
+  if (miss.length === 1 && miss[0] === '사진') return '사진이 누락됐습니다.';
+  if (miss.length === 1 && miss[0] === '보고') return '보고가 누락됐습니다.';
+  return '사진, 보고가 누락됐습니다.';
+}
+function requiredMissing(id, reported) {
+  const it = itemById(id);
+  if (!it || !it.photo_required) return [];
+  const el = document.querySelector(`.item[data-id="${id}"]`);
+  const didReport = reported != null ? !!reported : el?.dataset.reported === '1';
+  const miss = [];
+  if (!(currentPhotos[id] || []).length) miss.push('사진');
+  if (!didReport) miss.push('보고');
+  return miss;
+}
+function showMiss(id) {
+  const box = document.getElementById('miss-' + id);
+  if (!box) return;
+  const msg = missMessage(requiredMissing(id));
+  box.textContent = msg;
+}
+function refreshAllMiss() {
+  document.querySelectorAll('.item').forEach(el => showMiss(el.dataset.id));
+}
+function onItemEdited(e) {
+  const cb = e.target.classList && e.target.classList.contains('done-cb') ? e.target : null;
+  if (cb && cb.checked) {
+    const el = cb.closest('.item');
+    const id = el.dataset.id;
+    const miss = requiredMissing(id);
+    if (miss.length) {
+      cb.checked = false;
+      showMiss(id);
+      const title = itemById(id)?.title || '이 항목';
+      alert(title + '\n' + missMessage(miss) + '\n사진을 올리고 카톡이나 문자로 보고한 뒤 완료하세요.');
+    }
+  }
+  saveProgress();
+  refreshAllMiss();
 }
 
 function checkAllDone() {
@@ -464,7 +517,7 @@ function checkAllDone() {
     bottomBar.classList.add('hidden');
     return;
   }
-  const allDone = Array.from(boxes).every(cb => cb.checked);
+  const allDone = Array.from(boxes).every(cb => cb.checked) && collectMissing().length === 0;
   bottomBar.classList.toggle('hidden', !allDone);
 }
 
@@ -481,6 +534,7 @@ function takePhoto(id) {
     if (!currentPhotos[id]) currentPhotos[id] = [];
     currentPhotos[id].push(f);
     renderPhotoPreview(id);
+    showMiss(id);
     document.body.removeChild(inp);
   };
   inp.click();
@@ -494,6 +548,13 @@ function renderPhotoPreview(id) {
 }
 function removePhoto(id, i) {
   if (currentPhotos[id]) { currentPhotos[id].splice(i,1); renderPhotoPreview(id); }
+  if (requiredMissing(id).length) {
+    const cb = document.querySelector(`.item[data-id="${id}"] .done-cb`);
+    if (cb) cb.checked = false;
+  }
+  saveProgress();
+  showMiss(id);
+  checkAllDone();
 }
 window.removePhoto = removePhoto;
 
@@ -525,6 +586,10 @@ async function shareItem(id, isSms) {
   text += `상태: ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
   if (d.memo) text += `메모: ${d.memo}\n`;
   text += `사진: ${d.photos.length}장`;
+
+  if (itemEl) itemEl.dataset.reported = '1';
+  saveProgress();
+  showMiss(id);
 
   if (isSms) {
     location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
@@ -578,7 +643,23 @@ async function makeSummary() {
   return {sum, photos};
 }
 
+function collectMissing() {
+  const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
+  const lines = [];
+  (shift?.items || []).forEach(it => {
+    const msg = missMessage(requiredMissing(it.id));
+    if (msg) lines.push(`${it.title}: ${msg}`);
+  });
+  return lines;
+}
+
 sendReportBtn.onclick = async () => {
+  const missing = collectMissing();
+  if (missing.length) {
+    refreshAllMiss();
+    alert('누락된 항목이 있습니다.\n\n' + missing.join('\n'));
+    return;
+  }
   const {sum, photos} = await makeSummary();
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
