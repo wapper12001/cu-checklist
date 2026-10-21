@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v12</h1>
+  <h1>CU 점포 체크리스트 v13</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -470,10 +470,9 @@ function itemById(id) {
   return (shift?.items || []).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
-  const parts = [];
-  if (miss.includes('사진')) parts.push('사진이 없습니다.');
-  if (miss.includes('보고')) parts.push('카톡 또는 문자 보고가 안 됐습니다.');
-  return parts.join(' ');
+  if (miss.includes('사진')) return '사진이 없습니다.';
+  if (miss.includes('보고')) return '카톡 또는 문자 보고가 안 됐습니다.';
+  return '';
 }
 function requiredMissing(id, reported) {
   const el = document.querySelector(`.item[data-id="${id}"]`);
@@ -501,8 +500,7 @@ function onItemEdited(e) {
     if (miss.length) {
       cb.checked = false;
       showMiss(id);
-      const title = itemById(id)?.title || '이 항목';
-      alert(title + '\n' + missMessage(miss) + '\n사진을 찍고 카톡 또는 문자로 보고한 뒤 완료하세요.');
+      alert(missMessage(miss));
     }
   }
   saveProgress();
@@ -634,8 +632,6 @@ function getItemData(id) {
 
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
-  const store = allData[currentStore] || {};
-  const phone = (store.phone || '').replace(/-/g,'');
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
   const text = `업무: ${d.title}\n상태: ${d.done ? '완료' : '미완료'}`;
   const mark = () => {
@@ -643,39 +639,21 @@ async function shareItem(id, isSms) {
     saveProgress();
     showMiss(id);
   };
-  const sayNoPhoto = () => alert('사진 첨부가 안됐습니다.');
-  if (navigator.share && d.photos.length) {
-    const sd = { title: d.title, text, files: d.photos };
-    const can = !navigator.canShare || navigator.canShare(sd);
-    if (can) {
-      try {
-        await navigator.share(sd);
-        mark();
-        return;
-      } catch (e) {
-        if (e && e.name === 'AbortError') return;
-      }
-    }
+  if (!d.photos.length || !navigator.share) {
+    alert('사진이 없습니다.');
+    return;
   }
-  sayNoPhoto();
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: d.title, text });
-      mark();
-      return;
-    } catch (e) {
-      if (e && e.name === 'AbortError') return;
-    }
-  }
-  if (isSms) {
-    mark();
-    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
+  const sd = { title: d.title, text, files: d.photos };
+  if (navigator.canShare && !navigator.canShare(sd)) {
+    alert('사진이 없습니다.');
     return;
   }
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.share(sd);
+    mark();
   } catch (e) {
-    alert(text);
+    if (e && e.name === 'AbortError') return;
+    alert('사진이 없습니다.');
   }
 }
 window.shareItem = shareItem;
