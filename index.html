@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v9</h1>
+  <h1>CU 점포 체크리스트 v10</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -521,7 +521,14 @@ function checkAllDone() {
   bottomBar.classList.toggle('hidden', !allDone);
 }
 
-function takePhoto(id) {
+function addPhotoFile(id, file) {
+  if (!file) return;
+  if (!currentPhotos[id]) currentPhotos[id] = [];
+  currentPhotos[id].push(file);
+  renderPhotoPreview(id);
+  showMiss(id);
+}
+function takePhotoByFile(id) {
   const inp = document.createElement('input');
   inp.setAttribute('type', 'file');
   inp.setAttribute('accept', 'image/*');
@@ -531,13 +538,71 @@ function takePhoto(id) {
   inp.onchange = e => {
     const f = e.target.files && e.target.files[0];
     if (inp.parentNode) inp.parentNode.removeChild(inp);
-    if (!f) return;
-    if (!currentPhotos[id]) currentPhotos[id] = [];
-    currentPhotos[id].push(f);
-    renderPhotoPreview(id);
-    showMiss(id);
+    addPhotoFile(id, f);
   };
   inp.click();
+}
+function stopCam(stream) {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+}
+async function openRearStream() {
+  const tries = [
+    { video: { facingMode: { exact: 'environment' } }, audio: false },
+    { video: { facingMode: 'environment' }, audio: false }
+  ];
+  let lastErr;
+  for (const c of tries) {
+    try { return await navigator.mediaDevices.getUserMedia(c); }
+    catch (e) { lastErr = e; }
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const backs = devices.filter(d => d.kind === 'videoinput' && /back|rear|environment|후면|광각/i.test(d.label));
+  const current = stream.getVideoTracks()[0];
+  const facing = current.getSettings().facingMode;
+  if (backs.length && (facing === 'user' || !/back|rear|environment|후면/i.test(current.label || ''))) {
+    stopCam(stream);
+    return navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: backs[backs.length - 1].deviceId } }, audio: false });
+  }
+  if (facing === 'user') {
+    stopCam(stream);
+    throw lastErr || new Error('rear camera missing');
+  }
+  return stream;
+}
+function takePhoto(id) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    takePhotoByFile(id);
+    return;
+  }
+  const layer = document.createElement('div');
+  layer.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;';
+  layer.innerHTML = '<video playsinline autoplay muted style="flex:1;width:100%;height:100%;object-fit:cover;background:#000;"></video><div style="display:flex;gap:10px;padding:14px 16px 22px;background:#111;"><button type="button" class="cam-shot" style="flex:1;background:#6B2C91;color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;">촬영</button><button type="button" class="cam-close" style="background:#333;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-size:16px;">닫기</button></div>';
+  document.body.appendChild(layer);
+  const video = layer.querySelector('video');
+  let stream = null;
+  const close = () => { stopCam(stream); if (layer.parentNode) layer.parentNode.removeChild(layer); };
+  layer.querySelector('.cam-close').onclick = close;
+  layer.querySelector('.cam-shot').onclick = () => {
+    if (!video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      addPhotoFile(id, new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+      close();
+    }, 'image/jpeg', 0.85);
+  };
+  openRearStream().then(s => {
+    stream = s;
+    video.srcObject = s;
+    video.play().catch(() => {});
+  }).catch(() => {
+    close();
+    takePhotoByFile(id);
+  });
 }
 window.takePhoto = takePhoto;
 function renderPhotoPreview(id) {
