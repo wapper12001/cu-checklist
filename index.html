@@ -28,6 +28,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
 select, input[type="text"], input[type="password"], input[type="time"], textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
 textarea { min-height: 50px; resize: vertical; }
+textarea::placeholder { color: #aaa; }
 button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-primary { background: #6B2C91; color: white; }
 .btn-secondary { background: #f0f0f0; color: #333; }
@@ -82,7 +83,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v28</h1>
+  <h1>CU 점포 체크리스트 v29</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -166,8 +167,8 @@ if (document.documentElement.classList.contains('inapp')) {
 <div class="bottom-bar hidden" id="bottomBar">
   <div style="margin-bottom:10px;">
     <label style="font-size:14px; font-weight:600;">퇴근 보고</label>
-    <p style="font-size:13px; color:#555; margin:4px 0 8px;">오늘 일을 편하게 적어 주세요.</p>
-    <textarea id="dayMemo" placeholder="퇴근합니다." style="min-height:70px;"></textarea>
+    <p style="font-size:13px; color:#555; margin:4px 0 8px;">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
+    <textarea id="dayMemo" placeholder="예시) 손님이 메론빵 찾으셨어요 등..." style="min-height:70px;"></textarea>
   </div>
   <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
 </div>
@@ -324,6 +325,12 @@ storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
 workPeriod.oninput = saveProgress;
 document.getElementById('dayMemo').oninput = saveProgress;
+(function () {
+  const memo = document.getElementById('dayMemo');
+  const hint = memo.placeholder;
+  memo.addEventListener('focus', () => { memo.placeholder = ''; });
+  memo.addEventListener('blur', () => { if (!memo.value) memo.placeholder = hint; });
+})();
 reportDate.onchange = () => { saveProgress(); renderChecklist(); };
 
 function onStoreChange() {
