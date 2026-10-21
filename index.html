@@ -83,7 +83,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v29</h1>
+  <h1>CU 점포 체크리스트 v30</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -402,7 +402,9 @@ function loadProgress() {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
       if (d.period) workPeriod.value = d.period;
-      if (d.dayMemo && document.getElementById('dayMemo')) document.getElementById('dayMemo').value = d.dayMemo;
+      if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
+        document.getElementById('dayMemo').value = d.dayMemo;
+      }
       return d;
     }
   } catch(e){}
@@ -710,15 +712,16 @@ window.shareItem = shareItem;
 
 function makeSummary() {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
-  const lines = [];
+  const when = new Date().toLocaleString('ko-KR');
+  let sum = `전체 보고 시간 : ${when}`;
   (shift.items || []).forEach(it => {
     const d = getItemData(it.id);
-    lines.push((d?.title || it.title) + ' 완료');
+    const at = sessionReported[reportKey(it.id)] || '';
+    sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
   });
   const memo = document.getElementById('dayMemo')?.value.trim() || '';
-  if (lines.length) lines.push('');
-  lines.push(memo);
-  return lines.join('\n');
+  sum += `\n\n퇴근 보고: ${memo}`;
+  return sum;
 }
 
 function collectMissing() {
