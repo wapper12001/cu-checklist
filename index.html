@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v18</h1>
+  <h1>CU 점포 체크리스트 v19</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -634,17 +634,17 @@ async function stampCaption(file, text, index) {
   const img = await createImageBitmap(file);
   const lines = text.split('\n');
   const fontSize = Math.max(32, Math.round(img.width / 18));
-  const bar = fontSize * lines.length + 40;
+  const bar = fontSize * lines.length + 36;
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
-  canvas.height = img.height + bar;
+  canvas.height = img.height;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0);
-  ctx.fillStyle = '#111';
-  ctx.fillRect(0, img.height, canvas.width, bar);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, canvas.width, bar);
   ctx.fillStyle = '#fff';
   ctx.font = fontSize + 'px sans-serif';
-  lines.forEach((line, i) => ctx.fillText(line, 20, img.height + fontSize + 8 + i * (fontSize + 8)));
+  lines.forEach((line, i) => ctx.fillText(line, 20, fontSize + 10 + i * (fontSize + 8)));
   const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
   if (img.close) img.close();
   return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
