@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v20</h1>
+  <h1>CU 점포 체크리스트 v21</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -677,43 +677,18 @@ async function shareItem(id, isSms) {
 }
 window.shareItem = shareItem;
 
-async function makeSummary() {
+function makeSummary() {
   const store = allData[currentStore] || {};
-  const shift = store.shifts?.[shiftSelect.value] || {name:'', items:[]};
-  let sum = `📋 CU 체크리스트 보고서\n`;
-  sum += `점포: ${currentStore}\n`;
-  sum += `관리자: ${store.manager || ''}\n`;
-  sum += `근무타입: ${shiftSelect.value} (${shift.name})\n`;
-  sum += `날짜: ${reportDate.value}\n`;
-  sum += `근무자: ${staffName.value || '미입력'}\n`;
-  sum += `근무시간대: ${workPeriod.value || '-'}\n`;
-  sum += `출근시간: ${document.getElementById('clockTime').textContent || '-'}\n`;
-  sum += `보고시간: ${new Date().toLocaleString('ko-KR')}\n`;
-  sum += `━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-  let photos = [], done = 0;
+  const shift = store.shifts?.[shiftSelect.value] || { name: '', items: [] };
+  const when = new Date().toLocaleString('ko-KR');
+  let sum = `보고 시간 : ${when}`;
   (shift.items || []).forEach(it => {
-    const d = getItemData(it.id); if (!d) return;
-    if (d.done) done++;
-    const itemEl = document.querySelector(`.item[data-id="${it.id}"]`);
-    const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
-
-    sum += `\n\n▶ ${it.title}\n`;
-    if (desc) sum += `  상세: ${desc}\n`;
-    sum += `  ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
-    if (d.memo) sum += `  메모: ${d.memo}\n`;
-    sum += `  사진: ${d.photos.length}장`;
-    photos.push(...d.photos);
+    const d = getItemData(it.id);
+    sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}`;
   });
-
-  sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  sum += `완료: ${done}/${(shift.items || []).length}`;
-
-  const dayMemo = document.getElementById('dayMemo')?.value.trim();
-  if (dayMemo) {
-    sum += `\n\n📝 오늘 메모\n${dayMemo}`;
-  }
-  return {sum, photos};
+  const dayMemo = document.getElementById('dayMemo')?.value.trim() || '';
+  sum += `\n\n퇴근 보고: ${dayMemo}`;
+  return sum;
 }
 
 function collectMissing() {
@@ -727,25 +702,25 @@ function collectMissing() {
 }
 
 sendReportBtn.onclick = async () => {
+  if (!document.getElementById('dayMemo')?.value.trim()) {
+    alert('퇴근 보고가 안 됐습니다.');
+    return;
+  }
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
     alert('누락된 항목이 있습니다.\n\n' + missing.join('\n'));
     return;
   }
-  const {sum, photos} = await makeSummary();
+  const sum = makeSummary();
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   if (navigator.share) {
-    const sd = { title: 'CU 보고서', text: sum };
-    if (photos.length && photos.length <= 10) sd.files = photos;
-    try { await navigator.share(sd); return; } catch(e){}
+    try { await navigator.share({ text: sum }); return; } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
   }
-  if (confirm('문자로 보낼까요?')) {
-    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
-  } else {
-    navigator.clipboard.writeText(sum).then(() => alert('복사되었습니다.'));
-  }
+  location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 
 // ===== 출근 / 바코드 =====
