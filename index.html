@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v10</h1>
+  <h1>CU 점포 체크리스트 v11</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -425,7 +425,7 @@ function renderChecklist() {
     const hasDesc = item.desc && item.desc.trim();
     return `
       <div class="card item" data-id="${item.id}" data-reported="${sv.reported ? '1' : '0'}">
-        <div class="item-title">${item.title} ${item.photo_required?'📷 사진 필수':''}
+        <div class="item-title">${item.title}
           ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
         <div class="item-desc hidden">${item.desc||''}</div>
@@ -470,14 +470,12 @@ function itemById(id) {
   return (shift?.items || []).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
-  if (!miss.length) return '';
-  if (miss.length === 1 && miss[0] === '사진') return '사진이 누락됐습니다.';
-  if (miss.length === 1 && miss[0] === '보고') return '보고가 누락됐습니다.';
-  return '사진, 보고가 누락됐습니다.';
+  const parts = [];
+  if (miss.includes('사진')) parts.push('사진이 없습니다.');
+  if (miss.includes('보고')) parts.push('카톡 또는 문자 보고가 안 됐습니다.');
+  return parts.join(' ');
 }
 function requiredMissing(id, reported) {
-  const it = itemById(id);
-  if (!it || !it.photo_required) return [];
   const el = document.querySelector(`.item[data-id="${id}"]`);
   const didReport = reported != null ? !!reported : el?.dataset.reported === '1';
   const miss = [];
@@ -504,7 +502,7 @@ function onItemEdited(e) {
       cb.checked = false;
       showMiss(id);
       const title = itemById(id)?.title || '이 항목';
-      alert(title + '\n' + missMessage(miss) + '\n사진을 올리고 카톡이나 문자로 보고한 뒤 완료하세요.');
+      alert(title + '\n' + missMessage(miss) + '\n사진을 찍고 카톡 또는 문자로 보고한 뒤 완료하세요.');
     }
   }
   saveProgress();
@@ -627,7 +625,7 @@ function getItemData(id) {
   const el = document.querySelector(`.item[data-id="${id}"]`);
   if (!el) return null;
   return {
-    title: el.querySelector('.item-title').textContent.replace('📷','').trim(),
+    title: itemById(id)?.title || el.querySelector('.item-title').textContent.replace('상세보기','').trim(),
     done: el.querySelector('.done-cb').checked,
     memo: el.querySelector('textarea').value.trim(),
     photos: currentPhotos[id] || []
@@ -652,20 +650,33 @@ async function shareItem(id, isSms) {
   if (d.memo) text += `메모: ${d.memo}\n`;
   text += `사진: ${d.photos.length}장`;
 
-  if (itemEl) itemEl.dataset.reported = '1';
-  saveProgress();
-  showMiss(id);
-
-  if (isSms) {
-    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
-    return;
-  }
+  const mark = () => {
+    if (itemEl) itemEl.dataset.reported = '1';
+    saveProgress();
+    showMiss(id);
+  };
   if (navigator.share) {
     const sd = { title: '체크리스트 업무보고', text };
     if (d.photos.length) sd.files = d.photos;
-    try { await navigator.share(sd); return; } catch(e){}
+    try {
+      await navigator.share(sd);
+      mark();
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
   }
-  navigator.clipboard.writeText(text).then(() => alert('업무 내용이 복사되었습니다.\n카카오톡이나 문자에 붙여넣기 하세요.'));
+  if (isSms) {
+    mark();
+    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('사진과 업무 내용을 같이 보내지 못했습니다.\n업무 내용은 복사했습니다. 카카오톡에 붙여넣고 사진도 같이 보내 주세요.');
+  } catch (e) {
+    alert(text);
+  }
 }
 window.shareItem = shareItem;
 
