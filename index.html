@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v25</h1>
+  <h1>CU 점포 체크리스트 v26</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -667,13 +667,15 @@ async function stampCaption(file, text, index) {
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
-  const text = `업무: ${d.title}\n상태: ${d.done ? '완료' : '미완료'}`;
+  const text = `업무: ${d.title}\n상태: 완료`;
   const mark = () => {
     if (itemEl) {
       const t = new Date().toLocaleString('ko-KR');
       sessionReported[reportKey(id)] = t;
       itemEl.dataset.reported = '1';
       itemEl.dataset.reportedAt = t;
+      const cb = itemEl.querySelector('.done-cb');
+      if (cb) cb.checked = true;
       const box = document.getElementById('reported-at-' + id);
       if (box) box.textContent = '보고 완료 : ' + t;
     }
