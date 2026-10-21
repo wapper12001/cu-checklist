@@ -82,7 +82,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v27</h1>
+  <h1>CU 점포 체크리스트 v28</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -166,8 +166,8 @@ if (document.documentElement.classList.contains('inapp')) {
 <div class="bottom-bar hidden" id="bottomBar">
   <div style="margin-bottom:10px;">
     <label style="font-size:14px; font-weight:600;">퇴근 보고</label>
-    <p style="font-size:13px; color:#555; margin:4px 0 8px;">자랑, 실수, 사건, 사고, 보고해야 될 사항 등등<br>편하게 메모 남겨주세요.<br><span style="color:#888;">예시) 손님이 1+1인데 1개 주고 가셨어요. 제가 잘해서겠죠? 퇴근하겠습니다.</span></p>
-    <textarea id="dayMemo" placeholder="편하게 메모 남겨 주세요." style="min-height:90px;"></textarea>
+    <p style="font-size:13px; color:#555; margin:4px 0 8px;">오늘 일을 편하게 적어 주세요.</p>
+    <textarea id="dayMemo" placeholder="퇴근합니다." style="min-height:70px;"></textarea>
   </div>
   <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
 </div>
@@ -702,18 +702,16 @@ async function shareItem(id, isSms) {
 window.shareItem = shareItem;
 
 function makeSummary() {
-  const store = allData[currentStore] || {};
-  const shift = store.shifts?.[shiftSelect.value] || { name: '', items: [] };
-  const when = new Date().toLocaleString('ko-KR');
-  let sum = `보고 시간 : ${when}`;
+  const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
+  const lines = [];
   (shift.items || []).forEach(it => {
     const d = getItemData(it.id);
-    const at = sessionReported[reportKey(it.id)] || '';
-    sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at || '없음'}`;
+    lines.push((d?.title || it.title) + ' 완료');
   });
-  const dayMemo = document.getElementById('dayMemo')?.value.trim() || '';
-  sum += `\n\n퇴근 보고: ${dayMemo}`;
-  return sum;
+  const memo = document.getElementById('dayMemo')?.value.trim() || '';
+  if (lines.length) lines.push('');
+  lines.push(memo);
+  return lines.join('\n');
 }
 
 function collectMissing() {
