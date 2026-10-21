@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v13</h1>
+  <h1>CU 점포 체크리스트 v14</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -643,7 +643,7 @@ async function shareItem(id, isSms) {
     alert('사진이 없습니다.');
     return;
   }
-  const sd = { title: d.title, text, files: d.photos };
+  const sd = { text, files: d.photos };
   if (navigator.canShare && !navigator.canShare(sd)) {
     alert('사진이 없습니다.');
     return;
