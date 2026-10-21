@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v22</h1>
+  <h1>CU 점포 체크리스트 v23</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -463,6 +463,14 @@ function renderChecklist() {
       if (desc) desc.classList.toggle('hidden');
     });
   });
+  const now = new Date().toLocaleString('ko-KR');
+  document.querySelectorAll('.item').forEach(el => {
+    if (el.dataset.reported === '1' && !el.dataset.reportedAt) {
+      el.dataset.reportedAt = now;
+      const box = document.getElementById('reported-at-' + el.dataset.id);
+      if (box) box.textContent = '보고 완료 : ' + now;
+    }
+  });
   saveProgress();
   refreshAllMiss();
 }
@@ -693,7 +701,14 @@ function makeSummary() {
   (shift.items || []).forEach(it => {
     const d = getItemData(it.id);
     const itemEl = document.querySelector(`.item[data-id="${it.id}"]`);
-    const at = itemEl?.dataset.reportedAt || '';
+    let at = itemEl?.dataset.reportedAt || '';
+    if (!at && itemEl?.dataset.reported === '1') {
+      at = when;
+      itemEl.dataset.reportedAt = at;
+      const box = document.getElementById('reported-at-' + it.id);
+      if (box) box.textContent = '보고 완료 : ' + at;
+      saveProgress();
+    }
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at || '없음'}`;
   });
   const dayMemo = document.getElementById('dayMemo')?.value.trim() || '';
