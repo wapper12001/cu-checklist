@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v24</h1>
+  <h1>CU 점포 체크리스트 v25</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -220,6 +220,7 @@ const ADMIN_PASSWORD = "1234";
 let allData = {};
 let currentStore = "";
 let currentPhotos = {};
+let sessionReported = {};
 let clickCount = 0;
 let clickTimer = null;
 let editingStore = null; // null = new, string = edit
@@ -425,12 +426,12 @@ function renderChecklist() {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
     return `
-      <div class="card item" data-id="${item.id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
+      <div class="card item" data-id="${item.id}" data-reported="0">
         <div class="item-title">${item.title}
           ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
         <div class="item-desc hidden">${item.desc||''}</div>
-        <div class="done-check"><input type="checkbox" class="done-cb" ${sv.done && requiredMissing(item.id, sv.reported).length === 0 ? 'checked' : ''}><span>완료</span></div>
+        <div class="done-check"><input type="checkbox" class="done-cb"><span>완료</span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 사진찍기</button>
@@ -438,7 +439,7 @@ function renderChecklist() {
           <button type="button" class="btn-sms">문자</button>
         </div>
         <div class="photo-preview" id="photos-${item.id}"></div>
-        <div class="reported-at" id="reported-at-${item.id}">${sv.reportedAt ? '보고 완료 : ' + sv.reportedAt : ''}</div>
+        <div class="reported-at" id="reported-at-${item.id}"></div>
         <div class="miss-msg" id="miss-${item.id}"></div>
       </div>`;
   }).join('');
@@ -463,14 +464,6 @@ function renderChecklist() {
       if (desc) desc.classList.toggle('hidden');
     });
   });
-  const now = new Date().toLocaleString('ko-KR');
-  document.querySelectorAll('.item').forEach(el => {
-    if (el.dataset.reported === '1' && !el.dataset.reportedAt) {
-      el.dataset.reportedAt = now;
-      const box = document.getElementById('reported-at-' + el.dataset.id);
-      if (box) box.textContent = '보고 완료 : ' + now;
-    }
-  });
   saveProgress();
   refreshAllMiss();
 }
@@ -484,12 +477,13 @@ function missMessage(miss) {
   if (miss.includes('보고')) return '카톡 또는 문자 보고가 안 됐습니다.';
   return '';
 }
-function requiredMissing(id, reported) {
-  const el = document.querySelector(`.item[data-id="${id}"]`);
-  const didReport = reported != null ? !!reported : el?.dataset.reported === '1';
+function reportKey(id) {
+  return currentStore + '|' + shiftSelect.value + '|' + id;
+}
+function requiredMissing(id) {
   const miss = [];
   if (!(currentPhotos[id] || []).length) miss.push('사진');
-  if (!didReport) miss.push('보고');
+  if (!sessionReported[reportKey(id)]) miss.push('보고');
   return miss;
 }
 function showMiss(id) {
@@ -676,8 +670,9 @@ async function shareItem(id, isSms) {
   const text = `업무: ${d.title}\n상태: ${d.done ? '완료' : '미완료'}`;
   const mark = () => {
     if (itemEl) {
-      itemEl.dataset.reported = '1';
       const t = new Date().toLocaleString('ko-KR');
+      sessionReported[reportKey(id)] = t;
+      itemEl.dataset.reported = '1';
       itemEl.dataset.reportedAt = t;
       const box = document.getElementById('reported-at-' + id);
       if (box) box.textContent = '보고 완료 : ' + t;
@@ -711,15 +706,7 @@ function makeSummary() {
   let sum = `보고 시간 : ${when}`;
   (shift.items || []).forEach(it => {
     const d = getItemData(it.id);
-    const itemEl = document.querySelector(`.item[data-id="${it.id}"]`);
-    let at = itemEl?.dataset.reportedAt || '';
-    if (!at && itemEl?.dataset.reported === '1') {
-      at = when;
-      itemEl.dataset.reportedAt = at;
-      const box = document.getElementById('reported-at-' + it.id);
-      if (box) box.textContent = '보고 완료 : ' + at;
-      saveProgress();
-    }
+    const at = sessionReported[reportKey(it.id)] || '';
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at || '없음'}`;
   });
   const dayMemo = document.getElementById('dayMemo')?.value.trim() || '';
