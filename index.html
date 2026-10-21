@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v21</h1>
+  <h1>CU 점포 체크리스트 v22</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -379,7 +379,8 @@ function saveProgress() {
     data.items[id] = {
       done: el.querySelector('.done-cb').checked,
       memo: el.querySelector('textarea')?.value || '',
-      reported: el.dataset.reported === '1'
+      reported: el.dataset.reported === '1',
+      reportedAt: el.dataset.reportedAt || ''
     };
   });
   try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
@@ -424,7 +425,7 @@ function renderChecklist() {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
     return `
-      <div class="card item" data-id="${item.id}" data-reported="${sv.reported ? '1' : '0'}">
+      <div class="card item" data-id="${item.id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
         <div class="item-title">${item.title}
           ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
@@ -437,6 +438,7 @@ function renderChecklist() {
           <button type="button" class="btn-sms">문자</button>
         </div>
         <div class="photo-preview" id="photos-${item.id}"></div>
+        <div class="reported-at" id="reported-at-${item.id}">${sv.reportedAt ? '보고 완료 : ' + sv.reportedAt : ''}</div>
         <div class="miss-msg" id="miss-${item.id}"></div>
       </div>`;
   }).join('');
@@ -654,7 +656,13 @@ async function shareItem(id, isSms) {
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
   const text = `업무: ${d.title}\n상태: ${d.done ? '완료' : '미완료'}`;
   const mark = () => {
-    if (itemEl) itemEl.dataset.reported = '1';
+    if (itemEl) {
+      itemEl.dataset.reported = '1';
+      const t = new Date().toLocaleString('ko-KR');
+      itemEl.dataset.reportedAt = t;
+      const box = document.getElementById('reported-at-' + id);
+      if (box) box.textContent = '보고 완료 : ' + t;
+    }
     saveProgress();
     showMiss(id);
   };
@@ -684,7 +692,9 @@ function makeSummary() {
   let sum = `보고 시간 : ${when}`;
   (shift.items || []).forEach(it => {
     const d = getItemData(it.id);
-    sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}`;
+    const itemEl = document.querySelector(`.item[data-id="${it.id}"]`);
+    const at = itemEl?.dataset.reportedAt || '';
+    sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at || '없음'}`;
   });
   const dayMemo = document.getElementById('dayMemo')?.value.trim() || '';
   sum += `\n\n퇴근 보고: ${dayMemo}`;
