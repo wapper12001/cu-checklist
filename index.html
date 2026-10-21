@@ -28,6 +28,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto
 label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
 select, input[type="text"], input[type="password"], input[type="time"], textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
 textarea { min-height: 50px; resize: vertical; }
+textarea::placeholder { color: #aaa; }
 button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-primary { background: #6B2C91; color: white; }
 .btn-secondary { background: #f0f0f0; color: #333; }
@@ -41,6 +42,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; }
 .done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .done-check input { width: 20px; height: 20px; }
+.done-check .done-time { color: #555; font-size: 13px; }
 .miss-msg { font-size: 13px; font-weight: 700; color: #6B2C91; margin-top: 8px; }
 .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
@@ -81,7 +83,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v11</h1>
+  <h1>CU 점포 체크리스트 v30</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -165,8 +167,8 @@ if (document.documentElement.classList.contains('inapp')) {
 <div class="bottom-bar hidden" id="bottomBar">
   <div style="margin-bottom:10px;">
     <label style="font-size:14px; font-weight:600;">퇴근 보고</label>
-    <p style="font-size:13px; color:#555; margin:4px 0 8px;">자랑, 실수, 사건, 사고, 보고해야 될 사항 등등<br>편하게 메모 남겨주세요.<br><span style="color:#888;">예시) 손님이 1+1인데 1개 주고 가셨어요. 제가 잘해서겠죠? 퇴근하겠습니다.</span></p>
-    <textarea id="dayMemo" placeholder="편하게 메모 남겨 주세요." style="min-height:90px;"></textarea>
+    <p style="font-size:13px; color:#555; margin:4px 0 8px;">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
+    <textarea id="dayMemo" placeholder="예시) 손님이 메론빵 찾으셨어요 등..." style="min-height:70px;"></textarea>
   </div>
   <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
 </div>
@@ -220,6 +222,7 @@ const ADMIN_PASSWORD = "1234";
 let allData = {};
 let currentStore = "";
 let currentPhotos = {};
+let sessionReported = {};
 let clickCount = 0;
 let clickTimer = null;
 let editingStore = null; // null = new, string = edit
@@ -322,6 +325,12 @@ storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
 workPeriod.oninput = saveProgress;
 document.getElementById('dayMemo').oninput = saveProgress;
+(function () {
+  const memo = document.getElementById('dayMemo');
+  const hint = memo.placeholder;
+  memo.addEventListener('focus', () => { memo.placeholder = ''; });
+  memo.addEventListener('blur', () => { if (!memo.value) memo.placeholder = hint; });
+})();
 reportDate.onchange = () => { saveProgress(); renderChecklist(); };
 
 function onStoreChange() {
@@ -379,7 +388,8 @@ function saveProgress() {
     data.items[id] = {
       done: el.querySelector('.done-cb').checked,
       memo: el.querySelector('textarea')?.value || '',
-      reported: el.dataset.reported === '1'
+      reported: el.dataset.reported === '1',
+      reportedAt: el.dataset.reportedAt || ''
     };
   });
   try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
@@ -392,7 +402,9 @@ function loadProgress() {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
       if (d.period) workPeriod.value = d.period;
-      if (d.dayMemo && document.getElementById('dayMemo')) document.getElementById('dayMemo').value = d.dayMemo;
+      if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
+        document.getElementById('dayMemo').value = d.dayMemo;
+      }
       return d;
     }
   } catch(e){}
@@ -424,12 +436,12 @@ function renderChecklist() {
     const sv = (saved && saved.items && saved.items[item.id]) || {};
     const hasDesc = item.desc && item.desc.trim();
     return `
-      <div class="card item" data-id="${item.id}" data-reported="${sv.reported ? '1' : '0'}">
+      <div class="card item" data-id="${item.id}" data-reported="0">
         <div class="item-title">${item.title}
           ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
         <div class="item-desc hidden">${item.desc||''}</div>
-        <div class="done-check"><input type="checkbox" class="done-cb" ${sv.done && requiredMissing(item.id, sv.reported).length === 0 ? 'checked' : ''}><span>완료</span></div>
+        <div class="done-check"><input type="checkbox" class="done-cb"><span>완료</span><span class="done-time" id="done-time-${item.id}"></span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 사진찍기</button>
@@ -470,17 +482,17 @@ function itemById(id) {
   return (shift?.items || []).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
-  const parts = [];
-  if (miss.includes('사진')) parts.push('사진이 없습니다.');
-  if (miss.includes('보고')) parts.push('카톡 또는 문자 보고가 안 됐습니다.');
-  return parts.join(' ');
+  if (miss.includes('사진')) return '사진이 없습니다.';
+  if (miss.includes('보고')) return '카톡 또는 문자 보고가 안 됐습니다.';
+  return '';
 }
-function requiredMissing(id, reported) {
-  const el = document.querySelector(`.item[data-id="${id}"]`);
-  const didReport = reported != null ? !!reported : el?.dataset.reported === '1';
+function reportKey(id) {
+  return currentStore + '|' + shiftSelect.value + '|' + id;
+}
+function requiredMissing(id) {
   const miss = [];
   if (!(currentPhotos[id] || []).length) miss.push('사진');
-  if (!didReport) miss.push('보고');
+  if (!sessionReported[reportKey(id)]) miss.push('보고');
   return miss;
 }
 function showMiss(id) {
@@ -495,27 +507,37 @@ function refreshAllMiss() {
 function onItemEdited(e) {
   const cb = e.target.classList && e.target.classList.contains('done-cb') ? e.target : null;
   if (cb && cb.checked) {
-    const el = cb.closest('.item');
-    const id = el.dataset.id;
-    const miss = requiredMissing(id);
-    if (miss.length) {
-      cb.checked = false;
-      showMiss(id);
-      const title = itemById(id)?.title || '이 항목';
-      alert(title + '\n' + missMessage(miss) + '\n사진을 찍고 카톡 또는 문자로 보고한 뒤 완료하세요.');
-    }
+    const id = cb.closest('.item').dataset.id;
+    if (requiredMissing(id).length) cb.checked = false;
   }
   saveProgress();
   refreshAllMiss();
 }
+checklistContainer.addEventListener('click', (e) => {
+  const cb = e.target.closest && e.target.closest('.done-cb');
+  if (!cb) return;
+  const el = cb.closest('.item');
+  const miss = requiredMissing(el.dataset.id);
+  if (!miss.length) return;
+  e.preventDefault();
+  showMiss(el.dataset.id);
+  alert(missMessage(miss));
+  setTimeout(() => { cb.checked = false; saveProgress(); }, 0);
+});
 
 function checkAllDone() {
-  const boxes = checklistContainer.querySelectorAll('.done-cb');
-  if (boxes.length === 0) {
+  const items = checklistContainer.querySelectorAll('.item');
+  if (!items.length) {
     bottomBar.classList.add('hidden');
     return;
   }
-  const allDone = Array.from(boxes).every(cb => cb.checked) && collectMissing().length === 0;
+  let allDone = true;
+  items.forEach(el => {
+    const cb = el.querySelector('.done-cb');
+    const miss = requiredMissing(el.dataset.id);
+    if (!cb.checked || miss.length) allDone = false;
+    if (cb.checked && miss.length) cb.checked = false;
+  });
   bottomBar.classList.toggle('hidden', !allDone);
 }
 
@@ -632,123 +654,110 @@ function getItemData(id) {
   };
 }
 
+async function stampCaption(file, text, index) {
+  const img = await createImageBitmap(file);
+  const lines = text.split('\n');
+  const fontSize = Math.max(32, Math.round(img.width / 18));
+  const bar = fontSize * lines.length + 36;
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height + bar;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, canvas.width, bar);
+  ctx.drawImage(img, 0, bar);
+  ctx.fillStyle = '#fff';
+  ctx.font = fontSize + 'px sans-serif';
+  lines.forEach((line, i) => ctx.fillText(line, 20, fontSize + 10 + i * (fontSize + 8)));
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+  if (img.close) img.close();
+  return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
+}
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
-  const store = allData[currentStore] || {};
-  const phone = (store.phone || '').replace(/-/g,'');
-  const shiftTxt = shiftSelect.options[shiftSelect.selectedIndex]?.text || '';
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
-  const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
-
-  let text = `[${currentStore}] ${shiftTxt}\n`;
-  text += `날짜: ${reportDate.value}\n`;
-  text += `근무자: ${staffName.value || '미입력'}\n`;
-  text += `출근: ${document.getElementById('clockTime').textContent || '-'}\n\n`;
-  text += `▶ 업무: ${d.title}\n`;
-  if (desc) text += `상세: ${desc}\n`;
-  text += `상태: ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
-  if (d.memo) text += `메모: ${d.memo}\n`;
-  text += `사진: ${d.photos.length}장`;
-
+  const text = `업무: ${d.title}\n상태: 완료`;
   const mark = () => {
-    if (itemEl) itemEl.dataset.reported = '1';
+    if (itemEl) {
+      const t = new Date().toLocaleString('ko-KR');
+      sessionReported[reportKey(id)] = t;
+      itemEl.dataset.reported = '1';
+      itemEl.dataset.reportedAt = t;
+      const cb = itemEl.querySelector('.done-cb');
+      if (cb) cb.checked = true;
+      const timeEl = document.getElementById('done-time-' + id);
+      if (timeEl) timeEl.textContent = t;
+    }
     saveProgress();
     showMiss(id);
   };
-  if (navigator.share) {
-    const sd = { title: '체크리스트 업무보고', text };
-    if (d.photos.length) sd.files = d.photos;
-    try {
-      await navigator.share(sd);
-      mark();
-      return;
-    } catch (e) {
-      if (e && e.name === 'AbortError') return;
-    }
-  }
-  if (isSms) {
-    mark();
-    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
+  if (!d.photos.length || !navigator.share) {
+    alert('사진이 없습니다.');
     return;
   }
+  let files = d.photos;
   try {
-    await navigator.clipboard.writeText(text);
-    alert('사진과 업무 내용을 같이 보내지 못했습니다.\n업무 내용은 복사했습니다. 카카오톡에 붙여넣고 사진도 같이 보내 주세요.');
+    files = [];
+    for (let i = 0; i < d.photos.length; i++) files.push(await stampCaption(d.photos[i], text, i + 1));
+  } catch (e) {}
+  try {
+    await navigator.share({ files });
+    mark();
   } catch (e) {
-    alert(text);
+    if (e && e.name === 'AbortError') return;
+    alert('사진을 보내지 못했습니다.');
   }
 }
 window.shareItem = shareItem;
 
-async function makeSummary() {
-  const store = allData[currentStore] || {};
-  const shift = store.shifts?.[shiftSelect.value] || {name:'', items:[]};
-  let sum = `📋 CU 체크리스트 보고서\n`;
-  sum += `점포: ${currentStore}\n`;
-  sum += `관리자: ${store.manager || ''}\n`;
-  sum += `근무타입: ${shiftSelect.value} (${shift.name})\n`;
-  sum += `날짜: ${reportDate.value}\n`;
-  sum += `근무자: ${staffName.value || '미입력'}\n`;
-  sum += `근무시간대: ${workPeriod.value || '-'}\n`;
-  sum += `출근시간: ${document.getElementById('clockTime').textContent || '-'}\n`;
-  sum += `보고시간: ${new Date().toLocaleString('ko-KR')}\n`;
-  sum += `━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-  let photos = [], done = 0;
+function makeSummary() {
+  const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
+  const when = new Date().toLocaleString('ko-KR');
+  let sum = `전체 보고 시간 : ${when}`;
   (shift.items || []).forEach(it => {
-    const d = getItemData(it.id); if (!d) return;
-    if (d.done) done++;
-    const itemEl = document.querySelector(`.item[data-id="${it.id}"]`);
-    const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
-
-    sum += `\n\n▶ ${it.title}\n`;
-    if (desc) sum += `  상세: ${desc}\n`;
-    sum += `  ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
-    if (d.memo) sum += `  메모: ${d.memo}\n`;
-    sum += `  사진: ${d.photos.length}장`;
-    photos.push(...d.photos);
+    const d = getItemData(it.id);
+    const at = sessionReported[reportKey(it.id)] || '';
+    sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
   });
-
-  sum += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  sum += `완료: ${done}/${(shift.items || []).length}`;
-
-  const dayMemo = document.getElementById('dayMemo')?.value.trim();
-  if (dayMemo) {
-    sum += `\n\n📝 오늘 메모\n${dayMemo}`;
-  }
-  return {sum, photos};
+  const memo = document.getElementById('dayMemo')?.value.trim() || '';
+  sum += `\n\n퇴근 보고: ${memo}`;
+  return sum;
 }
 
 function collectMissing() {
-  const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
   const lines = [];
-  (shift?.items || []).forEach(it => {
-    const msg = missMessage(requiredMissing(it.id));
-    if (msg) lines.push(`${it.title}: ${msg}`);
+  document.querySelectorAll('#checklistContainer .item').forEach(el => {
+    const id = el.dataset.id;
+    const title = itemById(id)?.title || '업무';
+    const miss = requiredMissing(id);
+    if (!el.querySelector('.done-cb').checked) lines.push(title + ': 완료가 안 됐습니다.');
+    if (miss.includes('사진')) lines.push(title + ': 사진이 없습니다.');
+    if (miss.includes('보고')) lines.push(title + ': 카톡 또는 문자 보고가 안 됐습니다.');
   });
   return lines;
 }
 
 sendReportBtn.onclick = async () => {
+  if (!document.getElementById('dayMemo')?.value.trim()) {
+    alert('퇴근 보고가 안 됐습니다.');
+    return;
+  }
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
-    alert('누락된 항목이 있습니다.\n\n' + missing.join('\n'));
+    checkAllDone();
+    alert(missing.join('\n'));
     return;
   }
-  const {sum, photos} = await makeSummary();
+  const sum = makeSummary();
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   if (navigator.share) {
-    const sd = { title: 'CU 보고서', text: sum };
-    if (photos.length && photos.length <= 10) sd.files = photos;
-    try { await navigator.share(sd); return; } catch(e){}
+    try { await navigator.share({ text: sum }); return; } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
   }
-  if (confirm('문자로 보낼까요?')) {
-    location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
-  } else {
-    navigator.clipboard.writeText(sum).then(() => alert('복사되었습니다.'));
-  }
+  location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 
 // ===== 출근 / 바코드 =====
