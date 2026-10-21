@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v17</h1>
+  <h1>CU 점포 체크리스트 v18</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -630,6 +630,25 @@ function getItemData(id) {
   };
 }
 
+async function stampCaption(file, text, index) {
+  const img = await createImageBitmap(file);
+  const lines = text.split('\n');
+  const fontSize = Math.max(32, Math.round(img.width / 18));
+  const bar = fontSize * lines.length + 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height + bar;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, img.height, canvas.width, bar);
+  ctx.fillStyle = '#fff';
+  ctx.font = fontSize + 'px sans-serif';
+  lines.forEach((line, i) => ctx.fillText(line, 20, img.height + fontSize + 8 + i * (fontSize + 8)));
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+  if (img.close) img.close();
+  return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
+}
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
@@ -643,27 +662,18 @@ async function shareItem(id, isSms) {
     alert('사진이 없습니다.');
     return;
   }
+  let files = d.photos;
   try {
-    await navigator.share({ text });
+    files = [];
+    for (let i = 0; i < d.photos.length; i++) files.push(await stampCaption(d.photos[i], text, i + 1));
+  } catch (e) {}
+  try {
+    await navigator.share({ files });
+    mark();
   } catch (e) {
     if (e && e.name === 'AbortError') return;
-    alert('사진이 없습니다.');
-    return;
+    alert('사진을 보내지 못했습니다.');
   }
-  const layer = document.createElement('div');
-  layer.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#fff;padding:16px 16px 24px;box-shadow:0 -2px 12px rgba(0,0,0,.2);';
-  layer.innerHTML = '<p style="margin:0 0 12px;font-size:16px;">글을 보냈습니다. 아래를 누르면 사진을 묶어서 보냅니다.</p><button type="button" style="width:100%;background:#6B2C91;color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;">사진 보내기</button>';
-  document.body.appendChild(layer);
-  layer.querySelector('button').onclick = async () => {
-    try {
-      await navigator.share({ files: d.photos });
-      mark();
-      layer.remove();
-    } catch (e) {
-      if (e && e.name === 'AbortError') return;
-      alert('사진을 보내지 못했습니다.');
-    }
-  };
 }
 window.shareItem = shareItem;
 
