@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v8</h1>
+  <h1>CU 점포 체크리스트 v9</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -523,19 +523,19 @@ function checkAllDone() {
 
 function takePhoto(id) {
   const inp = document.createElement('input');
-  inp.type = 'file';
-  inp.accept = 'image/*';
-  inp.capture = 'environment';
-  inp.style.display = 'none';
+  inp.setAttribute('type', 'file');
+  inp.setAttribute('accept', 'image/*');
+  inp.setAttribute('capture', 'environment');
+  inp.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;';
   document.body.appendChild(inp);
   inp.onchange = e => {
-    const f = e.target.files[0];
-    if (!f) { document.body.removeChild(inp); return; }
+    const f = e.target.files && e.target.files[0];
+    if (inp.parentNode) inp.parentNode.removeChild(inp);
+    if (!f) return;
     if (!currentPhotos[id]) currentPhotos[id] = [];
     currentPhotos[id].push(f);
     renderPhotoPreview(id);
     showMiss(id);
-    document.body.removeChild(inp);
   };
   inp.click();
 }
