@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v16</h1>
+  <h1>CU 점포 체크리스트 v17</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -650,14 +650,20 @@ async function shareItem(id, isSms) {
     alert('사진이 없습니다.');
     return;
   }
-  alert('확인을 누르면 사진을 묶어서 보냅니다.');
-  try {
-    await navigator.share({ files: d.photos });
-    mark();
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    alert('사진이 없습니다.');
-  }
+  const layer = document.createElement('div');
+  layer.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#fff;padding:16px 16px 24px;box-shadow:0 -2px 12px rgba(0,0,0,.2);';
+  layer.innerHTML = '<p style="margin:0 0 12px;font-size:16px;">글을 보냈습니다. 아래를 누르면 사진을 묶어서 보냅니다.</p><button type="button" style="width:100%;background:#6B2C91;color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;">사진 보내기</button>';
+  document.body.appendChild(layer);
+  layer.querySelector('button').onclick = async () => {
+    try {
+      await navigator.share({ files: d.photos });
+      mark();
+      layer.remove();
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      alert('사진을 보내지 못했습니다.');
+    }
+  };
 }
 window.shareItem = shareItem;
 
