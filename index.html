@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v14</h1>
+  <h1>CU 점포 체크리스트 v15</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -630,6 +630,25 @@ function getItemData(id) {
   };
 }
 
+async function stampCaption(file, text, index) {
+  const img = await createImageBitmap(file);
+  const lines = text.split('\n');
+  const fontSize = Math.max(32, Math.round(img.width / 18));
+  const bar = fontSize * lines.length + 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height + bar;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, img.height, canvas.width, bar);
+  ctx.fillStyle = '#fff';
+  ctx.font = fontSize + 'px sans-serif';
+  lines.forEach((line, i) => ctx.fillText(line, 20, img.height + fontSize + 8 + i * (fontSize + 8)));
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+  if (img.close) img.close();
+  return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
+}
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
@@ -643,13 +662,15 @@ async function shareItem(id, isSms) {
     alert('사진이 없습니다.');
     return;
   }
-  const sd = { text, files: d.photos };
-  if (navigator.canShare && !navigator.canShare(sd)) {
-    alert('사진이 없습니다.');
-    return;
-  }
+  let files = d.photos;
   try {
-    await navigator.share(sd);
+    files = [];
+    for (let i = 0; i < d.photos.length; i++) files.push(await stampCaption(d.photos[i], text, i + 1));
+  } catch (e) {}
+  const sd = { text, files };
+  try {
+    if (!navigator.canShare || navigator.canShare(sd)) await navigator.share(sd);
+    else await navigator.share({ files });
     mark();
   } catch (e) {
     if (e && e.name === 'AbortError') return;
