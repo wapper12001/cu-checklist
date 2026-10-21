@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v11</h1>
+  <h1>CU 점포 체크리스트 v12</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -636,30 +636,31 @@ async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
-  const shiftTxt = shiftSelect.options[shiftSelect.selectedIndex]?.text || '';
   const itemEl = document.querySelector(`.item[data-id="${id}"]`);
-  const desc = itemEl?.querySelector('.item-desc')?.textContent?.trim() || '';
-
-  let text = `[${currentStore}] ${shiftTxt}\n`;
-  text += `날짜: ${reportDate.value}\n`;
-  text += `근무자: ${staffName.value || '미입력'}\n`;
-  text += `출근: ${document.getElementById('clockTime').textContent || '-'}\n\n`;
-  text += `▶ 업무: ${d.title}\n`;
-  if (desc) text += `상세: ${desc}\n`;
-  text += `상태: ${d.done ? '✅ 완료' : '❌ 미완료'}\n`;
-  if (d.memo) text += `메모: ${d.memo}\n`;
-  text += `사진: ${d.photos.length}장`;
-
+  const text = `업무: ${d.title}\n상태: ${d.done ? '완료' : '미완료'}`;
   const mark = () => {
     if (itemEl) itemEl.dataset.reported = '1';
     saveProgress();
     showMiss(id);
   };
+  const sayNoPhoto = () => alert('사진 첨부가 안됐습니다.');
+  if (navigator.share && d.photos.length) {
+    const sd = { title: d.title, text, files: d.photos };
+    const can = !navigator.canShare || navigator.canShare(sd);
+    if (can) {
+      try {
+        await navigator.share(sd);
+        mark();
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+  }
+  sayNoPhoto();
   if (navigator.share) {
-    const sd = { title: '체크리스트 업무보고', text };
-    if (d.photos.length) sd.files = d.photos;
     try {
-      await navigator.share(sd);
+      await navigator.share({ title: d.title, text });
       mark();
       return;
     } catch (e) {
@@ -673,7 +674,6 @@ async function shareItem(id, isSms) {
   }
   try {
     await navigator.clipboard.writeText(text);
-    alert('사진과 업무 내용을 같이 보내지 못했습니다.\n업무 내용은 복사했습니다. 카카오톡에 붙여넣고 사진도 같이 보내 주세요.');
   } catch (e) {
     alert(text);
   }
