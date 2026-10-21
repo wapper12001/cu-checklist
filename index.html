@@ -81,7 +81,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v23</h1>
+  <h1>CU 점포 체크리스트 v24</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -504,26 +504,37 @@ function refreshAllMiss() {
 function onItemEdited(e) {
   const cb = e.target.classList && e.target.classList.contains('done-cb') ? e.target : null;
   if (cb && cb.checked) {
-    const el = cb.closest('.item');
-    const id = el.dataset.id;
-    const miss = requiredMissing(id);
-    if (miss.length) {
-      cb.checked = false;
-      showMiss(id);
-      alert(missMessage(miss));
-    }
+    const id = cb.closest('.item').dataset.id;
+    if (requiredMissing(id).length) cb.checked = false;
   }
   saveProgress();
   refreshAllMiss();
 }
+checklistContainer.addEventListener('click', (e) => {
+  const cb = e.target.closest && e.target.closest('.done-cb');
+  if (!cb) return;
+  const el = cb.closest('.item');
+  const miss = requiredMissing(el.dataset.id);
+  if (!miss.length) return;
+  e.preventDefault();
+  showMiss(el.dataset.id);
+  alert(missMessage(miss));
+  setTimeout(() => { cb.checked = false; saveProgress(); }, 0);
+});
 
 function checkAllDone() {
-  const boxes = checklistContainer.querySelectorAll('.done-cb');
-  if (boxes.length === 0) {
+  const items = checklistContainer.querySelectorAll('.item');
+  if (!items.length) {
     bottomBar.classList.add('hidden');
     return;
   }
-  const allDone = Array.from(boxes).every(cb => cb.checked) && collectMissing().length === 0;
+  let allDone = true;
+  items.forEach(el => {
+    const cb = el.querySelector('.done-cb');
+    const miss = requiredMissing(el.dataset.id);
+    if (!cb.checked || miss.length) allDone = false;
+    if (cb.checked && miss.length) cb.checked = false;
+  });
   bottomBar.classList.toggle('hidden', !allDone);
 }
 
@@ -717,11 +728,14 @@ function makeSummary() {
 }
 
 function collectMissing() {
-  const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
   const lines = [];
-  (shift?.items || []).forEach(it => {
-    const msg = missMessage(requiredMissing(it.id));
-    if (msg) lines.push(`${it.title}: ${msg}`);
+  document.querySelectorAll('#checklistContainer .item').forEach(el => {
+    const id = el.dataset.id;
+    const title = itemById(id)?.title || '업무';
+    const miss = requiredMissing(id);
+    if (!el.querySelector('.done-cb').checked) lines.push(title + ': 완료가 안 됐습니다.');
+    if (miss.includes('사진')) lines.push(title + ': 사진이 없습니다.');
+    if (miss.includes('보고')) lines.push(title + ': 카톡 또는 문자 보고가 안 됐습니다.');
   });
   return lines;
 }
@@ -734,7 +748,8 @@ sendReportBtn.onclick = async () => {
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
-    alert('누락된 항목이 있습니다.\n\n' + missing.join('\n'));
+    checkAllDone();
+    alert(missing.join('\n'));
     return;
   }
   const sum = makeSummary();
