@@ -83,7 +83,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v30</h1>
+  <h1>CU 점포 체크리스트 v31</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -223,6 +223,7 @@ let allData = {};
 let currentStore = "";
 let currentPhotos = {};
 let sessionReported = {};
+let savedHasPhoto = {};
 let clickCount = 0;
 let clickTimer = null;
 let editingStore = null; // null = new, string = edit
@@ -388,8 +389,9 @@ function saveProgress() {
     data.items[id] = {
       done: el.querySelector('.done-cb').checked,
       memo: el.querySelector('textarea')?.value || '',
-      reported: el.dataset.reported === '1',
-      reportedAt: el.dataset.reportedAt || ''
+      reported: el.dataset.reported === '1' || !!sessionReported[reportKey(id)],
+      reportedAt: el.dataset.reportedAt || sessionReported[reportKey(id)] || '',
+      hasPhoto: (currentPhotos[id] || []).length > 0 || !!savedHasPhoto[id]
     };
   });
   try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
@@ -432,24 +434,30 @@ function renderChecklist() {
     return;
   }
   const saved = loadProgress();
+  currentPhotos = {};
+  savedHasPhoto = {};
   checklistContainer.innerHTML = items.map(item => {
-    const sv = (saved && saved.items && saved.items[item.id]) || {};
+    const id = String(item.id);
+    const sv = (saved && saved.items && (saved.items[item.id] || saved.items[id])) || {};
+    if (sv.reported && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
+    if (sv.hasPhoto) savedHasPhoto[id] = true;
     const hasDesc = item.desc && item.desc.trim();
+    const ok = sv.done && requiredMissing(id).length === 0;
     return `
-      <div class="card item" data-id="${item.id}" data-reported="0">
+      <div class="card item" data-id="${id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
         <div class="item-title">${item.title}
           ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
         <div class="item-desc hidden">${item.desc||''}</div>
-        <div class="done-check"><input type="checkbox" class="done-cb"><span>완료</span><span class="done-time" id="done-time-${item.id}"></span></div>
+        <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>완료</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 사진찍기</button>
           <button type="button" class="btn-kakao">카톡</button>
           <button type="button" class="btn-sms">문자</button>
         </div>
-        <div class="photo-preview" id="photos-${item.id}"></div>
-        <div class="miss-msg" id="miss-${item.id}"></div>
+        <div class="photo-preview" id="photos-${id}"></div>
+        <div class="miss-msg" id="miss-${id}"></div>
       </div>`;
   }).join('');
   Object.keys(currentPhotos).forEach(id => renderPhotoPreview(id));
@@ -475,6 +483,7 @@ function renderChecklist() {
   });
   saveProgress();
   refreshAllMiss();
+  restoreSavedPhotos(items);
 }
 
 function itemById(id) {
@@ -487,11 +496,56 @@ function missMessage(miss) {
   return '';
 }
 function reportKey(id) {
-  return currentStore + '|' + shiftSelect.value + '|' + id;
+  return getKey() + '|' + id;
+}
+function photoDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('cu-checklist', 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains('photos')) req.result.createObjectStore('photos');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function persistItemPhotos(id) {
+  const files = currentPhotos[id] || [];
+  savedHasPhoto[String(id)] = files.length > 0;
+  saveProgress();
+  photoDb().then(db => Promise.all(files.map(async f => ({ name: f.name, type: f.type, buf: await f.arrayBuffer() }))).then(packed => new Promise((resolve, reject) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').put(packed, getKey() + '|' + id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }))).catch(() => {});
+}
+async function restoreSavedPhotos(items) {
+  let db;
+  try { db = await photoDb(); } catch (e) { return; }
+  for (const item of items) {
+    const id = String(item.id);
+    const packed = await new Promise(resolve => {
+      const tx = db.transaction('photos', 'readonly');
+      const req = tx.objectStore('photos').get(getKey() + '|' + id);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+    if (!packed.length) continue;
+    currentPhotos[id] = packed.map(b => new File([b.buf], b.name || 'photo.jpg', { type: b.type || 'image/jpeg' }));
+    savedHasPhoto[id] = true;
+    renderPhotoPreview(id);
+  }
+  refreshAllMiss();
+  checkAllDone();
+}
+function needsPhoto(id) {
+  const it = itemById(id);
+  return !!(it && (it.photo_required === true || it.photo_required === 'true' || it.photo_required === 1));
 }
 function requiredMissing(id) {
+  if (!needsPhoto(id)) return [];
   const miss = [];
-  if (!(currentPhotos[id] || []).length) miss.push('사진');
+  if (!(currentPhotos[id] || []).length && !savedHasPhoto[String(id)]) miss.push('사진');
   if (!sessionReported[reportKey(id)]) miss.push('보고');
   return miss;
 }
@@ -547,6 +601,7 @@ function addPhotoFile(id, file) {
   currentPhotos[id].push(file);
   renderPhotoPreview(id);
   showMiss(id);
+  persistItemPhotos(id);
 }
 function takePhotoByFile(id) {
   const inp = document.createElement('input');
@@ -633,11 +688,12 @@ function renderPhotoPreview(id) {
 }
 function removePhoto(id, i) {
   if (currentPhotos[id]) { currentPhotos[id].splice(i,1); renderPhotoPreview(id); }
+  if (!(currentPhotos[id] || []).length) savedHasPhoto[String(id)] = false;
   if (requiredMissing(id).length) {
     const cb = document.querySelector(`.item[data-id="${id}"] .done-cb`);
     if (cb) cb.checked = false;
   }
-  saveProgress();
+  persistItemPhotos(id);
   showMiss(id);
   checkAllDone();
 }
