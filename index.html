@@ -89,13 +89,13 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v39</h1>
+  <h1>CU 점포 체크리스트 v40</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
   <div id="reportScreen">
     <div class="card">
-      <button class="btn-primary" id="clockInBtn" style="width:100%; margin-bottom:12px;">출근 (바코드 스캔)</button>
+      <button class="btn-primary" id="clockInBtn" type="button" disabled style="width:100%; margin-bottom:12px; background:#cfcfcf; color:#666; cursor:default;">※ 업데이트 예정</button>
       <div id="clockInfo" class="hidden">
         <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
         <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
@@ -843,10 +843,7 @@ sendReportBtn.onclick = async () => {
 };
 
 // ===== 출근 / 바코드 =====
-document.getElementById('clockInBtn').onclick = () => {
-  document.getElementById('barcodeModal').classList.remove('hidden');
-  document.getElementById('barcodeInput').value = '';
-};
+document.getElementById('clockInBtn').onclick = null;
 document.getElementById('confirmBarcode').onclick = () => {
   const code = document.getElementById('barcodeInput').value.trim() || '스캔됨';
   const now = new Date();
