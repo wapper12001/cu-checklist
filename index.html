@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v37</h1>
+  <h1>CU 점포 체크리스트 v38</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -381,6 +381,7 @@ function updateManagerInfo(d) {
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
       <div style="margin-top:8px;"><strong>전화번호:</strong> ${phone}</div>
+      <div style="margin-top:4px;"><strong>CU고객센터:</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
