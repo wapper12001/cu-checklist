@@ -37,8 +37,12 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-photo { background: #2196F3; color: white; }
 .btn-danger { background: #6B2C91; color: white; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.item { border-left: 4px solid #6B2C91; padding-left: 12px; margin-bottom: 16px; }
-.item-title { font-weight: 700; font-size: 16px; }
+.item { border-left: 6px solid #6B2C91; padding: 14px 14px 14px 12px; margin-bottom: 16px; }
+.item-title { font-weight: 700; font-size: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.item-no { width: 26px; height: 26px; border-radius: 50%; background: #6B2C91; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: none; }
+.edit-item { border: 1px solid #eadcf3; border-radius: 12px; margin-bottom: 14px; overflow: hidden; background: #fff; padding: 0; }
+.edit-head { background: #6B2C91; color: #fff; display: flex; align-items: center; gap: 6px; padding: 8px 10px; font-weight: 700; }
+.edit-body { padding: 10px; }
 .item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; white-space: pre-wrap; }
 .done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .done-check input { width: 20px; height: 20px; }
@@ -53,7 +57,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .modal-content { background: white; padding: 20px; border-radius: 12px; width: 92%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
 .shift-block { border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fafafa; }
-.edit-item { background: white; padding: 8px; margin-bottom: 8px; border-radius: 6px; }
+.edit-item { background: white; margin-bottom: 14px; }
 .info-line { font-size: 14px; margin: 4px 0; }
 </style>
 </head>
@@ -83,7 +87,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v33</h1>
+  <h1>CU 점포 체크리스트 v34</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -436,7 +440,7 @@ function renderChecklist() {
   const saved = loadProgress();
   currentPhotos = {};
   savedHasPhoto = {};
-  checklistContainer.innerHTML = items.map(item => {
+  checklistContainer.innerHTML = items.map((item, index) => {
     const id = String(item.id);
     const sv = (saved && saved.items && (saved.items[item.id] || saved.items[id])) || {};
     if (sv.reported && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
@@ -457,7 +461,7 @@ function renderChecklist() {
         <div class="miss-msg" id="miss-${id}"></div>` : '';
     return `
       <div class="card item" data-id="${id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
-        <div class="item-title">${item.title}
+        <div class="item-title"><span class="item-no">${index + 1}</span>${item.title}
           ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
         <div class="item-desc hidden">${descHtml}</div>
@@ -1079,21 +1083,31 @@ function renderEditShifts(shifts) {
 function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   const d = document.createElement('div');
   d.className = 'edit-item';
-  d.style.cssText = 'border:1px solid #eee; padding:10px; margin-bottom:8px; border-radius:6px; background:#fff;';
   d.innerHTML = `
-    <div style="display:flex; gap:6px; margin-bottom:6px; align-items:center;">
-      <span style="font-weight:700; color:#6B2C91;">순서</span>
+    <div class="edit-head">
+      <span class="item-no-label">항목</span>
       <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
       <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
-      <button class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="this.closest('.edit-item').remove()">삭제</button>
+      <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto; background:#fff; color:#6B2C91;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
-    <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
-    <button class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.nextElementSibling.classList.toggle('hidden')">상세순서</button>
-    <textarea class="i-desc hidden" placeholder="상세 순서 설명">${item.desc||''}</textarea>
-    <label style="margin-top:4px;"><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
+    <div class="edit-body">
+      <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
+      <button class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.nextElementSibling.classList.toggle('hidden')">상세순서</button>
+      <textarea class="i-desc hidden" placeholder="상세 순서 설명">${item.desc||''}</textarea>
+      <label style="margin-top:4px;"><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
+    </div>
   `;
   container.appendChild(d);
+  renumberItems(container);
 }
+function renumberItems(container) {
+  if (!container) return;
+  container.querySelectorAll('.edit-item').forEach((el, i) => {
+    const n = el.querySelector('.item-no-label');
+    if (n) n.textContent = (i + 1) + '번 항목';
+  });
+}
+window.renumberItems = renumberItems;
 
 function moveItem(btn, dir) {
   const item = btn.closest('.edit-item');
@@ -1108,6 +1122,7 @@ function moveItem(btn, dir) {
     container.insertBefore(item, items[newIdx].nextSibling);
   }
   captureDraft();
+  renumberItems(container);
 }
 window.addItem = addItem;
 window.moveItem = moveItem;
