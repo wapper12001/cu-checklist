@@ -89,13 +89,16 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v40</h1>
+  <h1>CU 점포 체크리스트 v41</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
   <div id="reportScreen">
     <div class="card">
-      <button class="btn-primary" id="clockInBtn" type="button" disabled style="width:100%; margin-bottom:12px; background:#cfcfcf; color:#666; cursor:default;">※ 업데이트 예정</button>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+        <button class="btn-primary" id="clockInBtn" type="button" disabled style="flex:1; margin:0; background:#6B2C91; color:#fff; opacity:0.55; cursor:default;">출근 (바코드 스캔)</button>
+        <span style="color:#b00020; font-weight:800; font-size:13px; white-space:nowrap;">※ 업데이트 예정</span>
+      </div>
       <div id="clockInfo" class="hidden">
         <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
         <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
