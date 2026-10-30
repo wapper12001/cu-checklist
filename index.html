@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v36</h1>
+  <h1>CU 점포 체크리스트 v37</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -364,13 +364,27 @@ function updateManagerInfo(d) {
     storeInfo.innerHTML = '';
     return;
   }
-  const manager = d.manager || '미등록';
-  const phone = d.phone || '미등록';
+  const esc = s => String(s).replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
+  const manager = esc(d.manager || '미등록');
+  const phone = esc(d.phone || '미등록');
   storeInfo.innerHTML = `
     <div style="margin-top:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
-      <strong>관리자:</strong> ${manager}<br>
-      <strong>전화번호:</strong> ${phone}
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <strong>관리자:</strong> ${manager}
+        <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">근무자 필독!</button>
+      </div>
+      <div id="mustRead" class="hidden" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
+        <p style="margin:0 0 10px; font-weight:800;">※ 미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매</p>
+        <p style="margin:0 0 10px; font-weight:800;">※ 본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.</p>
+        <p style="margin:0 0 6px;"><strong>CU 24시 고객센터:</strong> <a href="tel:1577-3663" style="color:#b00020;">1577-3663</a></p>
+        <p style="margin:0 0 8px;"><strong>업무 챗봇:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a></p>
+        <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
+      </div>
+      <div style="margin-top:8px;"><strong>전화번호:</strong> ${phone}</div>
     </div>`;
+  document.getElementById('mustReadBtn').onclick = () => {
+    document.getElementById('mustRead').classList.toggle('hidden');
+  };
 }
 
 shiftSelect.onchange = () => {
