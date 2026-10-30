@@ -39,7 +39,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border-left: 4px solid #6B2C91; padding-left: 12px; margin-bottom: 16px; }
 .item-title { font-weight: 700; font-size: 16px; }
-.item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; }
+.item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; white-space: pre-wrap; }
 .done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .done-check input { width: 20px; height: 20px; }
 .done-check .done-time { color: #555; font-size: 13px; }
@@ -83,7 +83,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v32</h1>
+  <h1>CU 점포 체크리스트 v33</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -441,8 +441,12 @@ function renderChecklist() {
     const sv = (saved && saved.items && (saved.items[item.id] || saved.items[id])) || {};
     if (sv.reported && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
     if (sv.hasPhoto) savedHasPhoto[id] = true;
-    const hasDesc = item.desc && item.desc.trim();
     const ok = sv.done && requiredMissing(id).length === 0;
+    let desc = (item.desc || '').trim();
+    if (!desc && (item.title || '').trim() === '휴식') {
+      desc = '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.';
+    }
+    const descHtml = desc.replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
     const photoRow = needsPhoto(id) ? `
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 사진찍기</button>
@@ -454,9 +458,9 @@ function renderChecklist() {
     return `
       <div class="card item" data-id="${id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
         <div class="item-title">${item.title}
-          ${hasDesc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
+          ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
         </div>
-        <div class="item-desc hidden">${item.desc||''}</div>
+        <div class="item-desc hidden">${descHtml}</div>
         <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>완료</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
         ${photoRow}
