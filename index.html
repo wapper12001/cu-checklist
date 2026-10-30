@@ -83,7 +83,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v31</h1>
+  <h1>CU 점포 체크리스트 v32</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -443,6 +443,14 @@ function renderChecklist() {
     if (sv.hasPhoto) savedHasPhoto[id] = true;
     const hasDesc = item.desc && item.desc.trim();
     const ok = sv.done && requiredMissing(id).length === 0;
+    const photoRow = needsPhoto(id) ? `
+        <div class="btn-row">
+          <button type="button" class="btn-photo">📷 사진찍기</button>
+          <button type="button" class="btn-kakao">카톡</button>
+          <button type="button" class="btn-sms">문자</button>
+        </div>
+        <div class="photo-preview" id="photos-${id}"></div>
+        <div class="miss-msg" id="miss-${id}"></div>` : '';
     return `
       <div class="card item" data-id="${id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
         <div class="item-title">${item.title}
@@ -451,13 +459,7 @@ function renderChecklist() {
         <div class="item-desc hidden">${item.desc||''}</div>
         <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>완료</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
         <label>메모</label><textarea>${sv.memo||''}</textarea>
-        <div class="btn-row">
-          <button type="button" class="btn-photo">📷 사진찍기</button>
-          <button type="button" class="btn-kakao">카톡</button>
-          <button type="button" class="btn-sms">문자</button>
-        </div>
-        <div class="photo-preview" id="photos-${id}"></div>
-        <div class="miss-msg" id="miss-${id}"></div>
+        ${photoRow}
       </div>`;
   }).join('');
   Object.keys(currentPhotos).forEach(id => renderPhotoPreview(id));
