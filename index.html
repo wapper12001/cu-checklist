@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v41</h1>
+  <h1>CU 점포 체크리스트 v42</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -329,7 +329,7 @@ function refreshStoreSelect() {
   }
 }
 loadData(); // Supabase에서 불러오기
-reportDate.valueAsDate = new Date();
+reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
