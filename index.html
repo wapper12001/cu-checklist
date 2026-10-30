@@ -37,15 +37,14 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-photo { background: #2196F3; color: white; }
 .btn-danger { background: #6B2C91; color: white; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.item { border: 2px solid #6B2C91; padding: 14px; margin-bottom: 12px; }
-.card.item:nth-child(odd) { background: #F3E9F8; }
-.card.item:nth-child(even) { background: #fff; }
-.item-title { font-weight: 700; font-size: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
+.card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
+.card.item > *:not(.item-title) { padding-left: 14px; padding-right: 14px; }
+.item-title { font-weight: 700; font-size: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: #F3E9F8; padding: 12px 14px; margin: 0 0 10px; }
 .item-no { width: 26px; height: 26px; border-radius: 50%; background: #6B2C91; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: none; }
-.edit-item { border: 2px solid #6B2C91; border-radius: 12px; margin-bottom: 12px; overflow: hidden; padding: 0; }
-.edit-item:nth-child(odd) { background: #F3E9F8; }
-.edit-item:nth-child(even) { background: #fff; }
-.edit-head { background: transparent; color: #6B2C91; display: flex; align-items: center; gap: 6px; padding: 8px 10px; font-weight: 700; }
+.edit-item { border: none; border-radius: 12px; margin-bottom: 14px; overflow: hidden; padding: 0; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.edit-item:nth-child(odd), .edit-item:nth-child(even) { background: #fff; }
+.edit-head { background: #F3E9F8; color: #6B2C91; display: flex; align-items: center; gap: 6px; padding: 10px 12px; font-weight: 700; }
 .edit-body { padding: 0 10px 10px; }
 .item-desc { font-size: 13px; color: #555; margin: 4px 0 8px; white-space: pre-wrap; }
 .done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -90,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v35</h1>
+  <h1>CU 점포 체크리스트 v36</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
