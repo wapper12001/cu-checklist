@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v52</h1>
+  <h1>CU 점포 체크리스트 v53</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -693,7 +693,8 @@ function hideCigaretteCheck() {
   return minutes != null && minutes <= 5 * 60;
 }
 function isAmbientLogistics(title) {
-  const t = title || '';
+  const t = (title || '').replace(/\s/g, '');
+  if (t.includes('소분박스') && t.includes('진열')) return true;
   return t.includes('상온') && /입고|검수|진열/.test(t);
 }
 function addItemOnce(items, it) {
