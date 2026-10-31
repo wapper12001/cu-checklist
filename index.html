@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v46</h1>
+  <h1>CU 점포 체크리스트 v47</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -339,7 +339,7 @@ reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', ye
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
-workPeriod.oninput = () => { saveProgress(); scheduleDiscardCheck(); };
+workPeriod.oninput = () => { saveProgress(); if (shiftSelect.value) renderChecklist(); else scheduleDiscardCheck(); };
 document.getElementById('dayMemo').oninput = saveProgress;
 (function () {
   const memo = document.getElementById('dayMemo');
@@ -657,24 +657,56 @@ function renderChecklist() {
   restoreSavedPhotos(items);
 }
 
-function isKoreaSunday() {
-  return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date()) === 'Sun';
+function selectedYmd() {
+  const v = reportDate && reportDate.value;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v || '')) {
+    const [y, m, d] = v.split('-').map(Number);
+    return { y, m, d };
+  }
+  const [y, m, d] = koreaNow().date.split('-').map(Number);
+  return { y, m, d };
+}
+function isSelectedSunday() {
+  const { y, m, d } = selectedYmd();
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12))) === 'Sun';
+}
+function showcardKind() {
+  const { y, m, d } = selectedYmd();
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  if (d === last) return 'last';
+  if (d === last - 1) return 'prev';
+  return '';
+}
+function includesOvernight(range) {
+  const nightEnd = 6 * 60;
+  if (range.start < range.end) return range.start < nightEnd && range.end > 0;
+  return range.end > 0;
+}
+function skipSundayTasks() {
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) return false;
+  const short = (range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end) <= 5 * 60;
+  return short && !includesOvernight(range);
 }
 function isAmbientLogistics(title) {
   const t = title || '';
   return t.includes('상온') && /입고|검수|진열/.test(t);
 }
+function addItemOnce(items, it) {
+  if (!items.some(x => (x.title || '').trim() === it.title)) items.push(it);
+}
 function visibleItems(shift) {
   let items = (shift?.items || []).filter(it => it && it.title);
-  if (!isKoreaSunday()) return items;
-  items = items.filter(it => !isAmbientLogistics(it.title));
-  const extra = [
-    { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true },
-    { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true }
-  ];
-  extra.forEach(it => {
-    if (!items.some(x => (x.title || '').trim() === it.title)) items.push(it);
-  });
+  if (isSelectedSunday()) {
+    items = items.filter(it => !isAmbientLogistics(it.title));
+    if (!skipSundayTasks()) {
+      addItemOnce(items, { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
+      addItemOnce(items, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
+    }
+  }
+  const kind = showcardKind();
+  if (kind === 'prev') addItemOnce(items, { id: 'showcard-collect', title: '행사 쇼카드 뜯어서 모으기', desc: '매장에 꽂혀 있는 이번달 행사 쇼카드를 뜯어서 모읍니다.', photo_required: true });
+  if (kind === 'last') addItemOnce(items, { id: 'showcard-replace', title: '행사 쇼카드 교체', desc: '이번달 행사 쇼카드를 제거하고 다음달 행사 쇼카드를 꽂습니다.', photo_required: true });
   return items;
 }
 function itemById(id) {
