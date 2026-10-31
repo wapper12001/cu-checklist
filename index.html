@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v43</h1>
+  <h1>CU 점포 체크리스트 v44</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -368,7 +368,7 @@ function onStoreChange() {
     return `<option value="${k}">${k} (${name})</option>`;
   }).join('');
   checklistContainer.innerHTML = '';
-  checkDiscards();
+  scheduleDiscardCheck();
 }
 
 const DISCARD_SLOTS = [
@@ -394,8 +394,14 @@ function dueDiscards() {
     if (now.minutes < s.min) return false;
     if (s.who === '19' && hours !== '19') return false;
     if (s.who === '24' && hours !== '24') return false;
-    return !localStorage.getItem('discard_' + currentStore + '_' + now.date + '_' + s.id);
+    return !localStorage.getItem('discard44_' + currentStore + '_' + now.date + '_' + s.id);
   });
+}
+let discardTimer = null;
+let discardShownAt = 0;
+function scheduleDiscardCheck() {
+  clearTimeout(discardTimer);
+  discardTimer = setTimeout(checkDiscards, 400);
 }
 function checkDiscards() {
   const due = dueDiscards();
@@ -404,14 +410,17 @@ function checkDiscards() {
     modal.classList.add('hidden');
     return;
   }
-  document.getElementById('discardBody').innerHTML = due.map(s => `<p style="margin:0 0 10px;"><strong>${s.title}</strong><br>${s.body}</p>`).join('');
+  const store = currentStore || '';
+  document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `<p style="margin:0 0 10px;"><strong>${s.title}</strong><br>${s.body}</p>`).join('');
   modal.dataset.ids = due.map(s => s.id).join(',');
   modal.classList.remove('hidden');
+  discardShownAt = Date.now();
 }
 document.getElementById('discardOk').onclick = () => {
+  if (Date.now() - discardShownAt < 700) return;
   const now = koreaNow();
   (document.getElementById('discardModal').dataset.ids || '').split(',').filter(Boolean).forEach(id => {
-    localStorage.setItem('discard_' + currentStore + '_' + now.date + '_' + id, '1');
+    localStorage.setItem('discard44_' + currentStore + '_' + now.date + '_' + id, '1');
   });
   document.getElementById('discardModal').classList.add('hidden');
 };
