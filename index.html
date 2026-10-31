@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v56</h1>
+  <h1>CU 점포 체크리스트 v57</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -724,24 +724,21 @@ function visibleItems(shift) {
     });
     items = collapsed;
   }
+  const endAt = items.findIndex(it => {
+    const t = (it.title || '').trim();
+    return t.startsWith('퇴근전') || t === '퇴근' || (t.startsWith('퇴근') && !t.startsWith('퇴근전'));
+  });
+  const body = endAt < 0 ? items : items.slice(0, endAt);
+  const tail = endAt < 0 ? [] : items.slice(endAt);
   if (isSelectedSunday() && !skipSundayTasks()) {
-    addItemOnce(items, { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
-    addItemOnce(items, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
+    addItemOnce(body, { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
+    addItemOnce(body, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
   }
   const kinds = showcardKinds();
-  if (kinds.includes('prep')) addItemOnce(items, { id: 'showcard-prep', title: '새 달 쇼카드 모으기', desc: '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.', photo_required: true });
-  if (kinds.includes('month')) addItemOnce(items, { id: 'showcard-month', title: '월 행사 쇼카드 교체', desc: '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.', photo_required: true });
-  if (kinds.includes('period')) addItemOnce(items, { id: 'showcard-period', title: '기간행사 쇼카드 교체', desc: '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.', photo_required: true });
-  const beforeEnd = [];
-  const clockOut = [];
-  const rest = [];
-  items.forEach(it => {
-    const t = (it.title || '').trim();
-    if (t.startsWith('퇴근전')) beforeEnd.push(it);
-    else if (t === '퇴근' || t.startsWith('퇴근')) clockOut.push(it);
-    else rest.push(it);
-  });
-  return rest.concat(beforeEnd, clockOut);
+  if (kinds.includes('prep')) addItemOnce(body, { id: 'showcard-prep', title: '새 달 쇼카드 모으기', desc: '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.', photo_required: true });
+  if (kinds.includes('month')) addItemOnce(body, { id: 'showcard-month', title: '월 행사 쇼카드 교체', desc: '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.', photo_required: true });
+  if (kinds.includes('period')) addItemOnce(body, { id: 'showcard-period', title: '기간행사 쇼카드 교체', desc: '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.', photo_required: true });
+  return body.concat(tail);
 }
 function itemById(id) {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
