@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v45</h1>
+  <h1>CU 점포 체크리스트 v46</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -592,7 +592,7 @@ function renderChecklist() {
   }
   if (!d.shifts[key]) d.shifts[key] = { name: key, items: [] };
   const shift = d.shifts[key];
-  const items = shift.items || [];
+  const items = visibleItems(shift);
   if (items.length === 0) {
     checklistContainer.innerHTML = '<div class="card" style="text-align:center; color:#888;">이 근무타입에 등록된 체크리스트가 없습니다.<br>관리자 모드에서 항목을 추가하세요.</div>';
     checkAllDone();
@@ -657,9 +657,29 @@ function renderChecklist() {
   restoreSavedPhotos(items);
 }
 
+function isKoreaSunday() {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date()) === 'Sun';
+}
+function isAmbientLogistics(title) {
+  const t = title || '';
+  return t.includes('상온') && /입고|검수|진열/.test(t);
+}
+function visibleItems(shift) {
+  let items = (shift?.items || []).filter(it => it && it.title);
+  if (!isKoreaSunday()) return items;
+  items = items.filter(it => !isAmbientLogistics(it.title));
+  const extra = [
+    { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true },
+    { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true }
+  ];
+  extra.forEach(it => {
+    if (!items.some(x => (x.title || '').trim() === it.title)) items.push(it);
+  });
+  return items;
+}
 function itemById(id) {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
-  return (shift?.items || []).find(it => String(it.id) === String(id));
+  return visibleItems(shift).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
   if (miss.includes('사진')) return '사진이 없습니다.';
@@ -941,7 +961,7 @@ function makeSummary() {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
   const when = new Date().toLocaleString('ko-KR');
   let sum = `전체 보고 시간 : ${when}`;
-  (shift.items || []).forEach(it => {
+  visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
