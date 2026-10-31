@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v53</h1>
+  <h1>CU 점포 체크리스트 v54</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -670,12 +670,13 @@ function isSelectedSunday() {
   const { y, m, d } = selectedYmd();
   return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12))) === 'Sun';
 }
-function showcardKind() {
+function showcardKinds() {
   const { y, m, d } = selectedYmd();
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  if (d === last) return 'last';
-  if (d === last - 1) return 'prev';
-  return '';
+  const kinds = [];
+  if (d === last || d === 1 || d === 2) kinds.push('month');
+  if (d === 16) kinds.push('period');
+  return kinds;
 }
 function shiftMinutes(range) {
   return range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end;
@@ -726,9 +727,9 @@ function visibleItems(shift) {
     addItemOnce(items, { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
     addItemOnce(items, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
   }
-  const kind = showcardKind();
-  if (kind === 'prev') addItemOnce(items, { id: 'showcard-collect', title: '행사 쇼카드 뜯어서 모으기', desc: '매장에 꽂혀 있는 이번달 행사 쇼카드를 뜯어서 모읍니다.', photo_required: true });
-  if (kind === 'last') addItemOnce(items, { id: 'showcard-replace', title: '행사 쇼카드 교체', desc: '이번달 행사 쇼카드를 제거하고 다음달 행사 쇼카드를 꽂습니다.', photo_required: true });
+  const kinds = showcardKinds();
+  if (kinds.includes('month')) addItemOnce(items, { id: 'showcard-month', title: '월 행사 쇼카드 교체', desc: '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.', photo_required: true });
+  if (kinds.includes('period')) addItemOnce(items, { id: 'showcard-period', title: '기간행사 쇼카드 교체', desc: '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.', photo_required: true });
   const beforeEnd = [];
   const clockOut = [];
   const rest = [];
