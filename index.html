@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v47</h1>
+  <h1>CU 점포 체크리스트 v48</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -677,16 +677,11 @@ function showcardKind() {
   if (d === last - 1) return 'prev';
   return '';
 }
-function includesOvernight(range) {
-  const nightEnd = 6 * 60;
-  if (range.start < range.end) return range.start < nightEnd && range.end > 0;
-  return range.end > 0;
-}
 function skipSundayTasks() {
   const range = parseWorkRange(workPeriod.value);
   if (!range) return false;
-  const short = (range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end) <= 5 * 60;
-  return short && !includesOvernight(range);
+  const minutes = range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end;
+  return minutes <= 5 * 60;
 }
 function isAmbientLogistics(title) {
   const t = title || '';
