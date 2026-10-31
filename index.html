@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v48</h1>
+  <h1>CU 점포 체크리스트 v49</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -694,6 +694,13 @@ function visibleItems(shift) {
   let items = (shift?.items || []).filter(it => it && it.title);
   if (isSelectedSunday()) {
     items = items.filter(it => !isAmbientLogistics(it.title));
+    const collapsed = [];
+    items.forEach(it => {
+      const prev = collapsed[collapsed.length - 1];
+      if (prev && (prev.title || '').trim() === '휴식' && (it.title || '').trim() === '휴식') return;
+      collapsed.push(it);
+    });
+    items = collapsed;
     if (!skipSundayTasks()) {
       addItemOnce(items, { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
       addItemOnce(items, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
