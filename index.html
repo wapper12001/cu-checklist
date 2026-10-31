@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v50</h1>
+  <h1>CU 점포 체크리스트 v51</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -709,14 +709,16 @@ function visibleItems(shift) {
   const kind = showcardKind();
   if (kind === 'prev') addItemOnce(items, { id: 'showcard-collect', title: '행사 쇼카드 뜯어서 모으기', desc: '매장에 꽂혀 있는 이번달 행사 쇼카드를 뜯어서 모읍니다.', photo_required: true });
   if (kind === 'last') addItemOnce(items, { id: 'showcard-replace', title: '행사 쇼카드 교체', desc: '이번달 행사 쇼카드를 제거하고 다음달 행사 쇼카드를 꽂습니다.', photo_required: true });
+  const beforeEnd = [];
   const clockOut = [];
   const rest = [];
   items.forEach(it => {
     const t = (it.title || '').trim();
-    if (t === '퇴근' || (t.startsWith('퇴근') && !t.startsWith('퇴근전'))) clockOut.push(it);
+    if (t.startsWith('퇴근전')) beforeEnd.push(it);
+    else if (t === '퇴근' || t.startsWith('퇴근')) clockOut.push(it);
     else rest.push(it);
   });
-  return rest.concat(clockOut);
+  return rest.concat(beforeEnd, clockOut);
 }
 function itemById(id) {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
