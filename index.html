@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v42</h1>
+  <h1>CU 점포 체크리스트 v53</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -193,7 +193,13 @@ if (document.documentElement.classList.contains('inapp')) {
   </div>
 </div>
 
-<!-- 바코드 입력 모달 (카메라 스캔 대체) -->
+<!-- 폐기 알림 -->
+<div id="discardModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 style="margin-top:0; color:#b00020;">폐기 알림</h3>
+    <div id="discardBody" style="font-size:15px; line-height:1.5;"></div>
+  </div>
+</div>
 <div id="barcodeModal" class="modal hidden">
   <div class="modal-content">
     <h3 style="margin-top:0;">바코드 스캔</h3>
@@ -333,7 +339,7 @@ reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', ye
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
-workPeriod.oninput = saveProgress;
+workPeriod.oninput = () => { saveProgress(); if (shiftSelect.value) renderChecklist(); else scheduleDiscardCheck(); };
 document.getElementById('dayMemo').oninput = saveProgress;
 (function () {
   const memo = document.getElementById('dayMemo');
@@ -351,6 +357,7 @@ function onStoreChange() {
     shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
     storeInfo.innerHTML = '';
     checklistContainer.innerHTML = '';
+    document.getElementById('discardModal').classList.add('hidden');
     return;
   }
   updateManagerInfo(d);
@@ -360,7 +367,139 @@ function onStoreChange() {
     return `<option value="${k}">${k} (${name})</option>`;
   }).join('');
   checklistContainer.innerHTML = '';
+  scheduleDiscardCheck();
 }
+
+const DISCARD_SLOTS = [
+  { id: '0930', min: 9 * 60 + 30, who: 'all', title: '10시 폐기 예정', body: '샌드위치, 햄버거 등' },
+  { id: '1330', min: 13 * 60 + 30, who: 'all', title: '14시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' },
+  { id: '2130', min: 21 * 60 + 30, who: 'all', title: '22시 폐기 예정', body: '샌드위치, 햄버거 등' },
+  { id: '2330', min: 23 * 60 + 30, who: 'all', title: '24시 폐기 예정', body: '빵, 디저트 등' },
+  { id: '0020', min: 20, who: '19', title: '19시간 근무 폐기', body: '06시 것까지 폐기하세요.' },
+  { id: '0130', min: 1 * 60 + 30, who: '24', title: '02시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' }
+];
+function koreaNow() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date()).map(p => [p.type, p.value]));
+  return { date: parts.year + '-' + parts.month + '-' + parts.day, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+function parseWorkRange(text) {
+  const nums = String(text || '').match(/\d{1,2}(?::\d{2})?/g);
+  if (!nums || nums.length < 2) return null;
+  const toMin = s => {
+    const bits = s.split(':');
+    const hh = Number(bits[0]);
+    const mm = bits[1] == null ? 0 : Number(bits[1]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh > 24 || mm > 59) return null;
+    if (hh === 24) return 24 * 60;
+    return hh * 60 + mm;
+  };
+  const start = toMin(nums[0]);
+  const end = toMin(nums[1]);
+  if (start == null || end == null || start === end) return null;
+  return { start, end };
+}
+function inShift(slotMin, range) {
+  if (range.start < range.end) return slotMin >= range.start && slotMin <= range.end;
+  return slotMin >= range.start || slotMin <= range.end;
+}
+function slotAlreadyDue(slotMin, range, nowMin) {
+  if (!inShift(slotMin, range)) return false;
+  if (range.start < range.end) return nowMin >= slotMin;
+  if (nowMin >= range.start) return slotMin >= range.start && slotMin <= nowMin;
+  if (slotMin >= range.start) return true;
+  return slotMin <= nowMin;
+}
+function shiftAnchorDate(now, range) {
+  if (range.start > range.end && now.minutes < range.end) {
+    const [y, m, d] = now.date.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    return dt.toISOString().slice(0, 10);
+  }
+  return now.date;
+}
+function dueDiscards() {
+  if (!currentStore || !allData[currentStore]) return [];
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) return [];
+  const hours = String(allData[currentStore].hours || '19');
+  const now = koreaNow();
+  const anchor = shiftAnchorDate(now, range);
+  return DISCARD_SLOTS.filter(s => {
+    if (!slotAlreadyDue(s.min, range, now.minutes)) return false;
+    if (s.who === '19' && hours !== '19') return false;
+    if (s.who === '24' && hours !== '24') return false;
+    return !localStorage.getItem('discard45_' + currentStore + '_' + anchor + '_' + s.id);
+  });
+}
+let discardTimer = null;
+let discardShownAt = 0;
+function scheduleDiscardCheck() {
+  clearTimeout(discardTimer);
+  discardTimer = setTimeout(checkDiscards, 400);
+}
+function checkDiscards() {
+  const due = dueDiscards();
+  const modal = document.getElementById('discardModal');
+  if (!due.length) {
+    modal.classList.add('hidden');
+    return;
+  }
+  const key = due.map(s => s.id).join(',');
+  if (modal.dataset.ids === key && !modal.classList.contains('hidden')) return;
+  const store = String(currentStore || '').replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;');
+  document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
+    <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
+      <p style="margin:0 0 8px;"><strong>${s.title}</strong><br>${s.body}</p>
+      <div class="btn-row">
+        <button type="button" class="btn-photo" data-discard="${s.id}" data-act="photo">📷 사진찍기</button>
+        <button type="button" class="btn-kakao" data-discard="${s.id}" data-act="kakao">카톡</button>
+        <button type="button" class="btn-sms" data-discard="${s.id}" data-act="sms">문자</button>
+      </div>
+      <div class="photo-preview" id="photos-discard-${s.id}"></div>
+    </div>`).join('');
+  due.forEach(s => renderPhotoPreview('discard-' + s.id));
+  modal.dataset.ids = key;
+  modal.classList.remove('hidden');
+  discardShownAt = Date.now();
+}
+document.getElementById('discardBody').onclick = e => {
+  const btn = e.target.closest('button');
+  if (!btn || Date.now() - discardShownAt < 700) return;
+  const id = btn.dataset.discard;
+  if (!id) return;
+  if (btn.dataset.act === 'photo') takePhoto('discard-' + id);
+  if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareDiscard(id);
+};
+async function shareDiscard(id) {
+  const slot = DISCARD_SLOTS.find(s => s.id === id);
+  const photos = currentPhotos['discard-' + id] || [];
+  if (!photos.length) { alert('사진이 없습니다.'); return; }
+  const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
+  let files = photos;
+  try {
+    files = [];
+    for (let i = 0; i < photos.length; i++) files.push(await stampCaption(photos[i], text, i + 1));
+  } catch (e) {}
+  if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
+  try {
+    await navigator.share({ files });
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    alert('사진을 보내지 못했습니다.');
+    return;
+  }
+  const now = koreaNow();
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) return;
+  localStorage.setItem('discard45_' + currentStore + '_' + shiftAnchorDate(now, range) + '_' + id, '1');
+  document.getElementById('discardModal').dataset.ids = '';
+  checkDiscards();
+}
+setInterval(checkDiscards, 20000);
 
 function updateManagerInfo(d) {
   if (!d) {
@@ -426,7 +565,10 @@ function loadProgress() {
     if (s) {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
-      if (d.period) workPeriod.value = d.period;
+      if (d.period) {
+        workPeriod.value = d.period;
+        scheduleDiscardCheck();
+      }
       if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
         document.getElementById('dayMemo').value = d.dayMemo;
       }
@@ -450,7 +592,7 @@ function renderChecklist() {
   }
   if (!d.shifts[key]) d.shifts[key] = { name: key, items: [] };
   const shift = d.shifts[key];
-  const items = shift.items || [];
+  const items = visibleItems(shift);
   if (items.length === 0) {
     checklistContainer.innerHTML = '<div class="card" style="text-align:center; color:#888;">이 근무타입에 등록된 체크리스트가 없습니다.<br>관리자 모드에서 항목을 추가하세요.</div>';
     checkAllDone();
@@ -515,9 +657,92 @@ function renderChecklist() {
   restoreSavedPhotos(items);
 }
 
+function selectedYmd() {
+  const v = reportDate && reportDate.value;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v || '')) {
+    const [y, m, d] = v.split('-').map(Number);
+    return { y, m, d };
+  }
+  const [y, m, d] = koreaNow().date.split('-').map(Number);
+  return { y, m, d };
+}
+function isSelectedSunday() {
+  const { y, m, d } = selectedYmd();
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12))) === 'Sun';
+}
+function showcardKind() {
+  const { y, m, d } = selectedYmd();
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  if (d === last) return 'last';
+  if (d === last - 1) return 'prev';
+  return '';
+}
+function shiftMinutes(range) {
+  return range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end;
+}
+function currentShiftMinutes() {
+  const range = parseWorkRange(workPeriod.value);
+  return range ? shiftMinutes(range) : null;
+}
+function skipSundayTasks() {
+  const minutes = currentShiftMinutes();
+  return minutes != null && minutes <= 4 * 60;
+}
+function hideCigaretteCheck() {
+  const minutes = currentShiftMinutes();
+  return minutes != null && minutes <= 5 * 60;
+}
+function isAmbientLogistics(title) {
+  const t = (title || '').replace(/\s/g, '');
+  if (t.includes('소분박스') && t.includes('진열')) return true;
+  return t.includes('상온') && /입고|검수|진열/.test(t);
+}
+function addItemOnce(items, it) {
+  if (!items.some(x => (x.title || '').trim() === it.title)) items.push(it);
+}
+function visibleItems(shift) {
+  let items = (shift?.items || []).filter(it => it && it.title);
+  let removed = false;
+  if (hideCigaretteCheck()) {
+    const next = items.filter(it => !(it.title || '').replace(/\s/g, '').includes('담배재고체크'));
+    if (next.length !== items.length) removed = true;
+    items = next;
+  }
+  if (isSelectedSunday()) {
+    const next = items.filter(it => !isAmbientLogistics(it.title));
+    if (next.length !== items.length) removed = true;
+    items = next;
+  }
+  if (removed) {
+    const collapsed = [];
+    items.forEach(it => {
+      const prev = collapsed[collapsed.length - 1];
+      if (prev && (prev.title || '').trim() === '휴식' && (it.title || '').trim() === '휴식') return;
+      collapsed.push(it);
+    });
+    items = collapsed;
+  }
+  if (isSelectedSunday() && !skipSundayTasks()) {
+    addItemOnce(items, { id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
+    addItemOnce(items, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
+  }
+  const kind = showcardKind();
+  if (kind === 'prev') addItemOnce(items, { id: 'showcard-collect', title: '행사 쇼카드 뜯어서 모으기', desc: '매장에 꽂혀 있는 이번달 행사 쇼카드를 뜯어서 모읍니다.', photo_required: true });
+  if (kind === 'last') addItemOnce(items, { id: 'showcard-replace', title: '행사 쇼카드 교체', desc: '이번달 행사 쇼카드를 제거하고 다음달 행사 쇼카드를 꽂습니다.', photo_required: true });
+  const beforeEnd = [];
+  const clockOut = [];
+  const rest = [];
+  items.forEach(it => {
+    const t = (it.title || '').trim();
+    if (t.startsWith('퇴근전')) beforeEnd.push(it);
+    else if (t === '퇴근' || t.startsWith('퇴근')) clockOut.push(it);
+    else rest.push(it);
+  });
+  return rest.concat(beforeEnd, clockOut);
+}
 function itemById(id) {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
-  return (shift?.items || []).find(it => String(it.id) === String(id));
+  return visibleItems(shift).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
   if (miss.includes('사진')) return '사진이 없습니다.';
@@ -799,7 +1024,7 @@ function makeSummary() {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
   const when = new Date().toLocaleString('ko-KR');
   let sum = `전체 보고 시간 : ${when}`;
-  (shift.items || []).forEach(it => {
+  visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
