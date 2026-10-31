@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v44</h1>
+  <h1>CU 점포 체크리스트 v45</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -198,7 +198,6 @@ if (document.documentElement.classList.contains('inapp')) {
   <div class="modal-content">
     <h3 style="margin-top:0; color:#b00020;">폐기 알림</h3>
     <div id="discardBody" style="font-size:15px; line-height:1.5;"></div>
-    <button class="btn-primary" id="discardOk" type="button" style="width:100%; margin-top:10px;">확인했습니다</button>
   </div>
 </div>
 <div id="barcodeModal" class="modal hidden">
@@ -340,7 +339,7 @@ reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', ye
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
-workPeriod.oninput = saveProgress;
+workPeriod.oninput = () => { saveProgress(); scheduleDiscardCheck(); };
 document.getElementById('dayMemo').oninput = saveProgress;
 (function () {
   const memo = document.getElementById('dayMemo');
@@ -376,7 +375,7 @@ const DISCARD_SLOTS = [
   { id: '1330', min: 13 * 60 + 30, who: 'all', title: '14시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' },
   { id: '2130', min: 21 * 60 + 30, who: 'all', title: '22시 폐기 예정', body: '샌드위치, 햄버거 등' },
   { id: '2330', min: 23 * 60 + 30, who: 'all', title: '24시 폐기 예정', body: '빵, 디저트 등' },
-  { id: '0030', min: 30, who: '19', title: '19시간 근무 폐기', body: '06시 것까지 폐기하세요.' },
+  { id: '0020', min: 20, who: '19', title: '19시간 근무 폐기', body: '06시 것까지 폐기하세요.' },
   { id: '0130', min: 1 * 60 + 30, who: '24', title: '02시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' }
 ];
 function koreaNow() {
@@ -386,15 +385,54 @@ function koreaNow() {
   }).formatToParts(new Date()).map(p => [p.type, p.value]));
   return { date: parts.year + '-' + parts.month + '-' + parts.day, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
 }
+function parseWorkRange(text) {
+  const nums = String(text || '').match(/\d{1,2}(?::\d{2})?/g);
+  if (!nums || nums.length < 2) return null;
+  const toMin = s => {
+    const bits = s.split(':');
+    const hh = Number(bits[0]);
+    const mm = bits[1] == null ? 0 : Number(bits[1]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh > 24 || mm > 59) return null;
+    if (hh === 24) return 24 * 60;
+    return hh * 60 + mm;
+  };
+  const start = toMin(nums[0]);
+  const end = toMin(nums[1]);
+  if (start == null || end == null || start === end) return null;
+  return { start, end };
+}
+function inShift(slotMin, range) {
+  if (range.start < range.end) return slotMin >= range.start && slotMin <= range.end;
+  return slotMin >= range.start || slotMin <= range.end;
+}
+function slotAlreadyDue(slotMin, range, nowMin) {
+  if (!inShift(slotMin, range)) return false;
+  if (range.start < range.end) return nowMin >= slotMin;
+  if (nowMin >= range.start) return slotMin >= range.start && slotMin <= nowMin;
+  if (slotMin >= range.start) return true;
+  return slotMin <= nowMin;
+}
+function shiftAnchorDate(now, range) {
+  if (range.start > range.end && now.minutes < range.end) {
+    const [y, m, d] = now.date.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    return dt.toISOString().slice(0, 10);
+  }
+  return now.date;
+}
 function dueDiscards() {
   if (!currentStore || !allData[currentStore]) return [];
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) return [];
   const hours = String(allData[currentStore].hours || '19');
   const now = koreaNow();
+  const anchor = shiftAnchorDate(now, range);
   return DISCARD_SLOTS.filter(s => {
-    if (now.minutes < s.min) return false;
+    if (!slotAlreadyDue(s.min, range, now.minutes)) return false;
     if (s.who === '19' && hours !== '19') return false;
     if (s.who === '24' && hours !== '24') return false;
-    return !localStorage.getItem('discard44_' + currentStore + '_' + now.date + '_' + s.id);
+    return !localStorage.getItem('discard45_' + currentStore + '_' + anchor + '_' + s.id);
   });
 }
 let discardTimer = null;
@@ -410,20 +448,57 @@ function checkDiscards() {
     modal.classList.add('hidden');
     return;
   }
-  const store = currentStore || '';
-  document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `<p style="margin:0 0 10px;"><strong>${s.title}</strong><br>${s.body}</p>`).join('');
-  modal.dataset.ids = due.map(s => s.id).join(',');
+  const key = due.map(s => s.id).join(',');
+  if (modal.dataset.ids === key && !modal.classList.contains('hidden')) return;
+  const store = String(currentStore || '').replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;');
+  document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
+    <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
+      <p style="margin:0 0 8px;"><strong>${s.title}</strong><br>${s.body}</p>
+      <div class="btn-row">
+        <button type="button" class="btn-photo" data-discard="${s.id}" data-act="photo">📷 사진찍기</button>
+        <button type="button" class="btn-kakao" data-discard="${s.id}" data-act="kakao">카톡</button>
+        <button type="button" class="btn-sms" data-discard="${s.id}" data-act="sms">문자</button>
+      </div>
+      <div class="photo-preview" id="photos-discard-${s.id}"></div>
+    </div>`).join('');
+  due.forEach(s => renderPhotoPreview('discard-' + s.id));
+  modal.dataset.ids = key;
   modal.classList.remove('hidden');
   discardShownAt = Date.now();
 }
-document.getElementById('discardOk').onclick = () => {
-  if (Date.now() - discardShownAt < 700) return;
-  const now = koreaNow();
-  (document.getElementById('discardModal').dataset.ids || '').split(',').filter(Boolean).forEach(id => {
-    localStorage.setItem('discard44_' + currentStore + '_' + now.date + '_' + id, '1');
-  });
-  document.getElementById('discardModal').classList.add('hidden');
+document.getElementById('discardBody').onclick = e => {
+  const btn = e.target.closest('button');
+  if (!btn || Date.now() - discardShownAt < 700) return;
+  const id = btn.dataset.discard;
+  if (!id) return;
+  if (btn.dataset.act === 'photo') takePhoto('discard-' + id);
+  if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareDiscard(id);
 };
+async function shareDiscard(id) {
+  const slot = DISCARD_SLOTS.find(s => s.id === id);
+  const photos = currentPhotos['discard-' + id] || [];
+  if (!photos.length) { alert('사진이 없습니다.'); return; }
+  const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
+  let files = photos;
+  try {
+    files = [];
+    for (let i = 0; i < photos.length; i++) files.push(await stampCaption(photos[i], text, i + 1));
+  } catch (e) {}
+  if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
+  try {
+    await navigator.share({ files });
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    alert('사진을 보내지 못했습니다.');
+    return;
+  }
+  const now = koreaNow();
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) return;
+  localStorage.setItem('discard45_' + currentStore + '_' + shiftAnchorDate(now, range) + '_' + id, '1');
+  document.getElementById('discardModal').dataset.ids = '';
+  checkDiscards();
+}
 setInterval(checkDiscards, 20000);
 
 function updateManagerInfo(d) {
@@ -490,7 +565,10 @@ function loadProgress() {
     if (s) {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
-      if (d.period) workPeriod.value = d.period;
+      if (d.period) {
+        workPeriod.value = d.period;
+        scheduleDiscardCheck();
+      }
       if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
         document.getElementById('dayMemo').value = d.dayMemo;
       }
