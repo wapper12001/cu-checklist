@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v54</h1>
+  <h1>CU 점포 체크리스트 v55</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -675,6 +675,7 @@ function showcardKinds() {
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const kinds = [];
   if (d === last || d === 1 || d === 2) kinds.push('month');
+  if (d === last - 1) kinds.push('prep');
   if (d === 16) kinds.push('period');
   return kinds;
 }
@@ -728,6 +729,7 @@ function visibleItems(shift) {
     addItemOnce(items, { id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
   }
   const kinds = showcardKinds();
+  if (kinds.includes('prep')) addItemOnce(items, { id: 'showcard-prep', title: '행사 쇼카드 준비', desc: '새로운 달의 쇼카드를 제외한 모든 행사 쇼카드를 제거합니다.\n새로운 달의 쇼카드는 뜯어서 구분해서 모읍니다.', photo_required: true });
   if (kinds.includes('month')) addItemOnce(items, { id: 'showcard-month', title: '월 행사 쇼카드 교체', desc: '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.', photo_required: true });
   if (kinds.includes('period')) addItemOnce(items, { id: 'showcard-period', title: '기간행사 쇼카드 교체', desc: '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.', photo_required: true });
   const beforeEnd = [];
