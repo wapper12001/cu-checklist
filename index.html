@@ -98,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v68</h1>
+  <h1>CU 점포 체크리스트 v69</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -121,9 +121,9 @@ if (document.documentElement.classList.contains('inapp')) {
       <label style="margin-top:12px;" data-ko="날짜">날짜</label>
       <div class="date-row">
         <input type="date" id="reportDate">
-        <label><input type="radio" name="workType" value="edu"> 교육</label>
-        <label><input type="radio" name="workType" value="prob"> 수습</label>
-        <label><input type="radio" name="workType" value="full"> 정식</label>
+        <label><input type="radio" name="workType" value="edu"> <span data-ko="교육">교육</span></label>
+        <label><input type="radio" name="workType" value="prob"> <span data-ko="수습">수습</span></label>
+        <label><input type="radio" name="workType" value="full"> <span data-ko="정식">정식</span></label>
       </div>
       <label style="margin-top:12px;" data-ko="점포 선택">점포 선택</label>
       <select id="storeSelect"></select>
@@ -302,6 +302,13 @@ const I18N = {
     '근무타입': 'Ca làm',
     '근무자 이름': 'Tên nhân viên',
     '근무시간대': 'Giờ làm',
+    '시작': 'Bắt đầu',
+    '종료': 'Kết thúc',
+    '교육': 'Đào tạo',
+    '수습': 'Thử việc',
+    '정식': 'Chính thức',
+    '수고하셨습니다. 즐퇴하세요': 'Cảm ơn bạn. Tan ca vui vẻ.',
+    '전체 보고 전송을 해야합니다': 'Phải gửi báo cáo cả ca.',
     '퇴근 보고': 'Báo cáo tan ca',
     '특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.': 'Ghi việc bất thường, việc cần chuyển, sự cố trong ngày.',
     '전체 보고서 전송': 'Gửi báo cáo cả ca',
@@ -368,6 +375,13 @@ const I18N = {
     '근무타입': 'အလုပ်အမျိုးအစား',
     '근무자 이름': 'ဝန်ထမ်းအမည်',
     '근무시간대': 'အလုပ်ချိန်',
+    '시작': 'စတင်',
+    '종료': 'ပြီးဆုံး',
+    '교육': 'သင်တန်း',
+    '수습': 'အစမ်းခန့်',
+    '정식': 'အတည်ပြု',
+    '수고하셨습니다. 즐퇴하세요': 'ကျေးဇူးတင်ပါတယ်။ ပျော်ရွှင်စွာ အလုပ်ဆင်းပါ။',
+    '전체 보고 전송을 해야합니다': 'တစ်နေ့လုံး အစီရင်ခံစာ ပို့ရပါမည်။',
     '퇴근 보고': 'ဆင်းချိန်အစီရင်ခံ',
     '특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.': 'ထူးခြားချက်၊ လွှဲပြောင်းရန်နှင့် ယနေ့ဖြစ်ရပ်ကို ရေးပါ။',
     '전체 보고서 전송': 'တစ်နေ့လုံး အစီရင်ခံစာ ပို့ရန်',
@@ -453,6 +467,16 @@ function biHtml(ko) {
 }
 function applyStaticLang() {
   document.querySelectorAll('[data-ko]').forEach(el => { el.innerHTML = biHtml(el.getAttribute('data-ko')); });
+  const startSel = document.getElementById('workStart');
+  const endSel = document.getElementById('workEnd');
+  if (startSel && startSel.options.length) {
+    const keepStart = startSel.value;
+    const keepEnd = endSel.value;
+    startSel.options[0].text = trText('시작') ? '시작 / ' + trText('시작') : '시작';
+    endSel.options[0].text = trText('종료') ? '종료 / ' + trText('종료') : '종료';
+    startSel.value = keepStart;
+    endSel.value = keepEnd;
+  }
 }
 const langSelect = document.getElementById('langSelect');
 if (langSelect) {
@@ -632,6 +656,7 @@ function fillWorkTimes() {
   }
   workStart.innerHTML = opts;
   workEnd.innerHTML = optsEnd;
+  applyStaticLang();
 }
 function clockLabel(mins) {
   const m = ((mins % (24 * 60)) + 24 * 60) % (24 * 60);
@@ -1505,6 +1530,26 @@ function saveWorkCalendar() {
   localStorage.setItem('work-log-v1', JSON.stringify(saved));
 }
 
+let fullReportSent = false;
+function needsFullReport() {
+  return !fullReportSent && !!(currentStore && shiftSelect.value);
+}
+function notice(ko) {
+  const t = trText(ko);
+  return t ? ko + '\n' + t : ko;
+}
+window.addEventListener('beforeunload', (e) => {
+  if (!needsFullReport()) return;
+  e.preventDefault();
+  e.returnValue = '전체 보고 전송을 해야합니다';
+});
+history.pushState({ cu: 1 }, '');
+window.addEventListener('popstate', () => {
+  if (!needsFullReport()) return;
+  alert(notice('전체 보고 전송을 해야합니다'));
+  history.pushState({ cu: 1 }, '');
+});
+
 sendReportBtn.onclick = async () => {
   if (!document.querySelector('input[name="workType"]:checked')) {
     alert('교육, 수습, 정식 중 하나를 고르세요.');
@@ -1530,11 +1575,13 @@ sendReportBtn.onclick = async () => {
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); saveWorkCalendar(); return; } catch (e) {
+    try { await navigator.share({ text: sum }); fullReportSent = true; saveWorkCalendar(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
+  fullReportSent = true;
   saveWorkCalendar();
+  alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 
