@@ -58,6 +58,8 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .pay-row .pay-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
 .pay-row label { margin: 0 10px 0 0; font-size: 14px; }
 .pay-time { margin-top: 4px; }
+.time-pair { display: flex; gap: 8px; }
+.time-pair select { flex: 1; min-width: 0; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
 .secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
@@ -93,7 +95,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v66</h1>
+  <h1>CU 점포 체크리스트 v67</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -122,7 +124,11 @@ if (document.documentElement.classList.contains('inapp')) {
       <label style="margin-top:12px;" data-ko="근무자 이름">근무자 이름</label>
       <input type="text" id="staffName" placeholder="이름">
       <label style="margin-top:12px;" data-ko="근무시간대">근무시간대</label>
-      <input type="text" id="workPeriod" placeholder="예: 09:00-15:00">
+      <div class="time-pair">
+        <select id="workStart" aria-label="시작"></select>
+        <select id="workEnd" aria-label="종료"></select>
+      </div>
+      <input type="hidden" id="workPeriod">
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
@@ -606,7 +612,45 @@ reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', ye
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
-workPeriod.oninput = () => { saveProgress(); if (shiftSelect.value) renderChecklist(); else scheduleDiscardCheck(); };
+const workStart = document.getElementById('workStart');
+const workEnd = document.getElementById('workEnd');
+function fillWorkTimes() {
+  let opts = '<option value="">시작</option>';
+  let optsEnd = '<option value="">종료</option>';
+  for (let m = 0; m < 24 * 60; m += 30) {
+    const label = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    opts += '<option value="' + label + '">' + label + '</option>';
+    optsEnd += '<option value="' + label + '">' + label + '</option>';
+  }
+  workStart.innerHTML = opts;
+  workEnd.innerHTML = optsEnd;
+}
+function clockLabel(mins) {
+  const m = ((mins % (24 * 60)) + 24 * 60) % (24 * 60);
+  const snapped = Math.round(m / 30) * 30 % (24 * 60);
+  return String(Math.floor(snapped / 60)).padStart(2, '0') + ':' + String(snapped % 60).padStart(2, '0');
+}
+function syncWorkPeriod() {
+  workPeriod.value = workStart.value && workEnd.value ? workStart.value + '-' + workEnd.value : '';
+  saveProgress();
+  if (shiftSelect.value) renderChecklist();
+  else scheduleDiscardCheck();
+}
+function applyPeriodToSelects(text) {
+  const range = parseWorkRange(text);
+  if (!range) {
+    workStart.value = '';
+    workEnd.value = '';
+    workPeriod.value = '';
+    return;
+  }
+  workStart.value = clockLabel(range.start);
+  workEnd.value = clockLabel(range.end);
+  workPeriod.value = workStart.value + '-' + workEnd.value;
+}
+fillWorkTimes();
+workStart.onchange = syncWorkPeriod;
+workEnd.onchange = syncWorkPeriod;
 document.getElementById('dayMemo').oninput = saveProgress;
 (function () {
   const memo = document.getElementById('dayMemo');
@@ -834,7 +878,7 @@ function loadProgress() {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
       if (d.period) {
-        workPeriod.value = d.period;
+        applyPeriodToSelects(d.period);
         scheduleDiscardCheck();
       }
       if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
