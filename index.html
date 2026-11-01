@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v59</h1>
+  <h1>CU 점포 체크리스트 v60</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -399,9 +399,19 @@ function trText(ko) {
   if (!reportLang || !I18N[reportLang]) return '';
   return I18N[reportLang][ko] || '';
 }
+let i18nByKo = {};
+try {
+  const savedTr = JSON.parse(localStorage.getItem('cu-i18n') || '{}');
+  Object.keys(savedTr).forEach(k => { i18nByKo[k] = savedTr[k]; });
+} catch (e) {}
+function storedTr(ko) {
+  const row = i18nByKo[(ko || '').trim()];
+  if (!row || !reportLang) return '';
+  return row[reportLang] || '';
+}
 function biHtml(ko) {
   const main = escHtml(ko).replace(/\n/g, '<br>');
-  const t = trText(ko);
+  const t = trText(ko) || storedTr(ko);
   if (!t) return main;
   return main + '<div class="tr-sub">' + escHtml(t).replace(/\n/g, '<br>') + '</div>';
 }
@@ -421,6 +431,63 @@ if (langSelect) {
   };
 }
 applyStaticLang();
+const trWait = {};
+async function translateKo(text, tl) {
+  const q = (text || '').trim();
+  if (!q) return '';
+  const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=' + encodeURIComponent(tl) + '&dt=t&q=' + encodeURIComponent(q);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('translate');
+  const data = await res.json();
+  return (data[0] || []).map(part => (part && part[0]) || '').join('');
+}
+async function ensureTranslation(ko) {
+  ko = (ko || '').trim();
+  if (!ko) return null;
+  const have = i18nByKo[ko];
+  if (have && have.vi && have.my) return have;
+  if (trWait[ko]) return trWait[ko];
+  trWait[ko] = (async () => {
+    const vi = (have && have.vi) || await translateKo(ko, 'vi');
+    const my = (have && have.my) || await translateKo(ko, 'my');
+    const row = { vi, my };
+    i18nByKo[ko] = row;
+    try { localStorage.setItem('cu-i18n', JSON.stringify(i18nByKo)); } catch (e) {}
+    const { error } = await supabase.from('checklist_items').insert({
+      store_name: '__i18n__',
+      shift_key: 'dict',
+      shift_name: 'dict',
+      item_order: 0,
+      title: 'tr',
+      description: JSON.stringify({ ko, vi, my }),
+      photo_required: false
+    });
+    if (error) console.error(error);
+    return row;
+  })();
+  try { return await trWait[ko]; } finally { delete trWait[ko]; }
+}
+async function fillMissingTranslations() {
+  const lang = reportLang;
+  if (!lang) return;
+  const nodes = [...checklistContainer.querySelectorAll('[data-tr]')];
+  for (const node of nodes) {
+    if (node.querySelector('.tr-sub')) continue;
+    let ko = '';
+    try { ko = decodeURIComponent(node.getAttribute('data-tr') || ''); } catch (e) { ko = ''; }
+    if (!ko.trim()) continue;
+    try {
+      const row = await ensureTranslation(ko);
+      if (reportLang !== lang || !node.isConnected || node.querySelector('.tr-sub')) continue;
+      const t = row && row[lang];
+      if (!t) continue;
+      const div = document.createElement('div');
+      div.className = 'tr-sub';
+      div.textContent = t;
+      node.appendChild(div);
+    } catch (e) {}
+  }
+}
 const checklistContainer = document.getElementById('checklistContainer');
 const storeInfo = document.getElementById('storeInfo');
 const bottomBar = document.getElementById('bottomBar');
@@ -432,6 +499,7 @@ async function loadData() {
     if (error) throw error;
     allData = {};
     for (const s of stores || []) {
+      if (s.name === '__i18n__') continue;
       allData[s.name] = {
         manager: s.manager || '',
         phone: s.phone || '',
@@ -442,6 +510,13 @@ async function loadData() {
     // 체크리스트 항목 불러오기
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
+      if (it.store_name === '__i18n__') {
+        try {
+          const o = JSON.parse(it.description || '{}');
+          if (o.ko) i18nByKo[o.ko] = { vi: o.vi || '', my: o.my || '' };
+        } catch (err) {}
+        return;
+      }
       if (!allData[it.store_name]) return;
       if (!allData[it.store_name].shifts[it.shift_key]) {
         allData[it.store_name].shifts[it.shift_key] = { name: it.shift_name || it.shift_key, items: [] };
@@ -496,7 +571,7 @@ async function saveShiftToDb(storeName, shiftKey, shift) {
   if (error) throw error;
 }
 function refreshStoreSelect() {
-  const stores = Object.keys(allData);
+  const stores = Object.keys(allData).filter(s => s !== '__i18n__');
   storeSelect.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
@@ -795,7 +870,7 @@ function renderChecklist() {
         <div class="item-title"><span class="item-no">${index + 1}</span><span style="flex:1; min-width:0;">${biHtml(item.title)}</span>
           ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">${biHtml('상세보기')}</button>` : ''}
         </div>
-        <div class="item-desc hidden">${descHtml}</div>
+        <div class="item-desc hidden" data-tr="${encodeURIComponent(desc)}">${descHtml}</div>
         <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>${biHtml('완료')}</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
         <label>${biHtml('메모')}</label><textarea>${sv.memo||''}</textarea>
         ${photoRow}
@@ -825,6 +900,7 @@ function renderChecklist() {
   saveProgress();
   refreshAllMiss();
   restoreSavedPhotos(items);
+  fillMissingTranslations();
 }
 
 function selectedYmd() {
@@ -1380,7 +1456,7 @@ editScreen.addEventListener('click', () => setTimeout(captureDraft, 0));
 // ===== 관리자 점포 선택 =====
 function refreshAdminStoreSelect() {
   const sel = document.getElementById('adminStoreSelect');
-  const stores = Object.keys(allData);
+  const stores = Object.keys(allData).filter(s => s !== '__i18n__');
   sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('storeDetail').classList.add('hidden');
 }
@@ -1579,6 +1655,9 @@ document.getElementById('saveStoreBtn').onclick = async () => {
     await saveStoreToDb(name);
     for (const [key, shift] of Object.entries(shifts)) {
       await saveShiftToDb(name, key, shift);
+      for (const it of shift.items || []) {
+        if ((it.desc || '').trim()) ensureTranslation(it.desc);
+      }
     }
     await saveAll();
     alert('저장되었습니다.');
