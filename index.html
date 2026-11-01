@@ -53,7 +53,16 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .tr-sub { display: block; font-weight: 500; font-size: 13px; color: #5c3d78; margin-top: 2px; line-height: 1.4; }
 .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
-.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; max-height: 70vh; overflow-y: auto; }
+.pay-row { margin-bottom: 10px; }
+.pay-row .pay-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.pay-row label { margin: 0 10px 0 0; font-size: 14px; }
+.pay-time { margin-top: 4px; }
+.time-pair { display: flex; gap: 8px; }
+.time-pair select { flex: 1; min-width: 0; }
+.date-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.date-row input[type="date"] { flex: 1; min-width: 148px; }
+.date-row label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: 600; white-space: nowrap; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
 .secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
@@ -89,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v63</h1>
+  <h1>CU 점포 체크리스트 v69</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -110,7 +119,12 @@ if (document.documentElement.classList.contains('inapp')) {
         <option value="my">မြန်မာ</option>
       </select>
       <label style="margin-top:12px;" data-ko="날짜">날짜</label>
-      <input type="date" id="reportDate">
+      <div class="date-row">
+        <input type="date" id="reportDate">
+        <label><input type="radio" name="workType" value="edu"> <span data-ko="교육">교육</span></label>
+        <label><input type="radio" name="workType" value="prob"> <span data-ko="수습">수습</span></label>
+        <label><input type="radio" name="workType" value="full"> <span data-ko="정식">정식</span></label>
+      </div>
       <label style="margin-top:12px;" data-ko="점포 선택">점포 선택</label>
       <select id="storeSelect"></select>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
@@ -118,7 +132,11 @@ if (document.documentElement.classList.contains('inapp')) {
       <label style="margin-top:12px;" data-ko="근무자 이름">근무자 이름</label>
       <input type="text" id="staffName" placeholder="이름">
       <label style="margin-top:12px;" data-ko="근무시간대">근무시간대</label>
-      <input type="text" id="workPeriod" placeholder="예: 09:00-15:00">
+      <div class="time-pair">
+        <select id="workStart" aria-label="시작"></select>
+        <select id="workEnd" aria-label="종료"></select>
+      </div>
+      <input type="hidden" id="workPeriod">
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
@@ -180,6 +198,24 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 
 <div class="bottom-bar hidden" id="bottomBar">
+  <div class="pay-row">
+    <div class="pay-name">지각 근무 차감 시간</div>
+    <label><input type="radio" name="lateYn" value="yes"> 있음</label>
+    <label><input type="radio" name="lateYn" value="no"> 없음</label>
+    <select id="lateTime" class="pay-time" disabled></select>
+  </div>
+  <div class="pay-row">
+    <div class="pay-name">단축 근무 차감 시간</div>
+    <label><input type="radio" name="deductYn" value="yes"> 있음</label>
+    <label><input type="radio" name="deductYn" value="no"> 없음</label>
+    <select id="deductTime" class="pay-time" disabled></select>
+  </div>
+  <div class="pay-row">
+    <div class="pay-name">추가 근무 추가 시간</div>
+    <label><input type="radio" name="extraYn" value="yes"> 있음</label>
+    <label><input type="radio" name="extraYn" value="no"> 없음</label>
+    <select id="extraTime" class="pay-time" disabled></select>
+  </div>
   <div style="margin-bottom:10px;">
     <label style="font-size:14px; font-weight:600;" data-ko="퇴근 보고">퇴근 보고</label>
     <p style="font-size:13px; color:#555; margin:4px 0 8px;" data-ko="특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
@@ -266,6 +302,13 @@ const I18N = {
     '근무타입': 'Ca làm',
     '근무자 이름': 'Tên nhân viên',
     '근무시간대': 'Giờ làm',
+    '시작': 'Bắt đầu',
+    '종료': 'Kết thúc',
+    '교육': 'Đào tạo',
+    '수습': 'Thử việc',
+    '정식': 'Chính thức',
+    '수고하셨습니다. 즐퇴하세요': 'Cảm ơn bạn. Tan ca vui vẻ.',
+    '전체 보고 전송을 해야합니다': 'Phải gửi báo cáo cả ca.',
     '퇴근 보고': 'Báo cáo tan ca',
     '특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.': 'Ghi việc bất thường, việc cần chuyển, sự cố trong ngày.',
     '전체 보고서 전송': 'Gửi báo cáo cả ca',
@@ -332,6 +375,13 @@ const I18N = {
     '근무타입': 'အလုပ်အမျိုးအစား',
     '근무자 이름': 'ဝန်ထမ်းအမည်',
     '근무시간대': 'အလုပ်ချိန်',
+    '시작': 'စတင်',
+    '종료': 'ပြီးဆုံး',
+    '교육': 'သင်တန်း',
+    '수습': 'အစမ်းခန့်',
+    '정식': 'အတည်ပြု',
+    '수고하셨습니다. 즐퇴하세요': 'ကျေးဇူးတင်ပါတယ်။ ပျော်ရွှင်စွာ အလုပ်ဆင်းပါ။',
+    '전체 보고 전송을 해야합니다': 'တစ်နေ့လုံး အစီရင်ခံစာ ပို့ရပါမည်။',
     '퇴근 보고': 'ဆင်းချိန်အစီရင်ခံ',
     '특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.': 'ထူးခြားချက်၊ လွှဲပြောင်းရန်နှင့် ယနေ့ဖြစ်ရပ်ကို ရေးပါ။',
     '전체 보고서 전송': 'တစ်နေ့လုံး အစီရင်ခံစာ ပို့ရန်',
@@ -417,6 +467,16 @@ function biHtml(ko) {
 }
 function applyStaticLang() {
   document.querySelectorAll('[data-ko]').forEach(el => { el.innerHTML = biHtml(el.getAttribute('data-ko')); });
+  const startSel = document.getElementById('workStart');
+  const endSel = document.getElementById('workEnd');
+  if (startSel && startSel.options.length) {
+    const keepStart = startSel.value;
+    const keepEnd = endSel.value;
+    startSel.options[0].text = trText('시작') ? '시작 / ' + trText('시작') : '시작';
+    endSel.options[0].text = trText('종료') ? '종료 / ' + trText('종료') : '종료';
+    startSel.value = keepStart;
+    endSel.value = keepEnd;
+  }
 }
 const langSelect = document.getElementById('langSelect');
 if (langSelect) {
@@ -584,7 +644,46 @@ reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', ye
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
-workPeriod.oninput = () => { saveProgress(); if (shiftSelect.value) renderChecklist(); else scheduleDiscardCheck(); };
+const workStart = document.getElementById('workStart');
+const workEnd = document.getElementById('workEnd');
+function fillWorkTimes() {
+  let opts = '<option value="">시작</option>';
+  let optsEnd = '<option value="">종료</option>';
+  for (let m = 0; m < 24 * 60; m += 30) {
+    const label = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    opts += '<option value="' + label + '">' + label + '</option>';
+    optsEnd += '<option value="' + label + '">' + label + '</option>';
+  }
+  workStart.innerHTML = opts;
+  workEnd.innerHTML = optsEnd;
+  applyStaticLang();
+}
+function clockLabel(mins) {
+  const m = ((mins % (24 * 60)) + 24 * 60) % (24 * 60);
+  const snapped = Math.round(m / 30) * 30 % (24 * 60);
+  return String(Math.floor(snapped / 60)).padStart(2, '0') + ':' + String(snapped % 60).padStart(2, '0');
+}
+function syncWorkPeriod() {
+  workPeriod.value = workStart.value && workEnd.value ? workStart.value + '-' + workEnd.value : '';
+  saveProgress();
+  if (shiftSelect.value) renderChecklist();
+  else scheduleDiscardCheck();
+}
+function applyPeriodToSelects(text) {
+  const range = parseWorkRange(text);
+  if (!range) {
+    workStart.value = '';
+    workEnd.value = '';
+    workPeriod.value = '';
+    return;
+  }
+  workStart.value = clockLabel(range.start);
+  workEnd.value = clockLabel(range.end);
+  workPeriod.value = workStart.value + '-' + workEnd.value;
+}
+fillWorkTimes();
+workStart.onchange = syncWorkPeriod;
+workEnd.onchange = syncWorkPeriod;
 document.getElementById('dayMemo').oninput = saveProgress;
 (function () {
   const memo = document.getElementById('dayMemo');
@@ -789,6 +888,8 @@ function saveProgress() {
     staff: staffName.value,
     period: workPeriod.value,
     dayMemo: document.getElementById('dayMemo')?.value || '',
+    pay: readPay(),
+    workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
     items: {}
   };
   document.querySelectorAll('.item').forEach(el => {
@@ -811,12 +912,14 @@ function loadProgress() {
       const d = JSON.parse(s);
       if (d.staff) staffName.value = d.staff;
       if (d.period) {
-        workPeriod.value = d.period;
+        applyPeriodToSelects(d.period);
         scheduleDiscardCheck();
       }
       if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
         document.getElementById('dayMemo').value = d.dayMemo;
       }
+      if (d.pay) writePay(d.pay);
+      document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === (d.workType || ''); });
       return d;
     }
   } catch(e){}
@@ -1102,6 +1205,8 @@ function checkAllDone() {
     if (cb.checked && miss.length) cb.checked = false;
   });
   bottomBar.classList.toggle('hidden', !allDone);
+  const box = document.querySelector('.container');
+  if (box) box.style.paddingBottom = allDone ? '72vh' : '';
 }
 
 function addPhotoFile(id, file) {
@@ -1278,16 +1383,102 @@ async function shareItem(id, isSms) {
 }
 window.shareItem = shareItem;
 
+function readPay() {
+  const yn = name => (document.querySelector('input[name="' + name + '"]:checked') || {}).value || '';
+  return {
+    lateYn: yn('lateYn'),
+    lateTime: document.getElementById('lateTime')?.value.trim() || '',
+    deductYn: yn('deductYn'),
+    deductTime: document.getElementById('deductTime')?.value.trim() || '',
+    extraYn: yn('extraYn'),
+    extraTime: document.getElementById('extraTime')?.value.trim() || ''
+  };
+}
+function writePay(pay) {
+  const set = (name, value, inputId) => {
+    const radio = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
+    if (radio) radio.checked = true;
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.disabled = value !== 'yes';
+    if (value === 'yes' && pay[inputId === 'lateTime' ? 'lateTime' : inputId === 'deductTime' ? 'deductTime' : 'extraTime']) {
+      input.value = pay[inputId === 'lateTime' ? 'lateTime' : inputId === 'deductTime' ? 'deductTime' : 'extraTime'];
+    }
+  };
+  if (pay.lateYn) set('lateYn', pay.lateYn, 'lateTime');
+  if (pay.deductYn) set('deductYn', pay.deductYn, 'deductTime');
+  if (pay.extraYn) set('extraYn', pay.extraYn, 'extraTime');
+  if (pay.lateTime && document.getElementById('lateTime')) document.getElementById('lateTime').value = pay.lateTime;
+  if (pay.deductTime && document.getElementById('deductTime')) document.getElementById('deductTime').value = pay.deductTime;
+  if (pay.extraTime && document.getElementById('extraTime')) document.getElementById('extraTime').value = pay.extraTime;
+}
+function hourLabel(value) {
+  const h = Number(value);
+  if (!Number.isFinite(h)) return '';
+  const mins = Math.round(h * 60);
+  if (mins % 60 === 0) return (mins / 60) + '시간';
+  const hh = Math.floor(mins / 60);
+  const mm = mins % 60;
+  return h + '시간 (' + (hh ? hh + '시간 ' : '') + mm + '분)';
+}
+function fillPayTimes() {
+  const options = ['<option value="">시간을 고르세요</option>'];
+  for (let n = 1; n <= 24; n++) {
+    const h = n / 2;
+    options.push('<option value="' + h + '">' + hourLabel(h) + '</option>');
+  }
+  document.querySelectorAll('.pay-time').forEach(sel => { sel.innerHTML = options.join(''); });
+}
+fillPayTimes();
+function payMissing() {
+  const rows = [
+    ['지각 근무 차감 시간', 'lateYn', 'lateTime'],
+    ['단축 근무 차감 시간', 'deductYn', 'deductTime'],
+    ['추가 근무 추가 시간', 'extraYn', 'extraTime']
+  ];
+  const pay = readPay();
+  for (const [label, ynKey, timeKey] of rows) {
+    if (pay[ynKey] !== 'yes' && pay[ynKey] !== 'no') return label + '을 있음 또는 없음으로 체크하세요.';
+    const hours = Number(pay[timeKey]);
+    if (pay[ynKey] === 'yes' && (!pay[timeKey] || !Number.isFinite(hours) || hours <= 0 || Math.round(hours * 2) !== hours * 2)) return label + '을 0.5시간 단위로 고르세요.';
+  }
+  return '';
+}
+document.querySelectorAll('input[name="workType"]').forEach(el => {
+  el.addEventListener('change', saveProgress);
+});
+document.querySelectorAll('#bottomBar input[type="radio"]').forEach(el => {
+  el.addEventListener('change', () => {
+    const box = el.closest('.pay-row');
+    const input = box && box.querySelector('.pay-time');
+    if (input) {
+      input.disabled = el.value !== 'yes';
+      if (el.value !== 'yes') input.value = '';
+    }
+    saveProgress();
+  });
+});
+document.querySelectorAll('#bottomBar .pay-time').forEach(el => {
+  el.addEventListener('change', saveProgress);
+});
+
 function makeSummary() {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
   const when = new Date().toLocaleString('ko-KR');
-  let sum = `전체 보고 시간 : ${when}`;
+  const names = { edu: '교육', prob: '수습', full: '정식' };
+  const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
+  let sum = `전체 보고 시간 : ${when}\n구분: ${names[picked] || ''}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
   });
   const memo = document.getElementById('dayMemo')?.value.trim() || '';
+  const pay = readPay();
+  const line = (label, yn, time) => label + ': ' + (yn === 'yes' ? '있음 ' + hourLabel(time) : '없음');
+  sum += '\n\n' + line('지각 근무 차감 시간', pay.lateYn, pay.lateTime);
+  sum += '\n' + line('단축 근무 차감 시간', pay.deductYn, pay.deductTime);
+  sum += '\n' + line('추가 근무 추가 시간', pay.extraYn, pay.extraTime);
   sum += `\n\n퇴근 보고: ${memo}`;
   return sum;
 }
@@ -1305,7 +1496,70 @@ function collectMissing() {
   return lines;
 }
 
+function saveWorkCalendar() {
+  const parts = (reportDate.value || '').split('-').map(Number);
+  const y = parts[0], m = parts[1], d = parts[2];
+  if (!y || !m || !d) return;
+  const pay = readPay();
+  const range = parseWorkRange(workPeriod.value);
+  const hours = range ? shiftMinutes(range) / 60 : 0;
+  const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
+  const late = num(pay.lateYn, pay.lateTime);
+  const short = num(pay.deductYn, pay.deductTime);
+  const extra = num(pay.extraYn, pay.extraTime);
+  const rest = 0;
+  const total = Math.round((hours + extra - rest - late - short) * 10) / 10;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('work-log-v1') || '{}') || {}; } catch (e) { saved = {}; }
+  const mk = y + '-' + m;
+  const day = String(d);
+  if (!saved[mk] || typeof saved[mk] !== 'object') saved[mk] = {};
+  const prev = saved[mk][day] && typeof saved[mk][day] === 'object' ? saved[mk][day] : {};
+  saved[mk][day] = Object.assign({}, prev, {
+    hours,
+    extra: extra || null,
+    short: short || null,
+    late: late > 0,
+    lateHours: late || null,
+    rest,
+    total,
+    period: workPeriod.value.trim(),
+    worker: staffName.value.trim(),
+    type: (document.querySelector('input[name="workType"]:checked') || {}).value || null
+  });
+  localStorage.setItem('work-log-v1', JSON.stringify(saved));
+}
+
+let fullReportSent = false;
+function needsFullReport() {
+  return !fullReportSent && !!(currentStore && shiftSelect.value);
+}
+function notice(ko) {
+  const t = trText(ko);
+  return t ? ko + '\n' + t : ko;
+}
+window.addEventListener('beforeunload', (e) => {
+  if (!needsFullReport()) return;
+  e.preventDefault();
+  e.returnValue = '전체 보고 전송을 해야합니다';
+});
+history.pushState({ cu: 1 }, '');
+window.addEventListener('popstate', () => {
+  if (!needsFullReport()) return;
+  alert(notice('전체 보고 전송을 해야합니다'));
+  history.pushState({ cu: 1 }, '');
+});
+
 sendReportBtn.onclick = async () => {
+  if (!document.querySelector('input[name="workType"]:checked')) {
+    alert('교육, 수습, 정식 중 하나를 고르세요.');
+    return;
+  }
+  const payMiss = payMissing();
+  if (payMiss) {
+    alert(payMiss);
+    return;
+  }
   if (!document.getElementById('dayMemo')?.value.trim()) {
     alert('퇴근 보고가 안 됐습니다.');
     return;
@@ -1321,10 +1575,13 @@ sendReportBtn.onclick = async () => {
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); return; } catch (e) {
+    try { await navigator.share({ text: sum }); fullReportSent = true; saveWorkCalendar(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
+  fullReportSent = true;
+  saveWorkCalendar();
+  alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 
