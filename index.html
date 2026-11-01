@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v61</h1>
+  <h1>CU 점포 체크리스트 v62</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1129,24 +1129,27 @@ function takePhotoByFile(id) {
 function stopCam(stream) {
   if (stream) stream.getTracks().forEach(t => t.stop());
 }
+function camVideo(extra) {
+  return Object.assign({ facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, extra || {});
+}
 async function openRearStream() {
   const tries = [
-    { video: { facingMode: { exact: 'environment' } }, audio: false },
-    { video: { facingMode: 'environment' }, audio: false }
+    { video: camVideo({ facingMode: { exact: 'environment' } }), audio: false },
+    { video: camVideo(), audio: false }
   ];
   let lastErr;
   for (const c of tries) {
     try { return await navigator.mediaDevices.getUserMedia(c); }
     catch (e) { lastErr = e; }
   }
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
   const devices = await navigator.mediaDevices.enumerateDevices();
   const backs = devices.filter(d => d.kind === 'videoinput' && /back|rear|environment|후면|광각/i.test(d.label));
   const current = stream.getVideoTracks()[0];
   const facing = current.getSettings().facingMode;
   if (backs.length && (facing === 'user' || !/back|rear|environment|후면/i.test(current.label || ''))) {
     stopCam(stream);
-    return navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: backs[backs.length - 1].deviceId } }, audio: false });
+    return navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: backs[backs.length - 1].deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
   }
   if (facing === 'user') {
     stopCam(stream);
@@ -1177,7 +1180,7 @@ function takePhoto(id) {
       if (!blob) return;
       addPhotoFile(id, new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
       close();
-    }, 'image/jpeg', 0.85);
+    }, 'image/jpeg', 0.92);
   };
   openRearStream().then(s => {
     stream = s;
@@ -1234,7 +1237,7 @@ async function stampCaption(file, text, index) {
   ctx.fillStyle = '#fff';
   ctx.font = fontSize + 'px sans-serif';
   lines.forEach((line, i) => ctx.fillText(line, 20, fontSize + 10 + i * (fontSize + 8)));
-  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
   if (img.close) img.close();
   return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
 }
