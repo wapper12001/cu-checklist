@@ -53,7 +53,11 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .tr-sub { display: block; font-weight: 500; font-size: 13px; color: #5c3d78; margin-top: 2px; line-height: 1.4; }
 .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
-.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; max-height: 70vh; overflow-y: auto; }
+.pay-row { margin-bottom: 10px; }
+.pay-row .pay-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.pay-row label { margin: 0 10px 0 0; font-size: 14px; }
+.pay-time { margin-top: 4px; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
 .secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
@@ -89,7 +93,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v63</h1>
+  <h1>CU 점포 체크리스트 v64</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -180,6 +184,24 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 
 <div class="bottom-bar hidden" id="bottomBar">
+  <div class="pay-row">
+    <div class="pay-name">지각 근무 차감 시간</div>
+    <label><input type="radio" name="lateYn" value="yes"> 유</label>
+    <label><input type="radio" name="lateYn" value="no"> 무</label>
+    <input id="lateTime" class="pay-time" type="text" placeholder="예: 30분" disabled>
+  </div>
+  <div class="pay-row">
+    <div class="pay-name">감가 근무 차감 시간</div>
+    <label><input type="radio" name="deductYn" value="yes"> 유</label>
+    <label><input type="radio" name="deductYn" value="no"> 무</label>
+    <input id="deductTime" class="pay-time" type="text" placeholder="예: 30분" disabled>
+  </div>
+  <div class="pay-row">
+    <div class="pay-name">추가 근무 추가 시간</div>
+    <label><input type="radio" name="extraYn" value="yes"> 유</label>
+    <label><input type="radio" name="extraYn" value="no"> 무</label>
+    <input id="extraTime" class="pay-time" type="text" placeholder="예: 1시간" disabled>
+  </div>
   <div style="margin-bottom:10px;">
     <label style="font-size:14px; font-weight:600;" data-ko="퇴근 보고">퇴근 보고</label>
     <p style="font-size:13px; color:#555; margin:4px 0 8px;" data-ko="특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
@@ -789,6 +811,7 @@ function saveProgress() {
     staff: staffName.value,
     period: workPeriod.value,
     dayMemo: document.getElementById('dayMemo')?.value || '',
+    pay: readPay(),
     items: {}
   };
   document.querySelectorAll('.item').forEach(el => {
@@ -817,6 +840,7 @@ function loadProgress() {
       if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
         document.getElementById('dayMemo').value = d.dayMemo;
       }
+      if (d.pay) writePay(d.pay);
       return d;
     }
   } catch(e){}
@@ -1102,6 +1126,8 @@ function checkAllDone() {
     if (cb.checked && miss.length) cb.checked = false;
   });
   bottomBar.classList.toggle('hidden', !allDone);
+  const box = document.querySelector('.container');
+  if (box) box.style.paddingBottom = allDone ? '72vh' : '';
 }
 
 function addPhotoFile(id, file) {
@@ -1278,6 +1304,63 @@ async function shareItem(id, isSms) {
 }
 window.shareItem = shareItem;
 
+function readPay() {
+  const yn = name => (document.querySelector('input[name="' + name + '"]:checked') || {}).value || '';
+  return {
+    lateYn: yn('lateYn'),
+    lateTime: document.getElementById('lateTime')?.value.trim() || '',
+    deductYn: yn('deductYn'),
+    deductTime: document.getElementById('deductTime')?.value.trim() || '',
+    extraYn: yn('extraYn'),
+    extraTime: document.getElementById('extraTime')?.value.trim() || ''
+  };
+}
+function writePay(pay) {
+  const set = (name, value, inputId) => {
+    const radio = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
+    if (radio) radio.checked = true;
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.disabled = value !== 'yes';
+    if (value === 'yes' && pay[inputId === 'lateTime' ? 'lateTime' : inputId === 'deductTime' ? 'deductTime' : 'extraTime']) {
+      input.value = pay[inputId === 'lateTime' ? 'lateTime' : inputId === 'deductTime' ? 'deductTime' : 'extraTime'];
+    }
+  };
+  if (pay.lateYn) set('lateYn', pay.lateYn, 'lateTime');
+  if (pay.deductYn) set('deductYn', pay.deductYn, 'deductTime');
+  if (pay.extraYn) set('extraYn', pay.extraYn, 'extraTime');
+  if (pay.lateTime && document.getElementById('lateTime')) document.getElementById('lateTime').value = pay.lateTime;
+  if (pay.deductTime && document.getElementById('deductTime')) document.getElementById('deductTime').value = pay.deductTime;
+  if (pay.extraTime && document.getElementById('extraTime')) document.getElementById('extraTime').value = pay.extraTime;
+}
+function payMissing() {
+  const rows = [
+    ['지각 근무 차감 시간', 'lateYn', 'lateTime'],
+    ['감가 근무 차감 시간', 'deductYn', 'deductTime'],
+    ['추가 근무 추가 시간', 'extraYn', 'extraTime']
+  ];
+  const pay = readPay();
+  for (const [label, ynKey, timeKey] of rows) {
+    if (pay[ynKey] !== 'yes' && pay[ynKey] !== 'no') return label + '을 유 또는 무로 체크하세요.';
+    if (pay[ynKey] === 'yes' && !pay[timeKey]) return label + '을 적으세요.';
+  }
+  return '';
+}
+document.querySelectorAll('#bottomBar input[type="radio"]').forEach(el => {
+  el.addEventListener('change', () => {
+    const box = el.closest('.pay-row');
+    const input = box && box.querySelector('.pay-time');
+    if (input) {
+      input.disabled = el.value !== 'yes';
+      if (el.value !== 'yes') input.value = '';
+    }
+    saveProgress();
+  });
+});
+document.querySelectorAll('#bottomBar .pay-time').forEach(el => {
+  el.addEventListener('input', saveProgress);
+});
+
 function makeSummary() {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
   const when = new Date().toLocaleString('ko-KR');
@@ -1288,6 +1371,11 @@ function makeSummary() {
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
   });
   const memo = document.getElementById('dayMemo')?.value.trim() || '';
+  const pay = readPay();
+  const line = (label, yn, time) => label + ': ' + (yn === 'yes' ? '유 ' + time : '무');
+  sum += '\n\n' + line('지각 근무 차감 시간', pay.lateYn, pay.lateTime);
+  sum += '\n' + line('감가 근무 차감 시간', pay.deductYn, pay.deductTime);
+  sum += '\n' + line('추가 근무 추가 시간', pay.extraYn, pay.extraTime);
   sum += `\n\n퇴근 보고: ${memo}`;
   return sum;
 }
@@ -1306,6 +1394,11 @@ function collectMissing() {
 }
 
 sendReportBtn.onclick = async () => {
+  const payMiss = payMissing();
+  if (payMiss) {
+    alert(payMiss);
+    return;
+  }
   if (!document.getElementById('dayMemo')?.value.trim()) {
     alert('퇴근 보고가 안 됐습니다.');
     return;
