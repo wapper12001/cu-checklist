@@ -93,7 +93,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v64</h1>
+  <h1>CU 점포 체크리스트 v65</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -186,21 +186,21 @@ if (document.documentElement.classList.contains('inapp')) {
 <div class="bottom-bar hidden" id="bottomBar">
   <div class="pay-row">
     <div class="pay-name">지각 근무 차감 시간</div>
-    <label><input type="radio" name="lateYn" value="yes"> 유</label>
-    <label><input type="radio" name="lateYn" value="no"> 무</label>
-    <input id="lateTime" class="pay-time" type="text" placeholder="예: 30분" disabled>
+    <label><input type="radio" name="lateYn" value="yes"> 있음</label>
+    <label><input type="radio" name="lateYn" value="no"> 없음</label>
+    <select id="lateTime" class="pay-time" disabled></select>
   </div>
   <div class="pay-row">
-    <div class="pay-name">감가 근무 차감 시간</div>
-    <label><input type="radio" name="deductYn" value="yes"> 유</label>
-    <label><input type="radio" name="deductYn" value="no"> 무</label>
-    <input id="deductTime" class="pay-time" type="text" placeholder="예: 30분" disabled>
+    <div class="pay-name">단축 근무 차감 시간</div>
+    <label><input type="radio" name="deductYn" value="yes"> 있음</label>
+    <label><input type="radio" name="deductYn" value="no"> 없음</label>
+    <select id="deductTime" class="pay-time" disabled></select>
   </div>
   <div class="pay-row">
     <div class="pay-name">추가 근무 추가 시간</div>
-    <label><input type="radio" name="extraYn" value="yes"> 유</label>
-    <label><input type="radio" name="extraYn" value="no"> 무</label>
-    <input id="extraTime" class="pay-time" type="text" placeholder="예: 1시간" disabled>
+    <label><input type="radio" name="extraYn" value="yes"> 있음</label>
+    <label><input type="radio" name="extraYn" value="no"> 없음</label>
+    <select id="extraTime" class="pay-time" disabled></select>
   </div>
   <div style="margin-bottom:10px;">
     <label style="font-size:14px; font-weight:600;" data-ko="퇴근 보고">퇴근 보고</label>
@@ -1333,16 +1333,35 @@ function writePay(pay) {
   if (pay.deductTime && document.getElementById('deductTime')) document.getElementById('deductTime').value = pay.deductTime;
   if (pay.extraTime && document.getElementById('extraTime')) document.getElementById('extraTime').value = pay.extraTime;
 }
+function hourLabel(value) {
+  const h = Number(value);
+  if (!Number.isFinite(h)) return '';
+  const mins = Math.round(h * 60);
+  if (mins % 60 === 0) return (mins / 60) + '시간';
+  const hh = Math.floor(mins / 60);
+  const mm = mins % 60;
+  return h + '시간 (' + (hh ? hh + '시간 ' : '') + mm + '분)';
+}
+function fillPayTimes() {
+  const options = ['<option value="">시간을 고르세요</option>'];
+  for (let n = 1; n <= 24; n++) {
+    const h = n / 2;
+    options.push('<option value="' + h + '">' + hourLabel(h) + '</option>');
+  }
+  document.querySelectorAll('.pay-time').forEach(sel => { sel.innerHTML = options.join(''); });
+}
+fillPayTimes();
 function payMissing() {
   const rows = [
     ['지각 근무 차감 시간', 'lateYn', 'lateTime'],
-    ['감가 근무 차감 시간', 'deductYn', 'deductTime'],
+    ['단축 근무 차감 시간', 'deductYn', 'deductTime'],
     ['추가 근무 추가 시간', 'extraYn', 'extraTime']
   ];
   const pay = readPay();
   for (const [label, ynKey, timeKey] of rows) {
-    if (pay[ynKey] !== 'yes' && pay[ynKey] !== 'no') return label + '을 유 또는 무로 체크하세요.';
-    if (pay[ynKey] === 'yes' && !pay[timeKey]) return label + '을 적으세요.';
+    if (pay[ynKey] !== 'yes' && pay[ynKey] !== 'no') return label + '을 있음 또는 없음으로 체크하세요.';
+    const hours = Number(pay[timeKey]);
+    if (pay[ynKey] === 'yes' && (!pay[timeKey] || !Number.isFinite(hours) || hours <= 0 || Math.round(hours * 2) !== hours * 2)) return label + '을 0.5시간 단위로 고르세요.';
   }
   return '';
 }
@@ -1358,7 +1377,7 @@ document.querySelectorAll('#bottomBar input[type="radio"]').forEach(el => {
   });
 });
 document.querySelectorAll('#bottomBar .pay-time').forEach(el => {
-  el.addEventListener('input', saveProgress);
+  el.addEventListener('change', saveProgress);
 });
 
 function makeSummary() {
@@ -1372,9 +1391,9 @@ function makeSummary() {
   });
   const memo = document.getElementById('dayMemo')?.value.trim() || '';
   const pay = readPay();
-  const line = (label, yn, time) => label + ': ' + (yn === 'yes' ? '유 ' + time : '무');
+  const line = (label, yn, time) => label + ': ' + (yn === 'yes' ? '있음 ' + hourLabel(time) : '없음');
   sum += '\n\n' + line('지각 근무 차감 시간', pay.lateYn, pay.lateTime);
-  sum += '\n' + line('감가 근무 차감 시간', pay.deductYn, pay.deductTime);
+  sum += '\n' + line('단축 근무 차감 시간', pay.deductYn, pay.deductTime);
   sum += '\n' + line('추가 근무 추가 시간', pay.extraYn, pay.extraTime);
   sum += `\n\n퇴근 보고: ${memo}`;
   return sum;
