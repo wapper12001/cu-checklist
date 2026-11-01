@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v60</h1>
+  <h1>CU 점포 체크리스트 v61</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -315,7 +315,7 @@ const I18N = {
     '월 행사 쇼카드 교체': 'Đổi thẻ khuyến mãi tháng',
     '기간행사 쇼카드 교체': 'Đổi thẻ khuyến mãi theo đợt',
     'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.': 'Kiểm hạn dùng bằng PDA.\nChụp màn hình PDA đã kiểm và báo cáo.',
-    '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.': 'Làm việc chủ cửa hàng giao vào Chủ nhật và báo cáo bằng ảnh.',
+    '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.': 'Làm việc chủ cửa hàng chỉ định và báo cáo bằng ảnh.',
     '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.': 'Xé thẻ tháng mới, phân loại rồi gom lại.',
     '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.': 'Gỡ thẻ tháng trước và cắm thẻ tháng mới.',
     '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.': 'Gỡ thẻ chương trình kết thúc và cắm thẻ chương trình bắt đầu.',
@@ -381,7 +381,7 @@ const I18N = {
     '월 행사 쇼카드 교체': 'လစဉ် ပရိုမိုးရှင်းကတ် လဲ',
     '기간행사 쇼카드 교체': 'ကာလအလိုက် ပရိုမိုးရှင်းကတ် လဲ',
     'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.': 'PDA ဖြင့် သက်တမ်းစစ်ပါ။\nစစ်ပြီးသား PDA မျက်နှာပြင်ကို ဓာတ်ပုံရိုက်ပြီး သတင်းပို့ပါ။',
-    '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.': 'တနင်္ဂနွေတွင် ဆိုင်ပိုင်ရှင် သတ်မှတ်ထားသော အလုပ်ကို လုပ်ပြီး ဓာတ်ပုံဖြင့် သတင်းပို့ပါ။',
+    '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.': 'ဆိုင်ပိုင်ရှင် သတ်မှတ်ထားသော အလုပ်ကို လုပ်ပြီး ဓာတ်ပုံဖြင့် သတင်းပို့ပါ။',
     '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.': 'လသစ်ကတ်ကို ဆုတ်၊ ခွဲပြီး စုပါ။',
     '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.': 'ယခင်လကတ်ကို ဖြုတ်ပြီး လသစ်ကတ်ကို ထိုးပါ။',
     '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.': 'ကာလကုန်သော ကတ်ကို ဖြုတ်ပြီး ကာလစသော ကတ်ကို ထိုးပါ။',
@@ -979,7 +979,7 @@ function visibleItems(shift) {
   const extra = [];
   if (isSelectedSunday() && !skipSundayTasks()) {
     extra.push({ id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
-    extra.push({ id: 'sunday-task', title: '지정 특정 업무', desc: '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
+    extra.push({ id: 'sunday-task', title: '지정 특정 업무', desc: '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
   }
   const kinds = showcardKinds();
   if (kinds.includes('prep')) extra.push({ id: 'showcard-prep', title: '새 달 쇼카드 모으기', desc: '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.', photo_required: true });
