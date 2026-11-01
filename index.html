@@ -50,7 +50,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .done-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .done-check input { width: 20px; height: 20px; }
 .done-check .done-time { color: #555; font-size: 13px; }
-.miss-msg { font-size: 13px; font-weight: 700; color: #6B2C91; margin-top: 8px; }
+.tr-sub { display: block; font-weight: 500; font-size: 13px; color: #5c3d78; margin-top: 2px; line-height: 1.4; }
 .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }
@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v58</h1>
+  <h1>CU 점포 체크리스트 v59</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -103,15 +103,21 @@ if (document.documentElement.classList.contains('inapp')) {
         <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
         <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
       </div>
-      <label style="margin-top:12px;">날짜</label>
+      <label data-ko="언어">언어</label>
+      <select id="langSelect">
+        <option value="">한국어</option>
+        <option value="vi">Tiếng Việt</option>
+        <option value="my">မြန်မာ</option>
+      </select>
+      <label style="margin-top:12px;" data-ko="날짜">날짜</label>
       <input type="date" id="reportDate">
-      <label style="margin-top:12px;">점포 선택</label>
+      <label style="margin-top:12px;" data-ko="점포 선택">점포 선택</label>
       <select id="storeSelect"></select>
-      <label style="margin-top:12px;">근무타입</label>
+      <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
-      <label style="margin-top:12px;">근무자 이름</label>
+      <label style="margin-top:12px;" data-ko="근무자 이름">근무자 이름</label>
       <input type="text" id="staffName" placeholder="이름">
-      <label style="margin-top:12px;">근무시간대</label>
+      <label style="margin-top:12px;" data-ko="근무시간대">근무시간대</label>
       <input type="text" id="workPeriod" placeholder="예: 09:00-15:00">
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
@@ -175,11 +181,11 @@ if (document.documentElement.classList.contains('inapp')) {
 
 <div class="bottom-bar hidden" id="bottomBar">
   <div style="margin-bottom:10px;">
-    <label style="font-size:14px; font-weight:600;">퇴근 보고</label>
-    <p style="font-size:13px; color:#555; margin:4px 0 8px;">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
+    <label style="font-size:14px; font-weight:600;" data-ko="퇴근 보고">퇴근 보고</label>
+    <p style="font-size:13px; color:#555; margin:4px 0 8px;" data-ko="특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
     <textarea id="dayMemo" placeholder="예시) 손님이 메론빵 찾으셨어요 등..." style="min-height:70px;"></textarea>
   </div>
-  <button class="btn-primary" id="sendReportBtn">전체 보고서 전송</button>
+  <button class="btn-primary" id="sendReportBtn" data-ko="전체 보고서 전송">전체 보고서 전송</button>
 </div>
 
 <!-- 비밀번호 모달 -->
@@ -251,6 +257,170 @@ const shiftSelect = document.getElementById('shiftSelect');
 const staffName = document.getElementById('staffName');
 const workPeriod = document.getElementById('workPeriod');
 const reportDate = document.getElementById('reportDate');
+let reportLang = localStorage.getItem('cu-report-lang') || '';
+const I18N = {
+  vi: {
+    '언어': 'Ngôn ngữ',
+    '날짜': 'Ngày',
+    '점포 선택': 'Chọn cửa hàng',
+    '근무타입': 'Ca làm',
+    '근무자 이름': 'Tên nhân viên',
+    '근무시간대': 'Giờ làm',
+    '퇴근 보고': 'Báo cáo tan ca',
+    '특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.': 'Ghi việc bất thường, việc cần chuyển, sự cố trong ngày.',
+    '전체 보고서 전송': 'Gửi báo cáo cả ca',
+    '상세보기': 'Xem chi tiết',
+    '완료': 'Xong',
+    '메모': 'Ghi chú',
+    '사진찍기': 'Chụp ảnh',
+    '카톡': 'KakaoTalk',
+    '문자': 'Tin nhắn',
+    '사진이 없습니다.': 'Chưa có ảnh.',
+    '관리자': 'Quản lý',
+    '전화번호': 'Số điện thoại',
+    'CU고객센터': 'Tổng đài CU',
+    '근무자 필독!': 'Nhân viên phải đọc!',
+    '미등록': 'Chưa đăng ký',
+    '시재점검': 'Kiểm tiền',
+    '중점재고체크': 'Kiểm hàng trọng điểm',
+    '수시업무': 'Việc làm xen kẽ',
+    '휴식': 'Nghỉ',
+    '청소': 'Vệ sinh',
+    '도시락매대 정리정돈': 'Sắp kệ cơm hộp',
+    '담배재고체크': 'Kiểm kho thuốc lá',
+    '상품 보충과 정리정돈': 'Bổ sung và sắp hàng',
+    '상품 보충': 'Bổ sung hàng',
+    '퇴근전 마무리 업무': 'Việc cuối trước khi tan ca',
+    '퇴근': 'Tan ca',
+    '폐기와 저회전 보관': 'Hủy hàng và cất hàng bán chậm',
+    '저온 입고와 검수와 진열1': 'Nhận, kiểm, bày hàng lạnh 1',
+    '저온 입고 검수와 진열2': 'Kiểm và bày hàng lạnh 2',
+    '상온물류 입고': 'Nhận hàng nhiệt độ thường',
+    '상온물류 검수': 'Kiểm hàng nhiệt độ thường',
+    '상온물류 진열': 'Bày hàng nhiệt độ thường',
+    '상온물류 진열과 정리': 'Bày và sắp hàng nhiệt độ thường',
+    '상온물류 PDA검수': 'Kiểm PDA hàng nhiệt độ thường',
+    '소분박스 진열': 'Bày thùng chia nhỏ',
+    '유통기한체크': 'Kiểm hạn dùng',
+    '유통기한 체크와 정리정돈': 'Kiểm hạn dùng và sắp kệ',
+    '중점재고와 유통기한 체크': 'Kiểm hàng trọng điểm và hạn dùng',
+    '중점재고와 유통기한 체크와 정리정돈': 'Kiểm hàng trọng điểm, hạn dùng và sắp kệ',
+    '재고 확인': 'Kiểm hàng tồn',
+    '마감 전 정리': 'Dọn trước khi đóng ca',
+    '매출 마감': 'Chốt doanh thu',
+    '야간 마감': 'Đóng ca đêm',
+    'PDA 유통기한 체크': 'Kiểm hạn dùng bằng PDA',
+    '지정 특정 업무': 'Việc được chỉ định',
+    '새 달 쇼카드 모으기': 'Xé và gom thẻ tháng mới',
+    '월 행사 쇼카드 교체': 'Đổi thẻ khuyến mãi tháng',
+    '기간행사 쇼카드 교체': 'Đổi thẻ khuyến mãi theo đợt',
+    'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.': 'Kiểm hạn dùng bằng PDA.\nChụp màn hình PDA đã kiểm và báo cáo.',
+    '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.': 'Làm việc chủ cửa hàng giao vào Chủ nhật và báo cáo bằng ảnh.',
+    '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.': 'Xé thẻ tháng mới, phân loại rồi gom lại.',
+    '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.': 'Gỡ thẻ tháng trước và cắm thẻ tháng mới.',
+    '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.': 'Gỡ thẻ chương trình kết thúc và cắm thẻ chương trình bắt đầu.',
+    '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.': 'Nơi nghỉ: ghế bàn thử món, ghế văn phòng hoặc kho, ghế bàn thử món ngoài cửa.\nKhông nghỉ ngoài nơi quy định.\nKhông nghỉ hoặc dùng điện thoại tại quầy.\nViệc riêng như dùng điện thoại chỉ làm ở nơi nghỉ.',
+    '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매': 'Chú ý bán rượu, thuốc lá cho người chưa đủ tuổi! Phải xem giấy tờ mọi người mua (CMND, bằng lái, QR căn cước). Nếu khách từ chối, gọi video với chủ cửa hàng rồi mới bán.',
+    '본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.': 'Người giả nhân viên trụ sở, gia đình chủ hoặc người quen đều là lừa đảo. Có nhiều kiểu lừa thẻ Google Play, phiếu quà, cho vay tiền mặt. Gặp họ thì gọi tổng đài để xác nhận.',
+    '챗봇 하루': 'Chatbot Haru',
+    '등록해서 업무에 활용하세요!': 'Hãy đăng ký và dùng cho công việc!'
+  },
+  my: {
+    '언어': 'ဘာသာစကား',
+    '날짜': 'ရက်စွဲ',
+    '점포 선택': 'ဆိုင်ရွေးပါ',
+    '근무타입': 'အလုပ်အမျိုးအစား',
+    '근무자 이름': 'ဝန်ထမ်းအမည်',
+    '근무시간대': 'အလုပ်ချိန်',
+    '퇴근 보고': 'ဆင်းချိန်အစီရင်ခံ',
+    '특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.': 'ထူးခြားချက်၊ လွှဲပြောင်းရန်နှင့် ယနေ့ဖြစ်ရပ်ကို ရေးပါ။',
+    '전체 보고서 전송': 'တစ်နေ့လုံး အစီရင်ခံစာ ပို့ရန်',
+    '상세보기': 'အသေးစိတ်',
+    '완료': 'ပြီးပါပြီ',
+    '메모': 'မှတ်ချက်',
+    '사진찍기': 'ဓာတ်ပုံရိုက်ရန်',
+    '카톡': 'ကာကော့',
+    '문자': 'စာတို',
+    '사진이 없습니다.': 'ဓာတ်ပုံမရှိပါ။',
+    '관리자': 'မန်နေဂျာ',
+    '전화번호': 'ဖုန်းနံပါတ်',
+    'CU고객센터': 'CU ဖောက်သည်ဌာန',
+    '근무자 필독!': 'ဝန်ထမ်း ဖတ်ရမည်!',
+    '미등록': 'မမှတ်ထားပါ',
+    '시재점검': 'ငွေစာရင်းစစ်',
+    '중점재고체크': 'အဓိကပစ္စည်းစစ်',
+    '수시업무': 'ကြားထဲလုပ်ရမည့်အလုပ်',
+    '휴식': 'နားချိန်',
+    '청소': 'သန့်ရှင်းရေး',
+    '도시락매대 정리정돈': 'နေ့လည်စာစင် ပြင်ဆင်',
+    '담배재고체크': 'ဆေးလိပ်စာရင်းစစ်',
+    '상품 보충과 정리정돈': 'ပစ္စည်းဖြည့်ပြီး ပြင်ဆင်',
+    '상품 보충': 'ပစ္စည်းဖြည့်',
+    '퇴근전 마무리 업무': 'ဆင်းခါနီး နောက်ဆုံးအလုပ်',
+    '퇴근': 'အလုပ်ဆင်း',
+    '폐기와 저회전 보관': 'စွန့်ပစ်ပြီး အရောင်းနှေးပစ္စည်းသိမ်း',
+    '저온 입고와 검수와 진열1': 'အေးပစ္စည်း လက်ခံ စစ် ပြသ ၁',
+    '저온 입고 검수와 진열2': 'အေးပစ္စည်း စစ်ပြီး ပြသ ၂',
+    '상온물류 입고': 'ပုံမှန်အပူချိန် ကုန်ပစ္စည်း လက်ခံ',
+    '상온물류 검수': 'ပုံမှန်အပူချိန် ကုန်ပစ္စည်း စစ်',
+    '상온물류 진열': 'ပုံမှန်အပူချိန် ကုန်ပစ္စည်း ပြသ',
+    '상온물류 진열과 정리': 'ပုံမှန်အပူချိန် ကုန်ပစ္စည်း ပြသပြီး ပြင်',
+    '상온물류 PDA검수': 'PDA ဖြင့် ပုံမှန်အပူချိန် ကုန်စစ်',
+    '소분박스 진열': 'ခွဲထားသည့်သေတ္တာ ပြသ',
+    '유통기한체크': 'သက်တမ်းစစ်',
+    '유통기한 체크와 정리정돈': 'သက်တမ်းစစ်ပြီး ပြင်ဆင်',
+    '중점재고와 유통기한 체크': 'အဓိကပစ္စည်းနှင့် သက်တမ်းစစ်',
+    '중점재고와 유통기한 체크와 정리정돈': 'အဓိကပစ္စည်း၊ သက်တမ်းစစ်ပြီး ပြင်ဆင်',
+    '재고 확인': 'လက်ကျန်စစ်',
+    '마감 전 정리': 'ပိတ်ခါနီး ပြင်ဆင်',
+    '매출 마감': 'အရောင်းပိတ်',
+    '야간 마감': 'ညပိုင်းပိတ်',
+    'PDA 유통기한 체크': 'PDA ဖြင့် သက်တမ်းစစ်',
+    '지정 특정 업무': 'သတ်မှတ်ထားသော အလုပ်',
+    '새 달 쇼카드 모으기': 'လသစ်ကတ် ခွဲပြီး စု',
+    '월 행사 쇼카드 교체': 'လစဉ် ပရိုမိုးရှင်းကတ် လဲ',
+    '기간행사 쇼카드 교체': 'ကာလအလိုက် ပရိုမိုးရှင်းကတ် လဲ',
+    'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.': 'PDA ဖြင့် သက်တမ်းစစ်ပါ။\nစစ်ပြီးသား PDA မျက်နှာပြင်ကို ဓာတ်ပုံရိုက်ပြီး သတင်းပို့ပါ။',
+    '일요일에 점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.': 'တနင်္ဂနွေတွင် ဆိုင်ပိုင်ရှင် သတ်မှတ်ထားသော အလုပ်ကို လုပ်ပြီး ဓာတ်ပုံဖြင့် သတင်းပို့ပါ။',
+    '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.': 'လသစ်ကတ်ကို ဆုတ်၊ ခွဲပြီး စုပါ။',
+    '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.': 'ယခင်လကတ်ကို ဖြုတ်ပြီး လသစ်ကတ်ကို ထိုးပါ။',
+    '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.': 'ကာလကုန်သော ကတ်ကို ဖြုတ်ပြီး ကာလစသော ကတ်ကို ထိုးပါ။',
+    '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.': 'နားခွင့်နေရာ: အရသာစမ်းစားပွဲကုလားထိုင်၊ ရုံး သို့မဟုတ် ဂိုဒေါင်ကုလားထိုင်၊ အပြင် အရသာစမ်းစားပွဲကုလားထိုင်။\nသတ်မှတ်နေရာပြင်ပတွင် မနားရ။\nကောင်တာတွင် မနားရ၊ ဖုန်းမသုံးရ။\nဖုန်းကဲ့သို့ အလုပ်မဟုတ်သော အပြုအမူကို နားခွင့်နေရာတွင်သာ လုပ်ပါ။',
+    '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매': 'အရွယ်မရောက်သေးသူအား အရက်၊ ဆေးလိပ် ရောင်းချရာ သတိထားပါ! ဝယ်သူတိုင်း၏ မှတ်ပုံတင်၊ ယာဉ်မောင်းလိုင်စင်၊ အီလက်ထရောနစ် QR ကို စစ်ပါ။ ငြင်းပါက ဆိုင်ပိုင်ရှင်နှင့် ဗီဒီယိုခေါ်ပြီးမှ ရောင်းပါ။',
+    '본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.': 'ရုံးဝန်ထမ်း၊ ဆိုင်ပိုင်ရှင်မိသားစု၊ အသိအကျွမ်းဟန်ဆောင်သူအားလုံး လိမ်လည်မှုဖြစ်သည်။ Google Play ကတ်၊ လက်ဆောင်ဘောက်ချာ၊ ငွေချေးခြင်း လိမ်လည်မှုများရှိသည်။ ဒီလိုလူလာလျှင် ဖောက်သည်ဌာနသို့ ဖုန်းဆက်စစ်ပါ။',
+    '챗봇 하루': 'ချတ်ဘော့ ဟာရူ',
+    '등록해서 업무에 활용하세요!': 'မှတ်ပုံတင်ပြီး အလုပ်တွင် သုံးပါ!'
+  }
+};
+function escHtml(s) {
+  return String(s).replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
+}
+function trText(ko) {
+  if (!reportLang || !I18N[reportLang]) return '';
+  return I18N[reportLang][ko] || '';
+}
+function biHtml(ko) {
+  const main = escHtml(ko).replace(/\n/g, '<br>');
+  const t = trText(ko);
+  if (!t) return main;
+  return main + '<div class="tr-sub">' + escHtml(t).replace(/\n/g, '<br>') + '</div>';
+}
+function applyStaticLang() {
+  document.querySelectorAll('[data-ko]').forEach(el => { el.innerHTML = biHtml(el.getAttribute('data-ko')); });
+}
+const langSelect = document.getElementById('langSelect');
+if (langSelect) {
+  langSelect.value = reportLang;
+  langSelect.onchange = () => {
+    reportLang = langSelect.value;
+    localStorage.setItem('cu-report-lang', reportLang);
+    applyStaticLang();
+    if (currentStore && allData[currentStore]) updateManagerInfo(allData[currentStore]);
+    if (shiftSelect.value) renderChecklist();
+    else checkDiscards();
+  };
+}
+applyStaticLang();
 const checklistContainer = document.getElementById('checklistContainer');
 const storeInfo = document.getElementById('storeInfo');
 const bottomBar = document.getElementById('bottomBar');
@@ -477,7 +647,7 @@ document.getElementById('discardBody').onclick = e => {
 async function shareDiscard(id) {
   const slot = DISCARD_SLOTS.find(s => s.id === id);
   const photos = currentPhotos['discard-' + id] || [];
-  if (!photos.length) { alert('사진이 없습니다.'); return; }
+  if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
   const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
   let files = photos;
   try {
@@ -512,17 +682,17 @@ function updateManagerInfo(d) {
   storeInfo.innerHTML = `
     <div style="margin-top:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <strong>관리자:</strong> ${manager}
-        <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">근무자 필독!</button>
+        <strong>${biHtml('관리자')}</strong> ${manager}
+        <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">${biHtml('근무자 필독!')}</button>
       </div>
       <div id="mustRead" class="hidden" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
-        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#f5a623; color:#3a2500; border-radius:6px; padding:2px 6px; margin-right:6px;">⚠️ 주의</span>미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매</p>
-        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#b00020; color:#fff; border-radius:6px; padding:2px 6px; margin-right:6px;">🚨 경고</span>본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.</p>
-        <p style="margin:0 0 8px;"><strong>챗봇 하루:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> (등록해서 업무에 활용하세요!)</p>
+        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#f5a623; color:#3a2500; border-radius:6px; padding:2px 6px; margin-right:6px;">⚠️ 주의</span>${biHtml('미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매')}</p>
+        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#b00020; color:#fff; border-radius:6px; padding:2px 6px; margin-right:6px;">🚨 경고</span>${biHtml('본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.')}</p>
+        <p style="margin:0 0 8px;"><strong>${biHtml('챗봇 하루')}:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> ${biHtml('등록해서 업무에 활용하세요!')}</p>
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
-      <div style="margin-top:8px;"><strong>전화번호:</strong> ${phone}</div>
-      <div style="margin-top:4px;"><strong>CU고객센터:</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a></div>
+      <div style="margin-top:8px;"><strong>${biHtml('전화번호')}</strong> ${phone}</div>
+      <div style="margin-top:4px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
@@ -611,23 +781,23 @@ function renderChecklist() {
     if (!desc && (item.title || '').trim() === '휴식') {
       desc = '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.';
     }
-    const descHtml = desc.replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
+    const descHtml = biHtml(desc);
     const photoRow = needsPhoto(id) ? `
         <div class="btn-row">
-          <button type="button" class="btn-photo">📷 사진찍기</button>
-          <button type="button" class="btn-kakao">카톡</button>
-          <button type="button" class="btn-sms">문자</button>
+          <button type="button" class="btn-photo">📷 ${biHtml('사진찍기')}</button>
+          <button type="button" class="btn-kakao">${biHtml('카톡')}</button>
+          <button type="button" class="btn-sms">${biHtml('문자')}</button>
         </div>
         <div class="photo-preview" id="photos-${id}"></div>
         <div class="miss-msg" id="miss-${id}"></div>` : '';
     return `
-      <div class="card item" data-id="${id}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
-        <div class="item-title"><span class="item-no">${index + 1}</span>${item.title}
-          ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">상세보기</button>` : ''}
+      <div class="card item" data-id="${id}" data-title="${escHtml(item.title)}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
+        <div class="item-title"><span class="item-no">${index + 1}</span><span style="flex:1; min-width:0;">${biHtml(item.title)}</span>
+          ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">${biHtml('상세보기')}</button>` : ''}
         </div>
         <div class="item-desc hidden">${descHtml}</div>
-        <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>완료</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
-        <label>메모</label><textarea>${sv.memo||''}</textarea>
+        <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>${biHtml('완료')}</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
+        <label>${biHtml('메모')}</label><textarea>${sv.memo||''}</textarea>
         ${photoRow}
       </div>`;
   }).join('');
@@ -816,7 +986,7 @@ function showMiss(id) {
   const box = document.getElementById('miss-' + id);
   if (!box) return;
   const msg = missMessage(requiredMissing(id));
-  box.textContent = msg;
+  box.innerHTML = msg ? biHtml(msg) : '';
 }
 function refreshAllMiss() {
   document.querySelectorAll('.item').forEach(el => showMiss(el.dataset.id));
@@ -966,7 +1136,7 @@ function getItemData(id) {
   const el = document.querySelector(`.item[data-id="${id}"]`);
   if (!el) return null;
   return {
-    title: itemById(id)?.title || el.querySelector('.item-title').textContent.replace('상세보기','').trim(),
+    title: el?.dataset.title || itemById(id)?.title || el.querySelector('.item-title').textContent.replace('상세보기','').trim(),
     done: el.querySelector('.done-cb').checked,
     memo: el.querySelector('textarea').value.trim(),
     photos: currentPhotos[id] || []
@@ -1011,7 +1181,7 @@ async function shareItem(id, isSms) {
     showMiss(id);
   };
   if (!d.photos.length || !navigator.share) {
-    alert('사진이 없습니다.');
+    alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.');
     return;
   }
   let files = d.photos;
