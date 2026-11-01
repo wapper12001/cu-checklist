@@ -60,6 +60,9 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .pay-time { margin-top: 4px; }
 .time-pair { display: flex; gap: 8px; }
 .time-pair select { flex: 1; min-width: 0; }
+.date-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.date-row input[type="date"] { flex: 1; min-width: 148px; }
+.date-row label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: 600; white-space: nowrap; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
 .secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
@@ -95,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v67</h1>
+  <h1>CU 점포 체크리스트 v68</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -116,7 +119,12 @@ if (document.documentElement.classList.contains('inapp')) {
         <option value="my">မြန်မာ</option>
       </select>
       <label style="margin-top:12px;" data-ko="날짜">날짜</label>
-      <input type="date" id="reportDate">
+      <div class="date-row">
+        <input type="date" id="reportDate">
+        <label><input type="radio" name="workType" value="edu"> 교육</label>
+        <label><input type="radio" name="workType" value="prob"> 수습</label>
+        <label><input type="radio" name="workType" value="full"> 정식</label>
+      </div>
       <label style="margin-top:12px;" data-ko="점포 선택">점포 선택</label>
       <select id="storeSelect"></select>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
@@ -856,6 +864,7 @@ function saveProgress() {
     period: workPeriod.value,
     dayMemo: document.getElementById('dayMemo')?.value || '',
     pay: readPay(),
+    workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
     items: {}
   };
   document.querySelectorAll('.item').forEach(el => {
@@ -885,6 +894,7 @@ function loadProgress() {
         document.getElementById('dayMemo').value = d.dayMemo;
       }
       if (d.pay) writePay(d.pay);
+      document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === (d.workType || ''); });
       return d;
     }
   } catch(e){}
@@ -1409,6 +1419,9 @@ function payMissing() {
   }
   return '';
 }
+document.querySelectorAll('input[name="workType"]').forEach(el => {
+  el.addEventListener('change', saveProgress);
+});
 document.querySelectorAll('#bottomBar input[type="radio"]').forEach(el => {
   el.addEventListener('change', () => {
     const box = el.closest('.pay-row');
@@ -1427,7 +1440,9 @@ document.querySelectorAll('#bottomBar .pay-time').forEach(el => {
 function makeSummary() {
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
   const when = new Date().toLocaleString('ko-KR');
-  let sum = `전체 보고 시간 : ${when}`;
+  const names = { edu: '교육', prob: '수습', full: '정식' };
+  const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
+  let sum = `전체 보고 시간 : ${when}\n구분: ${names[picked] || ''}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
@@ -1484,12 +1499,17 @@ function saveWorkCalendar() {
     rest,
     total,
     period: workPeriod.value.trim(),
-    worker: staffName.value.trim()
+    worker: staffName.value.trim(),
+    type: (document.querySelector('input[name="workType"]:checked') || {}).value || null
   });
   localStorage.setItem('work-log-v1', JSON.stringify(saved));
 }
 
 sendReportBtn.onclick = async () => {
+  if (!document.querySelector('input[name="workType"]:checked')) {
+    alert('교육, 수습, 정식 중 하나를 고르세요.');
+    return;
+  }
   const payMiss = payMissing();
   if (payMiss) {
     alert(payMiss);
