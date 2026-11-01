@@ -93,7 +93,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v65</h1>
+  <h1>CU 점포 체크리스트 v66</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1412,6 +1412,39 @@ function collectMissing() {
   return lines;
 }
 
+function saveWorkCalendar() {
+  const parts = (reportDate.value || '').split('-').map(Number);
+  const y = parts[0], m = parts[1], d = parts[2];
+  if (!y || !m || !d) return;
+  const pay = readPay();
+  const range = parseWorkRange(workPeriod.value);
+  const hours = range ? shiftMinutes(range) / 60 : 0;
+  const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
+  const late = num(pay.lateYn, pay.lateTime);
+  const short = num(pay.deductYn, pay.deductTime);
+  const extra = num(pay.extraYn, pay.extraTime);
+  const rest = 0;
+  const total = Math.round((hours + extra - rest - late - short) * 10) / 10;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('work-log-v1') || '{}') || {}; } catch (e) { saved = {}; }
+  const mk = y + '-' + m;
+  const day = String(d);
+  if (!saved[mk] || typeof saved[mk] !== 'object') saved[mk] = {};
+  const prev = saved[mk][day] && typeof saved[mk][day] === 'object' ? saved[mk][day] : {};
+  saved[mk][day] = Object.assign({}, prev, {
+    hours,
+    extra: extra || null,
+    short: short || null,
+    late: late > 0,
+    lateHours: late || null,
+    rest,
+    total,
+    period: workPeriod.value.trim(),
+    worker: staffName.value.trim()
+  });
+  localStorage.setItem('work-log-v1', JSON.stringify(saved));
+}
+
 sendReportBtn.onclick = async () => {
   const payMiss = payMissing();
   if (payMiss) {
@@ -1433,10 +1466,11 @@ sendReportBtn.onclick = async () => {
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); return; } catch (e) {
+    try { await navigator.share({ text: sum }); saveWorkCalendar(); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
+  saveWorkCalendar();
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 
