@@ -89,7 +89,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v62</h1>
+  <h1>CU 점포 체크리스트 v63</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -651,7 +651,7 @@ function inShift(slotMin, range) {
   return slotMin >= range.start || slotMin <= range.end;
 }
 function slotAlreadyDue(slotMin, range, nowMin) {
-  if (!inShift(slotMin, range)) return false;
+  if (!inShift(nowMin, range) || !inShift(slotMin, range)) return false;
   if (range.start < range.end) return nowMin >= slotMin;
   if (nowMin >= range.start) return slotMin >= range.start && slotMin <= nowMin;
   if (slotMin >= range.start) return true;
