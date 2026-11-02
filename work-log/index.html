@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>근무내역</title>
+  <title>근무내역 V77</title>
   <script>
     (function () {
       var ua = navigator.userAgent || "";
@@ -39,7 +39,9 @@
     }
     main { max-width: 32rem; margin: 0 auto; padding: 1.5rem 1rem 7rem; }
     header { display: block; margin-bottom: 0.75rem; }
-    h1 { margin: 0; font-size: 1.5rem; }
+    h1 { display: flex; flex-direction: row; align-items: flex-start; gap: 0.4rem; margin: 0 0 0.6rem; font-size: 1.5rem; }
+    h1 [data-ko] { width: auto; flex: 0 0 auto; }
+    .ver { color: var(--primary); font-size: 1rem; line-height: 1.5rem; }
     .muted { color: var(--muted); font-size: 0.875rem; margin: 0; }
     .month { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.25rem; margin-bottom: 0.75rem; }
     .month p { flex: 1; text-align: center; font-size: 1.125rem; font-weight: 700; margin: 0; }
@@ -145,21 +147,20 @@
     [data-ko] { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; }
     h1[data-ko], .notice[data-ko], .reset[data-ko], #open-send[data-ko] { align-items: center; }
     .choice { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
-    .wd .tr { font-size: 0.65rem; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <label class="field"><span data-ko="언어">언어</span>
+      <h1><span data-ko="근무내역">근무내역</span><span class="ver">V77</span></h1>
+      <label class="field lang"><span data-ko="언어">언어</span>
         <select id="lang">
           <option value="">한국어</option>
           <option value="vi">베트남어</option>
           <option value="my">미얀마어</option>
         </select>
       </label>
-      <p class="muted" data-ko="점장에게 카톡·문자로 전송">점장에게 카톡·문자로 전송</p>
-      <h1 data-ko="근무내역">근무내역</h1>
     </header>
     <div class="month">
       <button class="icon" id="prev" type="button" aria-label="이전달">‹</button>
@@ -189,7 +190,7 @@
   <div id="send-sheet" class="sheet-bg hidden"></div>
   <script>
     const TYPES = [
-      { id: "edu", label: "교육", short: "교육" },
+      { id: "edu", label: "교육(2인 근무 교육만 해당)", short: "교육" },
       { id: "prob", label: "수습", short: "수습" },
       { id: "full", label: "정식", short: "정식" },
       { id: "sub", label: "대체근무", short: "대체" },
@@ -219,7 +220,7 @@
       "단축근무": "Làm rút ngắn",
       "확인": "Xác nhận",
       "이 날짜 지우기": "Xóa ngày này",
-      "교육": "Đào tạo",
+      "교육(2인 근무 교육만 해당)": "Đào tạo (chỉ ca 2 người)",
       "수습": "Thử việc",
       "정식": "Chính thức",
       "대체근무": "Làm thay",
@@ -252,7 +253,7 @@
       "단축근무": "အချိန်လျှော့",
       "확인": "အတည်ပြု",
       "이 날짜 지우기": "ဒီရက်ကို ဖျက်ပါ",
-      "교육": "လေ့ကျင့်ရေး",
+      "교육(2인 근무 교육만 해당)": "လေ့ကျင့်ရေး (၂ ယောက် တာဝန်သာ)",
       "수습": "အစမ်းခန့်",
       "정식": "အမြဲတမ်း",
       "대체근무": "အစားထိုး",
@@ -490,7 +491,7 @@
         const on = draft.type === item.id;
         return '<button type="button" class="choice' + (on ? " on" : "") + '" data-type="' + item.id + '">' + labelHtml(item.label) + "</button>";
       }).join("");
-      const flags = [["late", "지각"], ["absent", "결근"], ["off", "휴무"]].map((item) => {
+      const flags = [["absent", "결근"]].map((item) => {
         const on = draft[item[0]];
         return '<button type="button" class="choice' + (on ? " on" : "") + '" data-flag="' + item[0] + '">' + labelHtml(item[1]) + "</button>";
       }).join("");
@@ -505,7 +506,7 @@
         '<div class="day-grid">' +
         '<section class="sec type"><h3>' + labelHtml("근무 유형 하나만 선택") + '</h3>' + choices + '</section>' +
         '<div><section class="sec time"><h3>' + labelHtml("근무 시간 입력") + '</h3>' +
-        '<label class="hours' + (draft.type ? "" : " off") + '"><span>' + labelHtml("근무 시간") + '</span><input id="hours" type="number" min="0" step="0.5" placeholder="' + ("근무시간을 적으세요" + (tr("근무시간을 적으세요") ? " / " + tr("근무시간을 적으세요") : "")) + '" ' + (draft.type ? "" : "disabled") + ' value="' + (draft.hours ?? "") + '"></label>' +
+        '<label class="hours' + (draft.absent || draft.type ? "" : " off") + '"><span>' + labelHtml("근무 시간") + '</span><input id="hours" type="number" min="0" step="0.5" placeholder="' + ("근무시간을 적으세요" + (tr("근무시간을 적으세요") ? " / " + tr("근무시간을 적으세요") : "")) + '" ' + (draft.absent || !draft.type ? "disabled" : "") + ' value="' + (draft.absent ? 0 : (draft.hours ?? "")) + '"></label>' +
         rest + '</section>' +
         '<section class="sec extra"><h3>' + labelHtml("추가 선택") + '</h3>' +
         '<label class="hours"><span>' + labelHtml("추가근무") + '</span><input id="extra" type="number" min="0" step="0.5" placeholder="' + ("시간" + (tr("시간") ? "" : "")) + '" value="' + (draft.extra ?? "") + '"></label>' +
@@ -520,7 +521,12 @@
         button.onclick = () => { state.draft.type = button.dataset.type; drawDay(); };
       });
       document.querySelectorAll("[data-flag]").forEach((button) => {
-        button.onclick = () => { state.draft[button.dataset.flag] = !state.draft[button.dataset.flag]; drawDay(); };
+        button.onclick = () => {
+          const flag = button.dataset.flag;
+          state.draft[flag] = !state.draft[flag];
+          if (flag === "absent") state.draft.hours = state.draft.absent ? 0 : null;
+          drawDay();
+        };
       });
       bindHours("hours", "hours");
       bindHours("extra", "extra");
@@ -549,7 +555,7 @@
       const map = { ...days() };
       map[String(state.picked)] = {
         type: draft.type,
-        hours: draft.hours,
+        hours: draft.absent ? 0 : draft.hours,
         extra: draft.extra,
         short: draft.short,
         late: !!draft.late,
@@ -709,7 +715,7 @@
       });
       const lines = [];
       const eduPaid = Math.max(0, eduMin - eduRestSum);
-      if (eduPaid > 0) lines.push(["교육", formatMinutes(eduPaid) + " · 휴게 " + formatRest(eduRestSum) + " 제외 · 수습 9,288원", won(eduPaid, probation)]);
+      if (eduPaid > 0) lines.push(["교육(2인 근무 교육만 해당)", formatMinutes(eduPaid) + " · 휴게 " + formatRest(eduRestSum) + " 제외 · 수습 9,288원", won(eduPaid, probation)]);
       if (probMin > 0) lines.push(["수습", formatMinutes(probMin) + " · 수습 9,288원", won(probMin, probation)]);
       if (fullMin > 0) lines.push(["정식", formatMinutes(fullMin) + " · 시급 10,320원", won(fullMin, base)]);
       if (subMin > 0) lines.push(["대체근무", formatMinutes(subMin) + " · 시급 10,320원", won(subMin, base)]);
