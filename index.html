@@ -98,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v71</h1>
+  <h1>CU 점포 체크리스트 v72</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -277,6 +277,8 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ADMIN_PASSWORD = "1234";
 
 let allData = {};
+let commonTitles = [];
+const COMMON_SEED = ['고구마 호빵 등 조리 시작','담배재고체크','도시락매대 정리정돈','마감 전 정리','매출 마감','상온물류 PDA검수','상온물류 검수','상온물류 입고','상온물류 진열','상온물류 진열과 정리정돈','상품 보충','상품 보충과 정리정돈','소분박스 진열','수시업무','시재점검','야간 마감','유통기한 체크와 정리정돈','유통기한체크','저온 입고 검수와 진열2','저온 입고와 검수와 진열1','중점재고와 유통기한 체크','중점재고와 유통기한 체크와 정리정돈','중점재고체크','청소','퇴근','퇴근전 마무리 업무','폐기와 저회전 보관','휴식'];
 let currentStore = "";
 let currentPhotos = {};
 let sessionReported = {};
@@ -571,6 +573,11 @@ async function loadData() {
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
       if (it.store_name === '__i18n__') {
+        if (it.shift_key === 'common' && it.title && it.title !== 'tr') {
+          const name = it.title.trim();
+          if (name && !commonTitles.includes(name)) commonTitles.push(name);
+          return;
+        }
         try {
           const o = JSON.parse(it.description || '{}');
           if (o.ko) i18nByKo[o.ko] = { vi: o.vi || '', my: o.my || '' };
@@ -590,6 +597,7 @@ async function loadData() {
     });
     refreshStoreSelect();
     restoreAdmin();
+    ensureCommonSeed();
   } catch (e) {
     console.error(e);
     alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
@@ -1836,9 +1844,45 @@ function renderEditShifts(shifts) {
     container.appendChild(block);
   });
 }
+function escAttr(s) { return escHtml(s).replace(/"/g, '"'); }
+function commonOptions(selected) {
+  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  return '<option value="">공통 항목에서 고르기</option>' + titles.map(t => `<option value="${escAttr(t)}"${t === selected ? ' selected' : ''}>${escHtml(t)}</option>`).join('');
+}
+function pickCommon(sel) {
+  if (!sel.value) return;
+  const title = sel.closest('.edit-item').querySelector('.i-title');
+  if (title) title.value = sel.value;
+  captureDraft();
+}
+async function addCommonTitles(titles) {
+  const fresh = [...new Set((titles || []).map(t => String(t || '').trim()).filter(Boolean))].filter(t => !commonTitles.includes(t));
+  if (!fresh.length) return;
+  const rows = fresh.map((title, i) => ({
+    store_name: '__i18n__',
+    shift_key: 'common',
+    shift_name: '공통',
+    item_order: commonTitles.length + i + 1,
+    title,
+    description: '',
+    photo_required: false
+  }));
+  const { error } = await supabase.from('checklist_items').insert(rows);
+  if (error) { console.error(error); return; }
+  commonTitles.push(...fresh);
+  document.querySelectorAll('.i-common').forEach(sel => {
+    const item = sel.closest('.edit-item');
+    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
+    sel.innerHTML = commonOptions(current);
+  });
+}
+function ensureCommonSeed() { return addCommonTitles(COMMON_SEED); }
+window.pickCommon = pickCommon;
+
 function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   const d = document.createElement('div');
   d.className = 'edit-item';
+  const title = item.title || '';
   d.innerHTML = `
     <div class="edit-head">
       <span class="item-no-label">항목</span>
@@ -1849,9 +1893,10 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
-      <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
+      <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
+      <input class="i-title" value="${escAttr(title)}" placeholder="체크리스트 항목 이름" style="margin:4px 0;">
       <button class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.nextElementSibling.classList.toggle('hidden')">상세순서</button>
-      <textarea class="i-desc hidden" placeholder="상세 순서 설명">${item.desc||''}</textarea>
+      <textarea class="i-desc hidden" placeholder="상세 순서 설명">${escHtml(item.desc||'')}</textarea>
       <label style="margin-top:4px;"><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
     </div>
   `;
@@ -1933,6 +1978,9 @@ document.getElementById('saveStoreBtn').onclick = async () => {
       }
     }
     await saveAll();
+    const names = [];
+    Object.values(shifts).forEach(shift => (shift.items || []).forEach(it => names.push(it.title)));
+    await addCommonTitles(names);
     alert('저장되었습니다.');
     saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
     editScreen.classList.add('hidden');
