@@ -98,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v70</h1>
+  <h1>CU 점포 체크리스트 v71</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1844,6 +1844,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <span class="item-no-label">항목</span>
       <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
       <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItemEdge(this, 'top')">맨위</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItemEdge(this, 'bottom')">맨아래</button>
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
@@ -1882,6 +1884,17 @@ function moveItem(btn, dir) {
 }
 window.addItem = addItem;
 window.moveItem = moveItem;
+function moveItemEdge(btn, where) {
+  const item = btn.closest('.edit-item');
+  const container = item.parentElement;
+  const items = Array.from(container.querySelectorAll('.edit-item'));
+  if (items.length < 2) return;
+  if (where === 'top') container.insertBefore(item, items[0]);
+  else container.appendChild(item);
+  captureDraft();
+  renumberItems(container);
+}
+window.moveItemEdge = moveItemEdge;
 
 document.getElementById('saveStoreBtn').onclick = async () => {
   const name = document.getElementById('editStoreName').value.trim();
