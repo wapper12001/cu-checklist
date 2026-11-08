@@ -98,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v77</h1>
+  <h1>CU 점포 체크리스트 v78</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -613,6 +613,7 @@ async function loadData() {
     refreshStoreSelect();
     restoreAdmin();
     ensureCommonSeed();
+    resumeWork();
   } catch (e) {
     console.error(e);
     alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
@@ -903,7 +904,32 @@ shiftSelect.onchange = () => {
   }
   renderChecklist();
   checkAllDone();
+  saveResume();
 };
+
+function saveResume() {
+  if (!currentStore || !shiftSelect.value || !reportDate.value) return;
+  try {
+    localStorage.setItem('cu-resume', JSON.stringify({
+      store: currentStore,
+      shift: shiftSelect.value,
+      date: reportDate.value
+    }));
+  } catch (e) {}
+}
+function resumeWork() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('cu-resume') || 'null'); } catch (e) { saved = null; }
+  if (!saved || !saved.store || !allData[saved.store]) return;
+  if (saved.date) reportDate.value = saved.date;
+  storeSelect.value = saved.store;
+  onStoreChange();
+  if (saved.shift && [...shiftSelect.options].some(opt => opt.value === saved.shift)) {
+    shiftSelect.value = saved.shift;
+    renderChecklist();
+    checkAllDone();
+  }
+}
 
 function getKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
 function saveProgress() {
@@ -926,6 +952,7 @@ function saveProgress() {
     };
   });
   try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
+  saveResume();
   checkAllDone();
 }
 function loadProgress() {
