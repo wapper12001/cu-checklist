@@ -98,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v78</h1>
+  <h1>CU 점포 체크리스트 v79</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -150,6 +150,8 @@ if (document.documentElement.classList.contains('inapp')) {
       <label>점포 선택</label>
       <select id="adminStoreSelect"></select>
       <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
+      <button class="btn-secondary" id="commonEditBtn" type="button" style="width:100%; margin-top:8px;">공통 항목 수정</button>
+      <div id="commonPanel" class="hidden" style="margin-top:12px;"></div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
 
@@ -279,6 +281,8 @@ const ADMIN_PASSWORD = "1234";
 let allData = {};
 let commonTitles = [];
 let commonDesc = {};
+let commonIds = {};
+let commonHidden = {};
 const COMMON_SEED = ['고구마 호빵 등 조리 시작','담배재고체크','도시락매대 정리정돈','마감 전 정리','매출 마감','상온물류 PDA검수','상온물류 검수','상온물류 입고','상온물류 진열','상온물류 진열과 정리정돈','상품 보충','상품 보충과 정리정돈','소분박스 진열','수시업무','시재점검','야간 마감','유통기한 체크와 정리정돈','유통기한체크','저온 입고 검수와 진열2','저온 입고와 검수와 진열1','중점재고와 유통기한 체크','중점재고와 유통기한 체크와 정리정돈','중점재고체크','청소','퇴근','퇴근전 마무리 업무','폐기와 저회전 보관','휴식','PDA 유통기한 체크','지정 특정 업무','새 달 쇼카드 모으기','월 행사 쇼카드 교체','기간행사 쇼카드 교체','09:30 10시 폐기 예정 상품 폐기','13:30 14시 폐기 예정 상품 폐기','21:30 22시 폐기 예정 상품 폐기','23:30 24시 폐기 예정 상품 폐기','00:20 19시간 점포 06시까지 폐기','01:30 02시 폐기 예정 상품 폐기'];
 const COMMON_DESC = {
   'PDA 유통기한 체크': 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.',
@@ -587,10 +591,16 @@ async function loadData() {
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
       if (it.store_name === '__i18n__') {
+        if (it.shift_key === 'common-off') {
+          const hiddenName = (it.title || '').trim();
+          if (hiddenName) commonHidden[hiddenName] = true;
+          return;
+        }
         if (it.shift_key === 'common' && it.title && it.title !== 'tr') {
           const name = it.title.trim();
           if (name && !commonTitles.includes(name)) commonTitles.push(name);
           if (name) commonDesc[name] = it.description || '';
+          if (name && it.id) commonIds[name] = it.id;
           return;
         }
         try {
@@ -1963,7 +1973,91 @@ async function addCommonTitles(titles) {
     sel.innerHTML = commonOptions(current);
   });
 }
-function ensureCommonSeed() { return addCommonTitles(COMMON_SEED.map(title => ({ title: title, desc: COMMON_DESC[title] || '' }))); }
+function ensureCommonSeed() {
+  return addCommonTitles(COMMON_SEED.filter(title => !commonHidden[title]).map(title => ({ title: title, desc: COMMON_DESC[title] || '' })));
+}
+function refreshCommonSelects() {
+  document.querySelectorAll('.i-common').forEach(sel => {
+    const item = sel.closest('.edit-item');
+    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
+    sel.innerHTML = commonOptions(current);
+  });
+}
+function renderCommonList() {
+  const panel = document.getElementById('commonPanel');
+  if (!panel) return;
+  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  panel.innerHTML = titles.map(title => `
+    <div class="common-row" data-title="${escAttr(title)}" style="padding:10px 0; border-top:1px solid #eee;">
+      <input class="common-title" value="${escAttr(title)}" style="margin-bottom:6px;">
+      <textarea class="common-desc" style="min-height:64px;">${escHtml(commonDesc[title] || '')}</textarea>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button type="button" class="btn btn-primary common-save" style="flex:1;">저장</button>
+        <button type="button" class="btn btn-danger common-del">삭제</button>
+      </div>
+    </div>
+  `).join('') || '<div style="color:#888; font-size:13px;">공통 항목이 없습니다.</div>';
+  panel.querySelectorAll('.common-row').forEach(row => {
+    const oldTitle = row.dataset.title;
+    row.querySelector('.common-save').onclick = () => saveCommonRow(oldTitle, row.querySelector('.common-title').value, row.querySelector('.common-desc').value);
+    row.querySelector('.common-del').onclick = () => deleteCommon(oldTitle);
+  });
+}
+async function hideCommonTitle(title) {
+  if (!title || commonHidden[title]) return;
+  commonHidden[title] = true;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__i18n__',
+    shift_key: 'common-off',
+    shift_name: '숨김',
+    item_order: 0,
+    title,
+    description: '',
+    photo_required: false
+  });
+  if (error) console.error(error);
+}
+async function saveCommonRow(oldTitle, title, desc) {
+  title = String(title || '').trim();
+  desc = String(desc || '').trim();
+  if (!title) { alert('이름을 적으세요.'); return; }
+  if (title !== oldTitle && commonTitles.includes(title)) { alert('같은 이름의 공통 항목이 있습니다.'); return; }
+  const id = commonIds[oldTitle];
+  let query = supabase.from('checklist_items').update({ title, description: desc });
+  query = id ? query.eq('id', id) : query.eq('store_name', '__i18n__').eq('shift_key', 'common').eq('title', oldTitle);
+  const { error } = await query;
+  if (error) { alert('저장하지 못했습니다.'); return; }
+  if (title !== oldTitle) {
+    commonTitles = commonTitles.map(item => item === oldTitle ? title : item);
+    delete commonDesc[oldTitle];
+    if (commonIds[oldTitle]) {
+      commonIds[title] = commonIds[oldTitle];
+      delete commonIds[oldTitle];
+    }
+    await hideCommonTitle(oldTitle);
+  }
+  commonDesc[title] = desc;
+  refreshCommonSelects();
+  renderCommonList();
+  alert('공통 항목을 저장했습니다.');
+}
+async function deleteCommon(title) {
+  if (!confirm(title + '\n공통 항목을 지울까요?\n점포에 이미 넣은 항목은 그대로 둡니다.')) return;
+  let query = supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'common').eq('title', title);
+  const { error } = await query;
+  if (error) { alert('지우지 못했습니다.'); return; }
+  await hideCommonTitle(title);
+  commonTitles = commonTitles.filter(item => item !== title);
+  delete commonDesc[title];
+  delete commonIds[title];
+  refreshCommonSelects();
+  renderCommonList();
+}
+document.getElementById('commonEditBtn').onclick = () => {
+  const panel = document.getElementById('commonPanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) renderCommonList();
+};
 window.pickCommon = pickCommon;
 window.saveCommonDesc = saveCommonDesc;
 
