@@ -101,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v85</h1>
+  <h1>CU 점포 체크리스트 v86</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -128,8 +128,16 @@ if (document.documentElement.classList.contains('inapp')) {
         <label><input type="radio" name="workType" value="prob"> <span data-ko="수습">수습</span></label>
         <label><input type="radio" name="workType" value="full"> <span data-ko="정식">정식</span></label>
       </div>
-      <label style="margin-top:12px;" data-ko="점포 선택">점포 선택</label>
-      <select id="storeSelect"></select>
+      <div id="storeCodeBox">
+        <label style="margin-top:12px;">점포 코드</label>
+        <input id="storeCodeInput" autocomplete="off" placeholder="점포 코드">
+        <button type="button" class="btn-primary" id="storeCodeBtn" style="width:100%; margin-top:8px;">들어가기</button>
+      </div>
+      <div id="storePick" class="hidden">
+        <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
+        <select id="storeSelect"></select>
+        <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">점포 코드 변경</button>
+      </div>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
       <label style="margin-top:12px;" data-ko="근무자 이름">근무자 이름</label>
@@ -168,8 +176,8 @@ if (document.documentElement.classList.contains('inapp')) {
     <div id="storeDetail" class="hidden">
       <div class="card">
         <h4 style="margin-top:0;" id="detailTitle">점포 정보</h4>
-        <label>점포코드</label>
-        <input type="text" id="detailCode">
+        <label>근무자 코드</label>
+        <input type="text" id="detailCode" placeholder="근무자가 입력할 숫자">
         <label style="margin-top:8px;">점장</label>
         <input type="text" id="detailManager">
         <label style="margin-top:8px;">전화번호</label>
@@ -582,7 +590,7 @@ const storeInfo = document.getElementById('storeInfo');
 const bottomBar = document.getElementById('bottomBar');
 const sendReportBtn = document.getElementById('sendReportBtn');
 
-async function loadData() {
+async function loadData(forAdmin) {
   try {
     const { data: stores, error } = await supabase.from('stores').select('*');
     if (error) throw error;
@@ -600,6 +608,11 @@ async function loadData() {
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
       if (it.store_name === '__i18n__') {
+        if (it.shift_key === 'access') {
+          const storeName = (it.title || '').trim();
+          if (storeName && allData[storeName]) allData[storeName].code = it.description || '';
+          return;
+        }
         if (it.shift_key === 'common-off') {
           const hiddenName = (it.title || '').trim();
           if (hiddenName) commonHidden[hiddenName] = true;
@@ -629,10 +642,13 @@ async function loadData() {
         photo_required: it.photo_required
       });
     });
-    refreshStoreSelect();
-    restoreAdmin();
-    ensureCommonSeed();
-    resumeWork();
+    if (forAdmin) {
+      restoreAdmin();
+      ensureCommonSeed();
+    } else {
+      refreshStoreSelect();
+      resumeWork();
+    }
   } catch (e) {
     console.error(e);
     alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
@@ -673,16 +689,85 @@ async function saveShiftToDb(storeName, shiftKey, shift) {
   const { error } = await supabase.from('checklist_items').insert(rows);
   if (error) throw error;
 }
+let lockedStore = '';
 function refreshStoreSelect() {
-  const stores = Object.keys(allData).filter(s => s !== '__i18n__');
-  storeSelect.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
+  const stores = lockedStore ? [lockedStore] : Object.keys(allData).filter(s => s !== '__i18n__');
+  storeSelect.innerHTML = (lockedStore ? '' : '<option value="">-- 점포 선택 --</option>') + stores.map(s => `<option value="${escAttr(s)}">${escHtml(s)}</option>`).join('');
+  if (lockedStore) storeSelect.disabled = true;
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
-  if (stores.length) {
-    // 기본은 선택 안 된 상태
-  }
 }
-loadData(); // Supabase에서 불러오기
+async function saveAccessCode(storeName, code) {
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'access').eq('title', storeName);
+  if (delErr) throw delErr;
+  if (!code) return;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__i18n__',
+    shift_key: 'access',
+    shift_name: '코드',
+    item_order: 0,
+    title: storeName,
+    description: code,
+    photo_required: false
+  });
+  if (error) throw error;
+}
+async function loadOneStore(name) {
+  const { data: stores, error } = await supabase.from('stores').select('*').eq('name', name);
+  if (error) throw error;
+  const s = (stores || [])[0];
+  if (!s) throw new Error('없는 점포');
+  allData = {};
+  allData[name] = { manager: s.manager || '', phone: s.phone || '', hours: s.hours || '19', code: '', shifts: {} };
+  const { data: items, error: itemErr } = await supabase.from('checklist_items').select('*').eq('store_name', name).order('item_order');
+  if (itemErr) throw itemErr;
+  (items || []).forEach(it => {
+    if (!allData[name].shifts[it.shift_key]) allData[name].shifts[it.shift_key] = { name: it.shift_name || it.shift_key, items: [] };
+    allData[name].shifts[it.shift_key].items.push({ id: it.id, title: it.title, desc: it.description || '', photo_required: it.photo_required });
+  });
+}
+function showLockedStore(name) {
+  lockedStore = name;
+  document.getElementById('storeCodeBox').classList.add('hidden');
+  document.getElementById('storePick').classList.remove('hidden');
+  storeSelect.disabled = true;
+  storeSelect.innerHTML = `<option value="${escAttr(name)}">${escHtml(name)}</option>`;
+  storeSelect.value = name;
+  onStoreChange();
+  resumeWork();
+}
+async function enterStoreCode(code, silent) {
+  code = String(code || '').trim();
+  if (!code) { if (!silent) alert('점포 코드를 입력하세요.'); return false; }
+  const { data, error } = await supabase.from('checklist_items').select('title').eq('store_name', '__i18n__').eq('shift_key', 'access').eq('description', code);
+  if (error) { if (!silent) alert('코드를 확인하지 못했습니다.'); return false; }
+  const names = [...new Set((data || []).map(row => (row.title || '').trim()).filter(Boolean))];
+  if (!names.length) { if (!silent) alert('점포 코드가 맞지 않습니다.'); return false; }
+  if (names.length > 1) { if (!silent) alert('같은 코드를 쓰는 점포가 있습니다. 코드를 다르게 정해 주세요.'); return false; }
+  try { await loadOneStore(names[0]); }
+  catch (e) { if (!silent) alert('점포를 불러오지 못했습니다.'); return false; }
+  localStorage.setItem('cu-access-code', code);
+  showLockedStore(names[0]);
+  return true;
+}
+function resetStoreCode() {
+  localStorage.removeItem('cu-access-code');
+  lockedStore = '';
+  allData = {};
+  currentStore = '';
+  storeSelect.disabled = false;
+  storeSelect.innerHTML = '';
+  shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
+  checklistContainer.innerHTML = '';
+  storeInfo.innerHTML = '';
+  document.getElementById('storePick').classList.add('hidden');
+  document.getElementById('storeCodeBox').classList.remove('hidden');
+  document.getElementById('storeCodeInput').value = '';
+}
+document.getElementById('storeCodeBtn').onclick = () => enterStoreCode(document.getElementById('storeCodeInput').value, false);
+document.getElementById('storeCodeChange').onclick = resetStoreCode;
+const savedAccessCode = localStorage.getItem('cu-access-code') || '';
+if (savedAccessCode) enterStoreCode(savedAccessCode, true);
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 storeSelect.onchange = onStoreChange;
@@ -940,6 +1025,7 @@ function resumeWork() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('cu-resume') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.store || !allData[saved.store]) return;
+  if (lockedStore && saved.store !== lockedStore) return;
   if (saved.date) reportDate.value = saved.date;
   storeSelect.value = saved.store;
   onStoreChange();
@@ -1731,9 +1817,11 @@ function saveAdminView(patch) {
 function clearAdminView() {
   sessionStorage.removeItem(ADMIN_VIEW_KEY);
 }
-function enterAdmin() {
+async function enterAdmin() {
   reportScreen.classList.add('hidden');
-  editScreen.classList.add('hidden');
+  try { await loadData(true); }
+  catch (e) { alert('데이터를 불러오지 못했습니다.'); return; }
+  if (!editScreen.classList.contains('hidden')) return;
   adminScreen.classList.remove('hidden');
   refreshAdminStoreSelect();
   saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
@@ -1839,6 +1927,7 @@ document.getElementById('saveDetailBtn').onclick = async () => {
   allData[name].hours = document.getElementById('detailHours').value;
   try {
     await saveStoreToDb(name);
+    await saveAccessCode(name, allData[name].code || '');
     await saveAll();
     alert('점포 정보가 저장되었습니다.');
   } catch (e) {
