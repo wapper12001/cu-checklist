@@ -37,6 +37,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-photo { background: #2196F3; color: white; }
 .btn-danger { background: #6B2C91; color: white; }
 .common-del { background: #d92b2b; color: white; }
+.common-line { display: block; width: 100%; text-align: left; background: #fff; color: #222; border: none; border-bottom: 1px solid #eee; border-radius: 0; padding: 12px 2px; font-size: 15px; font-weight: 600; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
@@ -99,7 +100,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v80</h1>
+  <h1>CU 점포 체크리스트 v81</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -156,7 +157,8 @@ if (document.documentElement.classList.contains('inapp')) {
         <input id="newCommonTitle" placeholder="새 공통 항목 이름">
         <textarea id="newCommonDesc" placeholder="상세순서" style="min-height:64px; margin-top:6px;"></textarea>
         <button type="button" class="btn-primary" id="addCommonBtn" style="width:100%; margin-top:8px;">공통 항목 추가</button>
-        <div id="commonList" style="margin-top:8px;"></div>
+        <input id="commonSearch" placeholder="공통 항목 검색" style="margin-top:12px;">
+        <div id="commonList"></div>
       </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
@@ -1992,19 +1994,32 @@ function refreshCommonSelects() {
 function renderCommonList() {
   const panel = document.getElementById('commonList');
   if (!panel) return;
-  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  const q = (document.getElementById('commonSearch')?.value || '').trim().toLowerCase();
+  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko')).filter(title => {
+    if (!q) return true;
+    return title.toLowerCase().includes(q) || (commonDesc[title] || '').toLowerCase().includes(q);
+  });
   panel.innerHTML = titles.map(title => `
-    <div class="common-row" data-title="${escAttr(title)}" style="padding:10px 0; border-top:1px solid #eee;">
-      <input class="common-title" value="${escAttr(title)}" style="margin-bottom:6px;">
-      <textarea class="common-desc" style="min-height:64px;">${escHtml(commonDesc[title] || '')}</textarea>
-      <div style="display:flex; gap:8px; margin-top:6px;">
-        <button type="button" class="btn btn-primary common-save" style="flex:1;">저장</button>
-        <button type="button" class="btn common-del">삭제</button>
+    <div class="common-row" data-title="${escAttr(title)}">
+      <button type="button" class="common-line">${escHtml(title)}</button>
+      <div class="common-edit hidden" style="padding:8px 0 12px;">
+        <input class="common-title" value="${escAttr(title)}" style="margin-bottom:6px;">
+        <textarea class="common-desc" style="min-height:64px;">${escHtml(commonDesc[title] || '')}</textarea>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button type="button" class="btn btn-primary common-save" style="flex:1;">저장</button>
+          <button type="button" class="btn common-del">삭제</button>
+        </div>
       </div>
     </div>
-  `).join('') || '<div style="color:#888; font-size:13px;">공통 항목이 없습니다.</div>';
+  `).join('') || '<div style="color:#888; font-size:13px; padding:10px 0;">찾는 공통 항목이 없습니다.</div>';
   panel.querySelectorAll('.common-row').forEach(row => {
     const oldTitle = row.dataset.title;
+    row.querySelector('.common-line').onclick = () => {
+      const edit = row.querySelector('.common-edit');
+      const willOpen = edit.classList.contains('hidden');
+      panel.querySelectorAll('.common-edit').forEach(el => el.classList.add('hidden'));
+      if (willOpen) edit.classList.remove('hidden');
+    };
     row.querySelector('.common-save').onclick = () => saveCommonRow(oldTitle, row.querySelector('.common-title').value, row.querySelector('.common-desc').value);
     row.querySelector('.common-del').onclick = () => deleteCommon(oldTitle);
   });
@@ -2084,6 +2099,7 @@ document.getElementById('commonEditBtn').onclick = () => {
   if (!panel.classList.contains('hidden')) renderCommonList();
 };
 document.getElementById('addCommonBtn').onclick = addNewCommon;
+document.getElementById('commonSearch').oninput = renderCommonList;
 window.pickCommon = pickCommon;
 window.saveCommonDesc = saveCommonDesc;
 
