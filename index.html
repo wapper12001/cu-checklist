@@ -38,6 +38,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-danger { background: #6B2C91; color: white; }
 .common-del { background: #d92b2b; color: white; }
 .common-line { display: block; width: 100%; text-align: left; background: #fff; color: #222; border: none; border-bottom: 1px solid #eee; border-radius: 0; padding: 12px 2px; font-size: 15px; font-weight: 600; }
+.i-common-list { border: 1px solid #e4d7ee; border-radius: 8px; margin-bottom: 6px; background: #fff; max-height: 240px; overflow-y: auto; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
@@ -100,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v81</h1>
+  <h1>CU 점포 체크리스트 v85</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1927,8 +1928,14 @@ function renderEditShifts(shifts) {
   });
 }
 function escAttr(s) { return escHtml(s).replace(/"/g, '"'); }
-function commonOptions(selected) {
+function matchingCommonTitles(q) {
+  const query = String(q || '').trim().toLowerCase();
   const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  if (!query) return titles;
+  return titles.filter(title => title.toLowerCase().includes(query));
+}
+function commonOptions(selected, q) {
+  const titles = matchingCommonTitles(q);
   return '<option value="">공통 항목에서 고르기</option>' + titles.map(t => `<option value="${escAttr(t)}"${t === selected ? ' selected' : ''}>${escHtml(t)}</option>`).join('');
 }
 function pickCommon(sel) {
@@ -1941,6 +1948,10 @@ function pickCommon(sel) {
     desc.value = commonDesc[sel.value] || '';
     desc.classList.remove('hidden');
   }
+  const search = item.querySelector('.i-common-search');
+  const box = item.querySelector('.i-common-list');
+  if (search) search.value = '';
+  if (box) { box.innerHTML = ''; box.classList.add('hidden'); }
   captureDraft();
 }
 async function saveCommonDesc(btn) {
@@ -1975,14 +1986,51 @@ async function addCommonTitles(titles) {
   const { error } = await supabase.from('checklist_items').insert(rows);
   if (error) { console.error(error); return; }
   fresh.forEach(row => { commonTitles.push(row.title); if (row.desc) commonDesc[row.title] = row.desc; });
-  document.querySelectorAll('.i-common').forEach(sel => {
-    const item = sel.closest('.edit-item');
-    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
-    sel.innerHTML = commonOptions(current);
-  });
+  refreshCommonSelects();
 }
 function ensureCommonSeed() {
   return addCommonTitles(COMMON_SEED.filter(title => !commonHidden[title]).map(title => ({ title: title, desc: COMMON_DESC[title] || '' })));
+}
+function renderPickList(input) {
+  const body = input.closest('.edit-body');
+  const box = body.querySelector('.i-common-list');
+  const sel = body.querySelector('.i-common');
+  const current = input.closest('.edit-item').querySelector('.i-title')?.value.trim() || '';
+  const q = input.value.trim();
+  if (sel) sel.innerHTML = commonOptions(current, q);
+  box.innerHTML = '';
+  if (!q) { box.classList.add('hidden'); return; }
+  const titles = matchingCommonTitles(q);
+  box.classList.remove('hidden');
+  if (!titles.length) {
+    box.innerHTML = '<div style="color:#888; font-size:13px; padding:8px 2px;">찾는 항목이 없습니다.</div>';
+    return;
+  }
+  titles.forEach(title => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'common-line';
+    btn.textContent = title;
+    btn.onclick = () => pickCommonTitle(input, title);
+    box.appendChild(btn);
+  });
+}
+function pickCommonTitle(input, title) {
+  const item = input.closest('.edit-item');
+  const name = item.querySelector('.i-title');
+  const desc = item.querySelector('.i-desc');
+  if (name) name.value = title;
+  if (desc) {
+    desc.value = commonDesc[title] || '';
+    desc.classList.remove('hidden');
+  }
+  const sel = item.querySelector('.i-common');
+  if (sel) sel.innerHTML = commonOptions(title);
+  input.value = '';
+  const box = item.querySelector('.i-common-list');
+  box.innerHTML = '';
+  box.classList.add('hidden');
+  captureDraft();
 }
 function refreshCommonSelects() {
   document.querySelectorAll('.i-common').forEach(sel => {
@@ -1990,15 +2038,13 @@ function refreshCommonSelects() {
     const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
     sel.innerHTML = commonOptions(current);
   });
+  document.querySelectorAll('.i-common-search').forEach(renderPickList);
 }
 function renderCommonList() {
   const panel = document.getElementById('commonList');
   if (!panel) return;
   const q = (document.getElementById('commonSearch')?.value || '').trim().toLowerCase();
-  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko')).filter(title => {
-    if (!q) return true;
-    return title.toLowerCase().includes(q) || (commonDesc[title] || '').toLowerCase().includes(q);
-  });
+  const titles = matchingCommonTitles(q);
   panel.innerHTML = titles.map(title => `
     <div class="common-row" data-title="${escAttr(title)}">
       <button type="button" class="common-line">${escHtml(title)}</button>
@@ -2117,6 +2163,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
+      <input class="i-common-search" placeholder="공통 항목 검색" style="margin-bottom:4px;">
+      <div class="i-common-list hidden"></div>
       <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
       <input class="i-title" value="${escAttr(title)}" placeholder="체크리스트 항목 이름" style="margin:4px 0;">
       <button type="button" class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.parentElement.querySelector('.i-desc').classList.toggle('hidden')">상세순서</button>
@@ -2126,6 +2174,10 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
     </div>
   `;
   container.appendChild(d);
+  const search = d.querySelector('.i-common-search');
+  const refreshPick = () => renderPickList(search);
+  search.addEventListener('input', refreshPick);
+  search.addEventListener('compositionend', refreshPick);
   renumberItems(container);
 }
 function renumberItems(container) {
