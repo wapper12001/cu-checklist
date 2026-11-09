@@ -38,6 +38,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-danger { background: #6B2C91; color: white; }
 .common-del { background: #d92b2b; color: white; }
 .common-line { display: block; width: 100%; text-align: left; background: #fff; color: #222; border: none; border-bottom: 1px solid #eee; border-radius: 0; padding: 12px 2px; font-size: 15px; font-weight: 600; }
+.i-common-list { border: 1px solid #e4d7ee; border-radius: 8px; margin-bottom: 6px; background: #fff; max-height: 240px; overflow-y: auto; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
@@ -100,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v84</h1>
+  <h1>CU 점포 체크리스트 v85</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2024,7 +2025,7 @@ function pickCommonTitle(input, title) {
     desc.classList.remove('hidden');
   }
   const sel = item.querySelector('.i-common');
-  if (sel) sel.value = title;
+  if (sel) sel.innerHTML = commonOptions(title);
   input.value = '';
   const box = item.querySelector('.i-common-list');
   box.innerHTML = '';
@@ -2162,9 +2163,9 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
-      <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
-      <input class="i-common-search" placeholder="공통 항목 검색" style="margin:4px 0;">
+      <input class="i-common-search" placeholder="공통 항목 검색" style="margin-bottom:4px;">
       <div class="i-common-list hidden"></div>
+      <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
       <input class="i-title" value="${escAttr(title)}" placeholder="체크리스트 항목 이름" style="margin:4px 0;">
       <button type="button" class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.parentElement.querySelector('.i-desc').classList.toggle('hidden')">상세순서</button>
       <button type="button" class="btn btn-secondary" style="margin-top:6px; margin-left:6px; font-size:13px;" onclick="saveCommonDesc(this)">공통 상세순서 저장</button>
