@@ -100,7 +100,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v82</h1>
+  <h1>CU 점포 체크리스트 v83</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1941,6 +1941,10 @@ function pickCommon(sel) {
     desc.value = commonDesc[sel.value] || '';
     desc.classList.remove('hidden');
   }
+  const search = item.querySelector('.i-common-search');
+  const box = item.querySelector('.i-common-list');
+  if (search) search.value = '';
+  if (box) { box.innerHTML = ''; box.classList.add('hidden'); }
   captureDraft();
 }
 async function saveCommonDesc(btn) {
@@ -2009,6 +2013,8 @@ function pickCommonTitle(input, title) {
     desc.value = commonDesc[title] || '';
     desc.classList.remove('hidden');
   }
+  const sel = item.querySelector('.i-common');
+  if (sel) sel.value = title;
   input.value = '';
   const box = item.querySelector('.i-common-list');
   box.innerHTML = '';
@@ -2016,6 +2022,11 @@ function pickCommonTitle(input, title) {
   captureDraft();
 }
 function refreshCommonSelects() {
+  document.querySelectorAll('.i-common').forEach(sel => {
+    const item = sel.closest('.edit-item');
+    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
+    sel.innerHTML = commonOptions(current);
+  });
   document.querySelectorAll('.i-common-search').forEach(renderPickList);
 }
 function renderCommonList() {
@@ -2144,7 +2155,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
-      <input class="i-common-search" placeholder="공통 항목 검색" style="margin-bottom:4px;">
+      <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
+      <input class="i-common-search" placeholder="공통 항목 검색" style="margin:4px 0;">
       <div class="i-common-list hidden"></div>
       <input class="i-title" value="${escAttr(title)}" placeholder="체크리스트 항목 이름" style="margin:4px 0;">
       <button type="button" class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.parentElement.querySelector('.i-desc').classList.toggle('hidden')">상세순서</button>
