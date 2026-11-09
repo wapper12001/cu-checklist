@@ -98,7 +98,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v70</h1>
+  <h1>CU 점포 체크리스트 v71</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -559,7 +559,7 @@ async function loadData() {
     if (error) throw error;
     allData = {};
     for (const s of stores || []) {
-      if (s.name === '__i18n__') continue;
+      if (s.name === '__i18n__' || String(s.name).startsWith('__')) continue;
       allData[s.name] = {
         manager: s.manager || '',
         phone: s.phone || '',
@@ -1352,14 +1352,14 @@ async function shareItem(id, isSms) {
   const text = `업무: ${d.title}\n상태: 완료`;
   const mark = () => {
     if (itemEl) {
-      const t = new Date().toLocaleString('ko-KR');
+      const t = new Date().toISOString();
       sessionReported[reportKey(id)] = t;
       itemEl.dataset.reported = '1';
       itemEl.dataset.reportedAt = t;
       const cb = itemEl.querySelector('.done-cb');
       if (cb) cb.checked = true;
       const timeEl = document.getElementById('done-time-' + id);
-      if (timeEl) timeEl.textContent = t;
+      if (timeEl) timeEl.textContent = new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     }
     saveProgress();
     showMiss(id);
@@ -1496,38 +1496,103 @@ function collectMissing() {
   return lines;
 }
 
+function parseStamp(text) {
+  if (!text) return null;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
+    const d = new Date(text);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const m = String(text).match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.[^\d]*(오전|오후)?\s*(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  let h = Number(m[5]);
+  if (m[4] === '오후' && h < 12) h += 12;
+  if (m[4] === '오전' && h === 12) h = 0;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), h, Number(m[6]), 0, 0);
+}
+function roundTenth(ms) {
+  if (!ms || ms <= 60000) return 0;
+  return Math.round((ms / 3600000) * 10) / 10;
+}
+function clockOn(dateStr, minutes) {
+  const parts = dateStr.split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+  d.setMinutes(minutes);
+  return d;
+}
+async function saveWorkServer(record) {
+  const shiftKey = encodeURIComponent(record.store) + '__' + encodeURIComponent(record.worker);
+  const { data: found, error: findErr } = await supabase.from('checklist_items').select('id,description').eq('store_name', '__worklog__').eq('shift_key', shiftKey).eq('title', record.date);
+  if (findErr) throw findErr;
+  const prev = (found || [])[0];
+  if (prev) {
+    let old = {};
+    try { old = JSON.parse(prev.description || '{}'); } catch (e) { old = {}; }
+    if (old.edited) return;
+    const { error } = await supabase.from('checklist_items').update({ description: JSON.stringify(record), shift_name: 'day' }).eq('id', prev.id);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__worklog__',
+    shift_key: shiftKey,
+    shift_name: 'day',
+    item_order: 0,
+    title: record.date,
+    description: JSON.stringify(record),
+    photo_required: false
+  });
+  if (error) throw error;
+}
 function saveWorkCalendar() {
   const parts = (reportDate.value || '').split('-').map(Number);
   const y = parts[0], m = parts[1], d = parts[2];
-  if (!y || !m || !d) return;
+  if (!y || !m || !d) return Promise.reject(new Error('날짜가 없습니다.'));
+  const worker = staffName.value.trim();
+  const store = currentStore;
+  if (!store || !worker) return Promise.reject(new Error('점포와 이름을 입력하세요.'));
   const pay = readPay();
   const range = parseWorkRange(workPeriod.value);
-  const hours = range ? shiftMinutes(range) / 60 : 0;
+  const hours = range ? Math.round((shiftMinutes(range) / 60) * 10) / 10 : 0;
   const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
-  const late = num(pay.lateYn, pay.lateTime);
-  const short = num(pay.deductYn, pay.deductTime);
-  const extra = num(pay.extraYn, pay.extraTime);
-  const rest = 0;
-  const total = Math.round((hours + extra - rest - late - short) * 10) / 10;
+  const stamps = [];
+  document.querySelectorAll('.item').forEach(el => {
+    const at = el.dataset.reportedAt || sessionReported[reportKey(el.dataset.id)] || '';
+    const when = parseStamp(at);
+    if (when) stamps.push({ title: el.dataset.title || '', when });
+  });
+  const clockIn = stamps.find(s => String(s.title).includes('출근'));
+  const inAt = clockIn ? clockIn.when : (stamps.slice().sort((a, b) => a.when - b.when)[0] || {}).when || null;
+  const outAt = new Date();
+  const dateStr = reportDate.value;
+  let lateHours = num(pay.lateYn, pay.lateTime);
+  let short = num(pay.deductYn, pay.deductTime);
+  if (range && inAt) {
+    lateHours = Math.max(lateHours, roundTenth(inAt - clockOn(dateStr, range.start)));
+  }
+  if (range) {
+    const end = clockOn(dateStr, range.end);
+    if (range.start > range.end) end.setDate(end.getDate() + 1);
+    short = Math.max(short, roundTenth(end - outAt));
+  }
+  const type = (document.querySelector('input[name="workType"]:checked') || {}).value || null;
+  const record = {
+    store, worker, date: dateStr, type,
+    start: workStart.value, end: document.getElementById('workEnd').value,
+    hours, inAt: inAt ? inAt.toISOString() : '', outAt: outAt.toISOString(),
+    late: lateHours > 0, lateHours: lateHours || null, short: short || null, extra: null,
+    absent: false, off: false, edited: false, period: workPeriod.value.trim()
+  };
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('work-log-v1') || '{}') || {}; } catch (e) { saved = {}; }
   const mk = y + '-' + m;
   const day = String(d);
   if (!saved[mk] || typeof saved[mk] !== 'object') saved[mk] = {};
-  const prev = saved[mk][day] && typeof saved[mk][day] === 'object' ? saved[mk][day] : {};
-  saved[mk][day] = Object.assign({}, prev, {
-    hours,
-    extra: extra || null,
-    short: short || null,
-    late: late > 0,
-    lateHours: late || null,
-    rest,
-    total,
-    period: workPeriod.value.trim(),
-    worker: staffName.value.trim(),
-    type: (document.querySelector('input[name="workType"]:checked') || {}).value || null
-  });
+  saved[mk][day] = {
+    type, hours, extra: null, short: short || null, late: lateHours > 0, lateHours: lateHours || null,
+    rest: 0, total: hours, period: record.period, worker, store
+  };
   localStorage.setItem('work-log-v1', JSON.stringify(saved));
+  return saveWorkServer(record);
 }
 
 let fullReportSent = false;
@@ -1574,13 +1639,19 @@ sendReportBtn.onclick = async () => {
   const sum = makeSummary();
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
+  try {
+    await saveWorkCalendar();
+    fullReportSent = true;
+  } catch (err) {
+    alert('서버 저장 실패: ' + (err.message || err));
+    return;
+  }
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); fullReportSent = true; saveWorkCalendar(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+    try { await navigator.share({ text: sum }); fullReportSent = true; alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
   fullReportSent = true;
-  saveWorkCalendar();
   alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
