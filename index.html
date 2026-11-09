@@ -36,6 +36,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-sms { background: #4CAF50; color: white; }
 .btn-photo { background: #2196F3; color: white; }
 .btn-danger { background: #6B2C91; color: white; }
+.common-del { background: #d92b2b; color: white; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
@@ -98,7 +99,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v79</h1>
+  <h1>CU 점포 체크리스트 v80</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -151,7 +152,12 @@ if (document.documentElement.classList.contains('inapp')) {
       <select id="adminStoreSelect"></select>
       <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
       <button class="btn-secondary" id="commonEditBtn" type="button" style="width:100%; margin-top:8px;">공통 항목 수정</button>
-      <div id="commonPanel" class="hidden" style="margin-top:12px;"></div>
+      <div id="commonPanel" class="hidden" style="margin-top:12px;">
+        <input id="newCommonTitle" placeholder="새 공통 항목 이름">
+        <textarea id="newCommonDesc" placeholder="상세순서" style="min-height:64px; margin-top:6px;"></textarea>
+        <button type="button" class="btn-primary" id="addCommonBtn" style="width:100%; margin-top:8px;">공통 항목 추가</button>
+        <div id="commonList" style="margin-top:8px;"></div>
+      </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
 
@@ -1984,7 +1990,7 @@ function refreshCommonSelects() {
   });
 }
 function renderCommonList() {
-  const panel = document.getElementById('commonPanel');
+  const panel = document.getElementById('commonList');
   if (!panel) return;
   const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
   panel.innerHTML = titles.map(title => `
@@ -1993,7 +1999,7 @@ function renderCommonList() {
       <textarea class="common-desc" style="min-height:64px;">${escHtml(commonDesc[title] || '')}</textarea>
       <div style="display:flex; gap:8px; margin-top:6px;">
         <button type="button" class="btn btn-primary common-save" style="flex:1;">저장</button>
-        <button type="button" class="btn btn-danger common-del">삭제</button>
+        <button type="button" class="btn common-del">삭제</button>
       </div>
     </div>
   `).join('') || '<div style="color:#888; font-size:13px;">공통 항목이 없습니다.</div>';
@@ -2002,6 +2008,25 @@ function renderCommonList() {
     row.querySelector('.common-save').onclick = () => saveCommonRow(oldTitle, row.querySelector('.common-title').value, row.querySelector('.common-desc').value);
     row.querySelector('.common-del').onclick = () => deleteCommon(oldTitle);
   });
+}
+async function addNewCommon() {
+  const titleEl = document.getElementById('newCommonTitle');
+  const descEl = document.getElementById('newCommonDesc');
+  const title = titleEl.value.trim();
+  const desc = descEl.value.trim();
+  if (!title) { alert('이름을 적으세요.'); return; }
+  if (commonTitles.includes(title)) { alert('같은 이름의 공통 항목이 있습니다.'); return; }
+  if (commonHidden[title]) {
+    delete commonHidden[title];
+    await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'common-off').eq('title', title);
+  }
+  await addCommonTitles([{ title, desc }]);
+  if (!commonTitles.includes(title)) { alert('추가하지 못했습니다.'); return; }
+  commonDesc[title] = desc;
+  titleEl.value = '';
+  descEl.value = '';
+  refreshCommonSelects();
+  renderCommonList();
 }
 async function hideCommonTitle(title) {
   if (!title || commonHidden[title]) return;
@@ -2058,6 +2083,7 @@ document.getElementById('commonEditBtn').onclick = () => {
   panel.classList.toggle('hidden');
   if (!panel.classList.contains('hidden')) renderCommonList();
 };
+document.getElementById('addCommonBtn').onclick = addNewCommon;
 window.pickCommon = pickCommon;
 window.saveCommonDesc = saveCommonDesc;
 
