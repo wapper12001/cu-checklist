@@ -100,7 +100,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v83</h1>
+  <h1>CU 점포 체크리스트 v84</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1927,8 +1927,14 @@ function renderEditShifts(shifts) {
   });
 }
 function escAttr(s) { return escHtml(s).replace(/"/g, '"'); }
-function commonOptions(selected) {
+function matchingCommonTitles(q) {
+  const query = String(q || '').trim().toLowerCase();
   const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  if (!query) return titles;
+  return titles.filter(title => title.toLowerCase().includes(query));
+}
+function commonOptions(selected, q) {
+  const titles = matchingCommonTitles(q);
   return '<option value="">공통 항목에서 고르기</option>' + titles.map(t => `<option value="${escAttr(t)}"${t === selected ? ' selected' : ''}>${escHtml(t)}</option>`).join('');
 }
 function pickCommon(sel) {
@@ -1985,17 +1991,21 @@ function ensureCommonSeed() {
   return addCommonTitles(COMMON_SEED.filter(title => !commonHidden[title]).map(title => ({ title: title, desc: COMMON_DESC[title] || '' })));
 }
 function renderPickList(input) {
-  const box = input.closest('.edit-body').querySelector('.i-common-list');
-  const q = input.value.trim().toLowerCase();
+  const body = input.closest('.edit-body');
+  const box = body.querySelector('.i-common-list');
+  const sel = body.querySelector('.i-common');
+  const current = input.closest('.edit-item').querySelector('.i-title')?.value.trim() || '';
+  const q = input.value.trim();
+  if (sel) sel.innerHTML = commonOptions(current, q);
   box.innerHTML = '';
   if (!q) { box.classList.add('hidden'); return; }
-  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko')).filter(title => title.toLowerCase().includes(q) || (commonDesc[title] || '').toLowerCase().includes(q));
+  const titles = matchingCommonTitles(q);
   box.classList.remove('hidden');
   if (!titles.length) {
     box.innerHTML = '<div style="color:#888; font-size:13px; padding:8px 2px;">찾는 항목이 없습니다.</div>';
     return;
   }
-  titles.slice(0, 12).forEach(title => {
+  titles.forEach(title => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'common-line';
@@ -2033,10 +2043,7 @@ function renderCommonList() {
   const panel = document.getElementById('commonList');
   if (!panel) return;
   const q = (document.getElementById('commonSearch')?.value || '').trim().toLowerCase();
-  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko')).filter(title => {
-    if (!q) return true;
-    return title.toLowerCase().includes(q) || (commonDesc[title] || '').toLowerCase().includes(q);
-  });
+  const titles = matchingCommonTitles(q);
   panel.innerHTML = titles.map(title => `
     <div class="common-row" data-title="${escAttr(title)}">
       <button type="button" class="common-line">${escHtml(title)}</button>
@@ -2167,7 +2174,9 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   `;
   container.appendChild(d);
   const search = d.querySelector('.i-common-search');
-  search.addEventListener('input', () => renderPickList(search));
+  const refreshPick = () => renderPickList(search);
+  search.addEventListener('input', refreshPick);
+  search.addEventListener('compositionend', refreshPick);
   renumberItems(container);
 }
 function renumberItems(container) {
