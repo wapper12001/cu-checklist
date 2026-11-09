@@ -100,7 +100,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v81</h1>
+  <h1>CU 점포 체크리스트 v82</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1975,21 +1975,48 @@ async function addCommonTitles(titles) {
   const { error } = await supabase.from('checklist_items').insert(rows);
   if (error) { console.error(error); return; }
   fresh.forEach(row => { commonTitles.push(row.title); if (row.desc) commonDesc[row.title] = row.desc; });
-  document.querySelectorAll('.i-common').forEach(sel => {
-    const item = sel.closest('.edit-item');
-    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
-    sel.innerHTML = commonOptions(current);
-  });
+  refreshCommonSelects();
 }
 function ensureCommonSeed() {
   return addCommonTitles(COMMON_SEED.filter(title => !commonHidden[title]).map(title => ({ title: title, desc: COMMON_DESC[title] || '' })));
 }
-function refreshCommonSelects() {
-  document.querySelectorAll('.i-common').forEach(sel => {
-    const item = sel.closest('.edit-item');
-    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
-    sel.innerHTML = commonOptions(current);
+function renderPickList(input) {
+  const box = input.closest('.edit-body').querySelector('.i-common-list');
+  const q = input.value.trim().toLowerCase();
+  box.innerHTML = '';
+  if (!q) { box.classList.add('hidden'); return; }
+  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko')).filter(title => title.toLowerCase().includes(q) || (commonDesc[title] || '').toLowerCase().includes(q));
+  box.classList.remove('hidden');
+  if (!titles.length) {
+    box.innerHTML = '<div style="color:#888; font-size:13px; padding:8px 2px;">찾는 항목이 없습니다.</div>';
+    return;
+  }
+  titles.slice(0, 12).forEach(title => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'common-line';
+    btn.textContent = title;
+    btn.onclick = () => pickCommonTitle(input, title);
+    box.appendChild(btn);
   });
+}
+function pickCommonTitle(input, title) {
+  const item = input.closest('.edit-item');
+  const name = item.querySelector('.i-title');
+  const desc = item.querySelector('.i-desc');
+  if (name) name.value = title;
+  if (desc) {
+    desc.value = commonDesc[title] || '';
+    desc.classList.remove('hidden');
+  }
+  input.value = '';
+  const box = item.querySelector('.i-common-list');
+  box.innerHTML = '';
+  box.classList.add('hidden');
+  captureDraft();
+}
+function refreshCommonSelects() {
+  document.querySelectorAll('.i-common-search').forEach(renderPickList);
 }
 function renderCommonList() {
   const panel = document.getElementById('commonList');
@@ -2117,7 +2144,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
-      <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
+      <input class="i-common-search" placeholder="공통 항목 검색" style="margin-bottom:4px;">
+      <div class="i-common-list hidden"></div>
       <input class="i-title" value="${escAttr(title)}" placeholder="체크리스트 항목 이름" style="margin:4px 0;">
       <button type="button" class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.parentElement.querySelector('.i-desc').classList.toggle('hidden')">상세순서</button>
       <button type="button" class="btn btn-secondary" style="margin-top:6px; margin-left:6px; font-size:13px;" onclick="saveCommonDesc(this)">공통 상세순서 저장</button>
@@ -2126,6 +2154,8 @@ function addItem(container, item = {title:'', desc:'', photo_required:false}) {
     </div>
   `;
   container.appendChild(d);
+  const search = d.querySelector('.i-common-search');
+  search.addEventListener('input', () => renderPickList(search));
   renumberItems(container);
 }
 function renumberItems(container) {
