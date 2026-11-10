@@ -56,7 +56,8 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .tr-sub { display: block; font-weight: 500; font-size: 13px; color: #5c3d78; margin-top: 2px; line-height: 1.4; }
 .photo-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .photo-preview img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
-.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; max-height: 70vh; overflow-y: auto; }
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; max-height: 70vh; overflow: hidden; display: flex; flex-direction: column; }
+.bottom-fields { overflow-y: auto; min-height: 0; }
 .pay-row { margin-bottom: 10px; }
 .pay-row .pay-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
 .pay-row label { margin: 0 10px 0 0; font-size: 14px; }
@@ -101,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v90</h1>
+  <h1>CU 점포 체크리스트 v91</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -217,6 +218,7 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 
 <div class="bottom-bar hidden" id="bottomBar">
+  <div class="bottom-fields">
   <div class="pay-row">
     <div class="pay-name">지각 근무 차감 시간</div>
     <label><input type="radio" name="lateYn" value="yes"> 있음</label>
@@ -239,6 +241,7 @@ if (document.documentElement.classList.contains('inapp')) {
     <label style="font-size:14px; font-weight:600;" data-ko="퇴근 보고">퇴근 보고</label>
     <p style="font-size:13px; color:#555; margin:4px 0 8px;" data-ko="특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.">특이사항, 전달사항, 오늘의 사건 사고 등을 남겨주세요.</p>
     <textarea id="dayMemo" placeholder="예시) 손님이 메론빵 찾으셨어요 등..." style="min-height:70px;"></textarea>
+  </div>
   </div>
   <button class="btn-primary" id="sendReportBtn" data-ko="전체 보고서 전송">전체 보고서 전송</button>
 </div>
@@ -1016,6 +1019,7 @@ function updateManagerInfo(d) {
 shiftSelect.onchange = () => {
   if (!shiftSelect.value || !currentStore) {
     checklistContainer.innerHTML = '';
+    checkAllDone();
     return;
   }
   renderChecklist();
@@ -1397,20 +1401,18 @@ checklistContainer.addEventListener('click', (e) => {
 function checkAllDone() {
   const items = checklistContainer.querySelectorAll('.item');
   const box = document.querySelector('.container');
-  if (fullReportSent || !items.length) {
+  if (!items.length) {
     bottomBar.classList.add('hidden');
     if (box) box.style.paddingBottom = '';
     return;
   }
-  let allDone = true;
   items.forEach(el => {
     const cb = el.querySelector('.done-cb');
     const miss = requiredMissing(el.dataset.id);
-    if (!cb.checked || miss.length) allDone = false;
     if (cb.checked && miss.length) cb.checked = false;
   });
-  bottomBar.classList.toggle('hidden', !allDone);
-  if (box) box.style.paddingBottom = allDone ? '72vh' : '';
+  bottomBar.classList.remove('hidden');
+  if (box) box.style.paddingBottom = '72vh';
 }
 
 function addPhotoFile(id, file) {
@@ -1777,6 +1779,12 @@ window.addEventListener('popstate', () => {
 });
 
 sendReportBtn.onclick = async () => {
+  const missing = collectMissing();
+  if (missing.length) {
+    refreshAllMiss();
+    alert(missing.join('\n'));
+    return;
+  }
   if (!document.querySelector('input[name="workType"]:checked')) {
     alert('교육, 수습, 정식 중 하나를 고르세요.');
     return;
@@ -1788,13 +1796,6 @@ sendReportBtn.onclick = async () => {
   }
   if (!document.getElementById('dayMemo')?.value.trim()) {
     alert('퇴근 보고가 안 됐습니다.');
-    return;
-  }
-  const missing = collectMissing();
-  if (missing.length) {
-    refreshAllMiss();
-    checkAllDone();
-    alert(missing.join('\n'));
     return;
   }
   const sum = makeSummary();
@@ -1818,9 +1819,6 @@ function markReportSent() {
   fullReportSent = true;
   saveWorkCalendar();
   saveProgress();
-  bottomBar.classList.add('hidden');
-  const box = document.querySelector('.container');
-  if (box) box.style.paddingBottom = '';
 }
 
 // ===== 출근 / 바코드 =====
