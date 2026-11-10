@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>CU 점포 체크리스트</title>
 <script>
 // 가장 먼저 실행되는 인앱 감지
@@ -36,6 +36,9 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .btn-sms { background: #4CAF50; color: white; }
 .btn-photo { background: #2196F3; color: white; }
 .btn-danger { background: #6B2C91; color: white; }
+.common-del { background: #d92b2b; color: white; }
+.common-line { display: block; width: 100%; text-align: left; background: #fff; color: #222; border: none; border-bottom: 1px solid #eee; border-radius: 0; padding: 12px 2px; font-size: 15px; font-weight: 600; }
+.i-common-list { border: 1px solid #e4d7ee; border-radius: 8px; margin-bottom: 6px; background: #fff; max-height: 240px; overflow-y: auto; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
@@ -98,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v71</h1>
+  <h1>CU 점포 체크리스트 v87</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -125,8 +128,16 @@ if (document.documentElement.classList.contains('inapp')) {
         <label><input type="radio" name="workType" value="prob"> <span data-ko="수습">수습</span></label>
         <label><input type="radio" name="workType" value="full"> <span data-ko="정식">정식</span></label>
       </div>
-      <label style="margin-top:12px;" data-ko="점포 선택">점포 선택</label>
-      <select id="storeSelect"></select>
+      <div id="storeCodeBox">
+        <label style="margin-top:12px;">점포 코드</label>
+        <input id="storeCodeInput" autocomplete="off" placeholder="점포 코드">
+        <button type="button" class="btn-primary" id="storeCodeBtn" style="width:100%; margin-top:8px;">들어가기</button>
+      </div>
+      <div id="storePick" class="hidden">
+        <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
+        <select id="storeSelect"></select>
+        <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">점포 코드 변경</button>
+      </div>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
       <label style="margin-top:12px;" data-ko="근무자 이름">근무자 이름</label>
@@ -150,6 +161,14 @@ if (document.documentElement.classList.contains('inapp')) {
       <label>점포 선택</label>
       <select id="adminStoreSelect"></select>
       <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
+      <button class="btn-secondary" id="commonEditBtn" type="button" style="width:100%; margin-top:8px;">공통 항목 수정</button>
+      <div id="commonPanel" class="hidden" style="margin-top:12px;">
+        <input id="newCommonTitle" placeholder="새 공통 항목 이름">
+        <textarea id="newCommonDesc" placeholder="상세순서" style="min-height:64px; margin-top:6px;"></textarea>
+        <button type="button" class="btn-primary" id="addCommonBtn" style="width:100%; margin-top:8px;">공통 항목 추가</button>
+        <input id="commonSearch" placeholder="공통 항목 검색" style="margin-top:12px;">
+        <div id="commonList"></div>
+      </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
 
@@ -157,8 +176,8 @@ if (document.documentElement.classList.contains('inapp')) {
     <div id="storeDetail" class="hidden">
       <div class="card">
         <h4 style="margin-top:0;" id="detailTitle">점포 정보</h4>
-        <label>점포코드</label>
-        <input type="text" id="detailCode">
+        <label>근무자 코드</label>
+        <input type="text" id="detailCode" placeholder="근무자가 입력할 숫자">
         <label style="margin-top:8px;">점장</label>
         <input type="text" id="detailManager">
         <label style="margin-top:8px;">전화번호</label>
@@ -277,6 +296,24 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ADMIN_PASSWORD = "1234";
 
 let allData = {};
+let commonTitles = [];
+let commonDesc = {};
+let commonIds = {};
+let commonHidden = {};
+const COMMON_SEED = ['고구마 호빵 등 조리 시작','담배재고체크','도시락매대 정리정돈','마감 전 정리','매출 마감','상온물류 PDA검수','상온물류 검수','상온물류 입고','상온물류 진열','상온물류 진열과 정리정돈','상품 보충','상품 보충과 정리정돈','소분박스 진열','수시업무','시재점검','야간 마감','유통기한 체크와 정리정돈','유통기한체크','저온 입고 검수와 진열2','저온 입고와 검수와 진열1','중점재고와 유통기한 체크','중점재고와 유통기한 체크와 정리정돈','중점재고체크','청소','퇴근','퇴근전 마무리 업무','폐기와 저회전 보관','휴식','PDA 유통기한 체크','지정 특정 업무','새 달 쇼카드 모으기','월 행사 쇼카드 교체','기간행사 쇼카드 교체','09:30 10시 폐기 예정 상품 폐기','13:30 14시 폐기 예정 상품 폐기','21:30 22시 폐기 예정 상품 폐기','23:30 24시 폐기 예정 상품 폐기','00:20 19시간 점포 06시까지 폐기','01:30 02시 폐기 예정 상품 폐기'];
+const COMMON_DESC = {
+  'PDA 유통기한 체크': 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.',
+  '지정 특정 업무': '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.',
+  '새 달 쇼카드 모으기': '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.',
+  '월 행사 쇼카드 교체': '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.',
+  '기간행사 쇼카드 교체': '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.',
+  '09:30 10시 폐기 예정 상품 폐기': '09:30에 확인합니다. 샌드위치, 햄버거 등',
+  '13:30 14시 폐기 예정 상품 폐기': '13:30에 확인합니다. 도시락, 김밥, 주먹밥 등',
+  '21:30 22시 폐기 예정 상품 폐기': '21:30에 확인합니다. 샌드위치, 햄버거 등',
+  '23:30 24시 폐기 예정 상품 폐기': '23:30에 확인합니다. 빵, 디저트 등. 00:00 마감자는 06시 폐기 예정 상품까지 폐기합니다.',
+  '00:20 19시간 점포 06시까지 폐기': '19시간 점포만. 00:20에 06시 것까지 폐기합니다.',
+  '01:30 02시 폐기 예정 상품 폐기': '24시간 점포만. 01:30에 확인합니다. 도시락, 김밥, 주먹밥 등'
+};
 let currentStore = "";
 let currentPhotos = {};
 let sessionReported = {};
@@ -553,7 +590,7 @@ const storeInfo = document.getElementById('storeInfo');
 const bottomBar = document.getElementById('bottomBar');
 const sendReportBtn = document.getElementById('sendReportBtn');
 
-async function loadData() {
+async function loadData(forAdmin) {
   try {
     const { data: stores, error } = await supabase.from('stores').select('*');
     if (error) throw error;
@@ -571,6 +608,23 @@ async function loadData() {
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
       if (it.store_name === '__i18n__') {
+        if (it.shift_key === 'access') {
+          const storeName = (it.title || '').trim();
+          if (storeName && allData[storeName]) allData[storeName].code = it.description || '';
+          return;
+        }
+        if (it.shift_key === 'common-off') {
+          const hiddenName = (it.title || '').trim();
+          if (hiddenName) commonHidden[hiddenName] = true;
+          return;
+        }
+        if (it.shift_key === 'common' && it.title && it.title !== 'tr') {
+          const name = it.title.trim();
+          if (name && !commonTitles.includes(name)) commonTitles.push(name);
+          if (name) commonDesc[name] = it.description || '';
+          if (name && it.id) commonIds[name] = it.id;
+          return;
+        }
         try {
           const o = JSON.parse(it.description || '{}');
           if (o.ko) i18nByKo[o.ko] = { vi: o.vi || '', my: o.my || '' };
@@ -588,8 +642,13 @@ async function loadData() {
         photo_required: it.photo_required
       });
     });
-    refreshStoreSelect();
-    restoreAdmin();
+    if (forAdmin) {
+      restoreAdmin();
+      ensureCommonSeed();
+    } else {
+      refreshStoreSelect();
+      resumeWork();
+    }
   } catch (e) {
     console.error(e);
     alert('데이터를 불러오지 못했습니다. Supabase 설정을 확인하세요.');
@@ -630,16 +689,85 @@ async function saveShiftToDb(storeName, shiftKey, shift) {
   const { error } = await supabase.from('checklist_items').insert(rows);
   if (error) throw error;
 }
+let lockedStore = '';
 function refreshStoreSelect() {
-  const stores = Object.keys(allData).filter(s => s !== '__i18n__');
-  storeSelect.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
+  const stores = lockedStore ? [lockedStore] : Object.keys(allData).filter(s => s !== '__i18n__');
+  storeSelect.innerHTML = (lockedStore ? '' : '<option value="">-- 점포 선택 --</option>') + stores.map(s => `<option value="${escAttr(s)}">${escHtml(s)}</option>`).join('');
+  if (lockedStore) storeSelect.disabled = true;
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
-  if (stores.length) {
-    // 기본은 선택 안 된 상태
-  }
 }
-loadData(); // Supabase에서 불러오기
+async function saveAccessCode(storeName, code) {
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'access').eq('title', storeName);
+  if (delErr) throw delErr;
+  if (!code) return;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__i18n__',
+    shift_key: 'access',
+    shift_name: '코드',
+    item_order: 0,
+    title: storeName,
+    description: code,
+    photo_required: false
+  });
+  if (error) throw error;
+}
+async function loadOneStore(name) {
+  const { data: stores, error } = await supabase.from('stores').select('*').eq('name', name);
+  if (error) throw error;
+  const s = (stores || [])[0];
+  if (!s) throw new Error('없는 점포');
+  allData = {};
+  allData[name] = { manager: s.manager || '', phone: s.phone || '', hours: s.hours || '19', code: '', shifts: {} };
+  const { data: items, error: itemErr } = await supabase.from('checklist_items').select('*').eq('store_name', name).order('item_order');
+  if (itemErr) throw itemErr;
+  (items || []).forEach(it => {
+    if (!allData[name].shifts[it.shift_key]) allData[name].shifts[it.shift_key] = { name: it.shift_name || it.shift_key, items: [] };
+    allData[name].shifts[it.shift_key].items.push({ id: it.id, title: it.title, desc: it.description || '', photo_required: it.photo_required });
+  });
+}
+function showLockedStore(name) {
+  lockedStore = name;
+  document.getElementById('storeCodeBox').classList.add('hidden');
+  document.getElementById('storePick').classList.remove('hidden');
+  storeSelect.disabled = true;
+  storeSelect.innerHTML = `<option value="${escAttr(name)}">${escHtml(name)}</option>`;
+  storeSelect.value = name;
+  onStoreChange();
+  resumeWork();
+}
+async function enterStoreCode(code, silent) {
+  code = String(code || '').trim();
+  if (!code) { if (!silent) alert('점포 코드를 입력하세요.'); return false; }
+  const { data, error } = await supabase.from('checklist_items').select('title').eq('store_name', '__i18n__').eq('shift_key', 'access').eq('description', code);
+  if (error) { if (!silent) alert('코드를 확인하지 못했습니다.'); return false; }
+  const names = [...new Set((data || []).map(row => (row.title || '').trim()).filter(Boolean))];
+  if (!names.length) { if (!silent) alert('점포 코드가 맞지 않습니다.'); return false; }
+  if (names.length > 1) { if (!silent) alert('같은 코드를 쓰는 점포가 있습니다. 코드를 다르게 정해 주세요.'); return false; }
+  try { await loadOneStore(names[0]); }
+  catch (e) { if (!silent) alert('점포를 불러오지 못했습니다.'); return false; }
+  localStorage.setItem('cu-access-code', code);
+  showLockedStore(names[0]);
+  return true;
+}
+function resetStoreCode() {
+  localStorage.removeItem('cu-access-code');
+  lockedStore = '';
+  allData = {};
+  currentStore = '';
+  storeSelect.disabled = false;
+  storeSelect.innerHTML = '';
+  shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
+  checklistContainer.innerHTML = '';
+  storeInfo.innerHTML = '';
+  document.getElementById('storePick').classList.add('hidden');
+  document.getElementById('storeCodeBox').classList.remove('hidden');
+  document.getElementById('storeCodeInput').value = '';
+}
+document.getElementById('storeCodeBtn').onclick = () => enterStoreCode(document.getElementById('storeCodeInput').value, false);
+document.getElementById('storeCodeChange').onclick = resetStoreCode;
+const savedAccessCode = localStorage.getItem('cu-access-code') || '';
+if (savedAccessCode) enterStoreCode(savedAccessCode, true);
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 storeSelect.onchange = onStoreChange;
@@ -718,7 +846,7 @@ const DISCARD_SLOTS = [
   { id: '0930', min: 9 * 60 + 30, who: 'all', title: '10시 폐기 예정', body: '샌드위치, 햄버거 등' },
   { id: '1330', min: 13 * 60 + 30, who: 'all', title: '14시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' },
   { id: '2130', min: 21 * 60 + 30, who: 'all', title: '22시 폐기 예정', body: '샌드위치, 햄버거 등' },
-  { id: '2330', min: 23 * 60 + 30, who: 'all', title: '24시 폐기 예정', body: '빵, 디저트 등' },
+  { id: '2330', min: 23 * 60 + 30, who: 'all', title: '24시 폐기 예정', body: '빵, 디저트 등. 00:00 마감자는 06시 폐기 예정 상품까지 폐기합니다.' },
   { id: '0020', min: 20, who: '19', title: '19시간 근무 폐기', body: '06시 것까지 폐기하세요.' },
   { id: '0130', min: 1 * 60 + 30, who: '24', title: '02시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' }
 ];
@@ -880,7 +1008,33 @@ shiftSelect.onchange = () => {
   }
   renderChecklist();
   checkAllDone();
+  saveResume();
 };
+
+function saveResume() {
+  if (!currentStore || !shiftSelect.value || !reportDate.value) return;
+  try {
+    localStorage.setItem('cu-resume', JSON.stringify({
+      store: currentStore,
+      shift: shiftSelect.value,
+      date: reportDate.value
+    }));
+  } catch (e) {}
+}
+function resumeWork() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('cu-resume') || 'null'); } catch (e) { saved = null; }
+  if (!saved || !saved.store || !allData[saved.store]) return;
+  if (lockedStore && saved.store !== lockedStore) return;
+  if (saved.date) reportDate.value = saved.date;
+  storeSelect.value = saved.store;
+  onStoreChange();
+  if (saved.shift && [...shiftSelect.options].some(opt => opt.value === saved.shift)) {
+    shiftSelect.value = saved.shift;
+    renderChecklist();
+    checkAllDone();
+  }
+}
 
 function getKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
 function saveProgress() {
@@ -903,6 +1057,7 @@ function saveProgress() {
     };
   });
   try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
+  saveResume();
   checkAllDone();
 }
 function loadProgress() {
@@ -1268,12 +1423,34 @@ function takePhoto(id) {
     return;
   }
   const layer = document.createElement('div');
-  layer.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;';
-  layer.innerHTML = '<video playsinline autoplay muted style="flex:1;width:100%;height:100%;object-fit:cover;background:#000;"></video><div style="display:flex;gap:10px;padding:14px 16px 22px;background:#111;"><button type="button" class="cam-shot" style="flex:1;background:#6B2C91;color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;">촬영</button><button type="button" class="cam-close" style="background:#333;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-size:16px;">닫기</button></div>';
+  layer.style.cssText = 'position:fixed;left:0;width:100%;z-index:99999;background:#000;display:flex;flex-direction:column;';
+  layer.innerHTML = '<video playsinline autoplay muted style="flex:1;width:100%;min-height:0;object-fit:cover;background:#000;"></video><div style="display:flex;gap:10px;flex:0 0 auto;padding:14px 16px calc(20px + env(safe-area-inset-bottom, 0px));background:#111;"><button type="button" class="cam-shot" style="flex:1;background:#6B2C91;color:#fff;border:none;border-radius:10px;padding:16px;font-size:18px;font-weight:700;">촬영</button><button type="button" class="cam-close" style="background:#333;color:#fff;border:none;border-radius:10px;padding:16px 18px;font-size:16px;">닫기</button></div>';
   document.body.appendChild(layer);
+  const placeCam = () => {
+    const vv = window.visualViewport;
+    if (!vv) {
+      layer.style.top = '0px';
+      layer.style.height = '100%';
+      return;
+    }
+    layer.style.top = vv.offsetTop + 'px';
+    layer.style.height = vv.height + 'px';
+  };
+  placeCam();
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', placeCam);
+    visualViewport.addEventListener('scroll', placeCam);
+  }
   const video = layer.querySelector('video');
   let stream = null;
-  const close = () => { stopCam(stream); if (layer.parentNode) layer.parentNode.removeChild(layer); };
+  const close = () => {
+    if (window.visualViewport) {
+      visualViewport.removeEventListener('resize', placeCam);
+      visualViewport.removeEventListener('scroll', placeCam);
+    }
+    stopCam(stream);
+    if (layer.parentNode) layer.parentNode.removeChild(layer);
+  };
   layer.querySelector('.cam-close').onclick = close;
   layer.querySelector('.cam-shot').onclick = () => {
     if (!video.videoWidth) return;
@@ -1470,7 +1647,7 @@ function makeSummary() {
   let sum = `전체 보고 시간 : ${when}\n구분: ${names[picked] || ''}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
-    const at = sessionReported[reportKey(it.id)] || '';
+    const at = showStamp(sessionReported[reportKey(it.id)] || '');
     sum += `\n\n업무: ${d?.title || it.title}\n상태: ${d && d.done ? '완료' : '미완료'}\n보고 완료 : ${at}`;
   });
   const memo = document.getElementById('dayMemo')?.value.trim() || '';
@@ -1508,6 +1685,10 @@ function parseStamp(text) {
   if (m[4] === '오후' && h < 12) h += 12;
   if (m[4] === '오전' && h === 12) h = 0;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), h, Number(m[6]), 0, 0);
+}
+function showStamp(text) {
+  const d = parseStamp(text);
+  return d ? d.toLocaleString('ko-KR') : (text || '');
 }
 function roundTenth(ms) {
   if (!ms || ms <= 60000) return 0;
@@ -1566,9 +1747,7 @@ function saveWorkCalendar() {
   const dateStr = reportDate.value;
   let lateHours = num(pay.lateYn, pay.lateTime);
   let short = num(pay.deductYn, pay.deductTime);
-  if (range && inAt) {
-    lateHours = Math.max(lateHours, roundTenth(inAt - clockOn(dateStr, range.start)));
-  }
+  if (range && inAt) lateHours = Math.max(lateHours, roundTenth(inAt - clockOn(dateStr, range.start)));
   if (range) {
     const end = clockOn(dateStr, range.end);
     if (range.start > range.end) end.setDate(end.getDate() + 1);
@@ -1577,7 +1756,8 @@ function saveWorkCalendar() {
   const type = (document.querySelector('input[name="workType"]:checked') || {}).value || null;
   const record = {
     store, worker, date: dateStr, type,
-    start: workStart.value, end: document.getElementById('workEnd').value,
+    start: document.getElementById('workStart').value,
+    end: document.getElementById('workEnd').value,
     hours, inAt: inAt ? inAt.toISOString() : '', outAt: outAt.toISOString(),
     late: lateHours > 0, lateHours: lateHours || null, short: short || null, extra: null,
     absent: false, off: false, edited: false, period: workPeriod.value.trim()
@@ -1647,11 +1827,10 @@ sendReportBtn.onclick = async () => {
     return;
   }
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); fullReportSent = true; alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+    try { await navigator.share({ text: sum }); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
-  fullReportSent = true;
   alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
@@ -1711,9 +1890,11 @@ function saveAdminView(patch) {
 function clearAdminView() {
   sessionStorage.removeItem(ADMIN_VIEW_KEY);
 }
-function enterAdmin() {
+async function enterAdmin() {
   reportScreen.classList.add('hidden');
-  editScreen.classList.add('hidden');
+  try { await loadData(true); }
+  catch (e) { alert('데이터를 불러오지 못했습니다.'); return; }
+  if (!editScreen.classList.contains('hidden')) return;
   adminScreen.classList.remove('hidden');
   refreshAdminStoreSelect();
   saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
@@ -1819,6 +2000,7 @@ document.getElementById('saveDetailBtn').onclick = async () => {
   allData[name].hours = document.getElementById('detailHours').value;
   try {
     await saveStoreToDb(name);
+    await saveAccessCode(name, allData[name].code || '');
     await saveAll();
     alert('점포 정보가 저장되었습니다.');
   } catch (e) {
@@ -1907,24 +2089,257 @@ function renderEditShifts(shifts) {
     container.appendChild(block);
   });
 }
+function escAttr(s) { return escHtml(s).replace(/"/g, '"'); }
+function matchingCommonTitles(q) {
+  const query = String(q || '').trim().toLowerCase();
+  const titles = commonTitles.slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  if (!query) return titles;
+  return titles.filter(title => title.toLowerCase().includes(query));
+}
+function commonOptions(selected, q) {
+  const titles = matchingCommonTitles(q);
+  return '<option value="">공통 항목에서 고르기</option>' + titles.map(t => `<option value="${escAttr(t)}"${t === selected ? ' selected' : ''}>${escHtml(t)}</option>`).join('');
+}
+function pickCommon(sel) {
+  if (!sel.value) return;
+  const item = sel.closest('.edit-item');
+  const title = item.querySelector('.i-title');
+  const desc = item.querySelector('.i-desc');
+  if (title) title.value = sel.value;
+  if (desc) {
+    desc.value = commonDesc[sel.value] || '';
+    desc.classList.remove('hidden');
+  }
+  const search = item.querySelector('.i-common-search');
+  const box = item.querySelector('.i-common-list');
+  if (search) search.value = '';
+  if (box) { box.innerHTML = ''; box.classList.add('hidden'); }
+  captureDraft();
+}
+async function saveCommonDesc(btn) {
+  const item = btn.closest('.edit-item');
+  const title = item.querySelector('.i-title').value.trim();
+  const desc = item.querySelector('.i-desc').value.trim();
+  if (!title) { alert('항목 이름을 먼저 적으세요.'); return; }
+  await addCommonTitles([{ title, desc }]);
+  const { error } = await supabase.from('checklist_items').update({ description: desc }).eq('store_name', '__i18n__').eq('shift_key', 'common').eq('title', title);
+  if (error) { alert('공통 상세순서를 저장하지 못했습니다.'); return; }
+  commonDesc[title] = desc;
+  alert('공통 상세순서를 저장했습니다. 다음에 이 항목을 고르면 이 내용이 나옵니다.');
+}
+async function addCommonTitles(titles) {
+  const fresh = [];
+  (titles || []).forEach(entry => {
+    const title = String((entry && entry.title) || entry || '').trim();
+    const desc = entry && entry.desc ? String(entry.desc).trim() : '';
+    if (!title || commonTitles.includes(title) || fresh.some(row => row.title === title)) return;
+    fresh.push({ title, desc });
+  });
+  if (!fresh.length) return;
+  const rows = fresh.map((row, i) => ({
+    store_name: '__i18n__',
+    shift_key: 'common',
+    shift_name: '공통',
+    item_order: commonTitles.length + i + 1,
+    title: row.title,
+    description: row.desc || '',
+    photo_required: false
+  }));
+  const { error } = await supabase.from('checklist_items').insert(rows);
+  if (error) { console.error(error); return; }
+  fresh.forEach(row => { commonTitles.push(row.title); if (row.desc) commonDesc[row.title] = row.desc; });
+  refreshCommonSelects();
+}
+function ensureCommonSeed() {
+  return addCommonTitles(COMMON_SEED.filter(title => !commonHidden[title]).map(title => ({ title: title, desc: COMMON_DESC[title] || '' })));
+}
+function renderPickList(input) {
+  const body = input.closest('.edit-body');
+  const box = body.querySelector('.i-common-list');
+  const sel = body.querySelector('.i-common');
+  const current = input.closest('.edit-item').querySelector('.i-title')?.value.trim() || '';
+  const q = input.value.trim();
+  if (sel) sel.innerHTML = commonOptions(current, q);
+  box.innerHTML = '';
+  if (!q) { box.classList.add('hidden'); return; }
+  const titles = matchingCommonTitles(q);
+  box.classList.remove('hidden');
+  if (!titles.length) {
+    box.innerHTML = '<div style="color:#888; font-size:13px; padding:8px 2px;">찾는 항목이 없습니다.</div>';
+    return;
+  }
+  titles.forEach(title => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'common-line';
+    btn.textContent = title;
+    btn.onclick = () => pickCommonTitle(input, title);
+    box.appendChild(btn);
+  });
+}
+function pickCommonTitle(input, title) {
+  const item = input.closest('.edit-item');
+  const name = item.querySelector('.i-title');
+  const desc = item.querySelector('.i-desc');
+  if (name) name.value = title;
+  if (desc) {
+    desc.value = commonDesc[title] || '';
+    desc.classList.remove('hidden');
+  }
+  const sel = item.querySelector('.i-common');
+  if (sel) sel.innerHTML = commonOptions(title);
+  input.value = '';
+  const box = item.querySelector('.i-common-list');
+  box.innerHTML = '';
+  box.classList.add('hidden');
+  captureDraft();
+}
+function refreshCommonSelects() {
+  document.querySelectorAll('.i-common').forEach(sel => {
+    const item = sel.closest('.edit-item');
+    const current = item && item.querySelector('.i-title') ? item.querySelector('.i-title').value.trim() : sel.value;
+    sel.innerHTML = commonOptions(current);
+  });
+  document.querySelectorAll('.i-common-search').forEach(renderPickList);
+}
+function renderCommonList() {
+  const panel = document.getElementById('commonList');
+  if (!panel) return;
+  const q = (document.getElementById('commonSearch')?.value || '').trim().toLowerCase();
+  const titles = matchingCommonTitles(q);
+  panel.innerHTML = titles.map(title => `
+    <div class="common-row" data-title="${escAttr(title)}">
+      <button type="button" class="common-line">${escHtml(title)}</button>
+      <div class="common-edit hidden" style="padding:8px 0 12px;">
+        <input class="common-title" value="${escAttr(title)}" style="margin-bottom:6px;">
+        <textarea class="common-desc" style="min-height:64px;">${escHtml(commonDesc[title] || '')}</textarea>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button type="button" class="btn btn-primary common-save" style="flex:1;">저장</button>
+          <button type="button" class="btn common-del">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || '<div style="color:#888; font-size:13px; padding:10px 0;">찾는 공통 항목이 없습니다.</div>';
+  panel.querySelectorAll('.common-row').forEach(row => {
+    const oldTitle = row.dataset.title;
+    row.querySelector('.common-line').onclick = () => {
+      const edit = row.querySelector('.common-edit');
+      const willOpen = edit.classList.contains('hidden');
+      panel.querySelectorAll('.common-edit').forEach(el => el.classList.add('hidden'));
+      if (willOpen) edit.classList.remove('hidden');
+    };
+    row.querySelector('.common-save').onclick = () => saveCommonRow(oldTitle, row.querySelector('.common-title').value, row.querySelector('.common-desc').value);
+    row.querySelector('.common-del').onclick = () => deleteCommon(oldTitle);
+  });
+}
+async function addNewCommon() {
+  const titleEl = document.getElementById('newCommonTitle');
+  const descEl = document.getElementById('newCommonDesc');
+  const title = titleEl.value.trim();
+  const desc = descEl.value.trim();
+  if (!title) { alert('이름을 적으세요.'); return; }
+  if (commonTitles.includes(title)) { alert('같은 이름의 공통 항목이 있습니다.'); return; }
+  if (commonHidden[title]) {
+    delete commonHidden[title];
+    await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'common-off').eq('title', title);
+  }
+  await addCommonTitles([{ title, desc }]);
+  if (!commonTitles.includes(title)) { alert('추가하지 못했습니다.'); return; }
+  commonDesc[title] = desc;
+  titleEl.value = '';
+  descEl.value = '';
+  refreshCommonSelects();
+  renderCommonList();
+}
+async function hideCommonTitle(title) {
+  if (!title || commonHidden[title]) return;
+  commonHidden[title] = true;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__i18n__',
+    shift_key: 'common-off',
+    shift_name: '숨김',
+    item_order: 0,
+    title,
+    description: '',
+    photo_required: false
+  });
+  if (error) console.error(error);
+}
+async function saveCommonRow(oldTitle, title, desc) {
+  title = String(title || '').trim();
+  desc = String(desc || '').trim();
+  if (!title) { alert('이름을 적으세요.'); return; }
+  if (title !== oldTitle && commonTitles.includes(title)) { alert('같은 이름의 공통 항목이 있습니다.'); return; }
+  const id = commonIds[oldTitle];
+  let query = supabase.from('checklist_items').update({ title, description: desc });
+  query = id ? query.eq('id', id) : query.eq('store_name', '__i18n__').eq('shift_key', 'common').eq('title', oldTitle);
+  const { error } = await query;
+  if (error) { alert('저장하지 못했습니다.'); return; }
+  if (title !== oldTitle) {
+    commonTitles = commonTitles.map(item => item === oldTitle ? title : item);
+    delete commonDesc[oldTitle];
+    if (commonIds[oldTitle]) {
+      commonIds[title] = commonIds[oldTitle];
+      delete commonIds[oldTitle];
+    }
+    await hideCommonTitle(oldTitle);
+  }
+  commonDesc[title] = desc;
+  refreshCommonSelects();
+  renderCommonList();
+  alert('공통 항목을 저장했습니다.');
+}
+async function deleteCommon(title) {
+  if (!confirm(title + '\n공통 항목을 지울까요?\n점포에 이미 넣은 항목은 그대로 둡니다.')) return;
+  let query = supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'common').eq('title', title);
+  const { error } = await query;
+  if (error) { alert('지우지 못했습니다.'); return; }
+  await hideCommonTitle(title);
+  commonTitles = commonTitles.filter(item => item !== title);
+  delete commonDesc[title];
+  delete commonIds[title];
+  refreshCommonSelects();
+  renderCommonList();
+}
+document.getElementById('commonEditBtn').onclick = () => {
+  const panel = document.getElementById('commonPanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) renderCommonList();
+};
+document.getElementById('addCommonBtn').onclick = addNewCommon;
+document.getElementById('commonSearch').oninput = renderCommonList;
+window.pickCommon = pickCommon;
+window.saveCommonDesc = saveCommonDesc;
+
 function addItem(container, item = {title:'', desc:'', photo_required:false}) {
   const d = document.createElement('div');
   d.className = 'edit-item';
+  const title = item.title || '';
   d.innerHTML = `
     <div class="edit-head">
       <span class="item-no-label">항목</span>
       <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, -1)">▲</button>
       <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItem(this, 1)">▼</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItemEdge(this, 'top')">맨위</button>
+      <button type="button" class="btn btn-secondary" style="padding:4px 8px;" onclick="moveItemEdge(this, 'bottom')">맨아래</button>
       <button type="button" class="btn btn-danger" style="padding:4px 8px; margin-left:auto;" onclick="var box=this.closest('.items'); this.closest('.edit-item').remove(); renumberItems(box)">삭제</button>
     </div>
     <div class="edit-body">
-      <input class="i-title" value="${item.title||''}" placeholder="체크리스트 항목 이름" style="margin-bottom:4px;">
-      <button class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.nextElementSibling.classList.toggle('hidden')">상세순서</button>
-      <textarea class="i-desc hidden" placeholder="상세 순서 설명">${item.desc||''}</textarea>
+      <input class="i-common-search" placeholder="공통 항목 검색" style="margin-bottom:4px;">
+      <div class="i-common-list hidden"></div>
+      <select class="i-common" onchange="pickCommon(this)">${commonOptions(title)}</select>
+      <input class="i-title" value="${escAttr(title)}" placeholder="체크리스트 항목 이름" style="margin:4px 0;">
+      <button type="button" class="btn btn-secondary" style="margin-top:6px; font-size:13px;" onclick="this.parentElement.querySelector('.i-desc').classList.toggle('hidden')">상세순서</button>
+      <button type="button" class="btn btn-secondary" style="margin-top:6px; margin-left:6px; font-size:13px;" onclick="saveCommonDesc(this)">공통 상세순서 저장</button>
+      <textarea class="i-desc ${item.desc ? '' : 'hidden'}" placeholder="상세 순서 설명">${escHtml(item.desc||'')}</textarea>
       <label style="margin-top:4px;"><input type="checkbox" class="i-photo" ${item.photo_required?'checked':''}> 사진 필수</label>
     </div>
   `;
   container.appendChild(d);
+  const search = d.querySelector('.i-common-search');
+  const refreshPick = () => renderPickList(search);
+  search.addEventListener('input', refreshPick);
+  search.addEventListener('compositionend', refreshPick);
   renumberItems(container);
 }
 function renumberItems(container) {
@@ -1953,6 +2368,17 @@ function moveItem(btn, dir) {
 }
 window.addItem = addItem;
 window.moveItem = moveItem;
+function moveItemEdge(btn, where) {
+  const item = btn.closest('.edit-item');
+  const container = item.parentElement;
+  const items = Array.from(container.querySelectorAll('.edit-item'));
+  if (items.length < 2) return;
+  if (where === 'top') container.insertBefore(item, items[0]);
+  else container.appendChild(item);
+  captureDraft();
+  renumberItems(container);
+}
+window.moveItemEdge = moveItemEdge;
 
 document.getElementById('saveStoreBtn').onclick = async () => {
   const name = document.getElementById('editStoreName').value.trim();
@@ -1991,6 +2417,9 @@ document.getElementById('saveStoreBtn').onclick = async () => {
       }
     }
     await saveAll();
+    const names = [];
+    Object.values(shifts).forEach(shift => (shift.items || []).forEach(it => names.push({ title: it.title, desc: it.desc })));
+    await addCommonTitles(names);
     alert('저장되었습니다.');
     saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
     editScreen.classList.add('hidden');
