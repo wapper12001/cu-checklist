@@ -101,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v87</h1>
+  <h1>CU 점포 체크리스트 v88</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -132,11 +132,12 @@ if (document.documentElement.classList.contains('inapp')) {
         <label style="margin-top:12px;">점포 코드</label>
         <input id="storeCodeInput" autocomplete="off" placeholder="점포 코드">
         <button type="button" class="btn-primary" id="storeCodeBtn" style="width:100%; margin-top:8px;">들어가기</button>
+        <button type="button" class="btn-secondary" id="storeCodeCancel" style="width:100%; margin-top:8px; display:none;">취소</button>
       </div>
       <div id="storePick" class="hidden">
         <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
         <select id="storeSelect"></select>
-        <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">점포 코드 변경</button>
+        <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">다른 점포</button>
       </div>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
@@ -764,8 +765,21 @@ function resetStoreCode() {
   document.getElementById('storeCodeBox').classList.remove('hidden');
   document.getElementById('storeCodeInput').value = '';
 }
+function showOtherStore() {
+  document.getElementById('storeCodeInput').value = '';
+  document.getElementById('storeCodeCancel').style.display = lockedStore ? 'block' : 'none';
+  document.getElementById('storePick').classList.add('hidden');
+  document.getElementById('storeCodeBox').classList.remove('hidden');
+  document.getElementById('storeCodeInput').focus();
+}
+function cancelOtherStore() {
+  if (!lockedStore) return;
+  document.getElementById('storeCodeBox').classList.add('hidden');
+  document.getElementById('storePick').classList.remove('hidden');
+}
 document.getElementById('storeCodeBtn').onclick = () => enterStoreCode(document.getElementById('storeCodeInput').value, false);
-document.getElementById('storeCodeChange').onclick = resetStoreCode;
+document.getElementById('storeCodeChange').onclick = showOtherStore;
+document.getElementById('storeCodeCancel').onclick = cancelOtherStore;
 const savedAccessCode = localStorage.getItem('cu-access-code') || '';
 if (savedAccessCode) enterStoreCode(savedAccessCode, true);
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
