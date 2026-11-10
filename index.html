@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v91</h1>
+  <h1>CU 점포 체크리스트 v92</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -218,7 +218,7 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 
 <div class="bottom-bar hidden" id="bottomBar">
-  <div class="bottom-fields">
+  <div class="bottom-fields hidden">
   <div class="pay-row">
     <div class="pay-name">지각 근무 차감 시간</div>
     <label><input type="radio" name="lateYn" value="yes"> 있음</label>
@@ -1398,21 +1398,35 @@ checklistContainer.addEventListener('click', (e) => {
   setTimeout(() => { cb.checked = false; saveProgress(); }, 0);
 });
 
+function reportFields() {
+  return document.querySelector('.bottom-fields');
+}
+function setReportForm(open) {
+  const fields = reportFields();
+  if (fields) fields.classList.toggle('hidden', !open);
+  const box = document.querySelector('.container');
+  if (box) box.style.paddingBottom = open ? '72vh' : '88px';
+}
 function checkAllDone() {
   const items = checklistContainer.querySelectorAll('.item');
   const box = document.querySelector('.container');
   if (!items.length) {
     bottomBar.classList.add('hidden');
+    if (reportFields()) reportFields().classList.add('hidden');
     if (box) box.style.paddingBottom = '';
     return;
   }
+  let blocked = false;
   items.forEach(el => {
     const cb = el.querySelector('.done-cb');
     const miss = requiredMissing(el.dataset.id);
     if (cb.checked && miss.length) cb.checked = false;
+    if (!cb.checked || requiredMissing(el.dataset.id).length) blocked = true;
   });
+  if (blocked && reportFields()) reportFields().classList.add('hidden');
   bottomBar.classList.remove('hidden');
-  if (box) box.style.paddingBottom = '72vh';
+  const open = reportFields() && !reportFields().classList.contains('hidden');
+  if (box) box.style.paddingBottom = open ? '72vh' : '88px';
 }
 
 function addPhotoFile(id, file) {
@@ -1782,7 +1796,13 @@ sendReportBtn.onclick = async () => {
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
+    setReportForm(false);
+    bottomBar.classList.remove('hidden');
     alert(missing.join('\n'));
+    return;
+  }
+  if (reportFields().classList.contains('hidden')) {
+    setReportForm(true);
     return;
   }
   if (!document.querySelector('input[name="workType"]:checked')) {
