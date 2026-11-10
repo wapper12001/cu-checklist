@@ -101,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v86</h1>
+  <h1>CU 점포 체크리스트 v87</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1026,6 +1026,12 @@ function resumeWork() {
   try { saved = JSON.parse(localStorage.getItem('cu-resume') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.store || !allData[saved.store]) return;
   if (lockedStore && saved.store !== lockedStore) return;
+  if (saved.date && saved.shift && pastReportDone(saved.store, saved.shift, saved.date)) {
+    reportDate.value = koreaNow().date;
+    fullReportSent = false;
+    onStoreChange();
+    return;
+  }
   if (saved.date) reportDate.value = saved.date;
   storeSelect.value = saved.store;
   onStoreChange();
@@ -1034,6 +1040,22 @@ function resumeWork() {
     renderChecklist();
     checkAllDone();
   }
+}
+function pastReportDone(store, shift, date) {
+  if (!date || date >= koreaNow().date) return false;
+  try {
+    const saved = JSON.parse(localStorage.getItem('work-log-v1') || '{}');
+    const parts = date.split('-').map(Number);
+    const row = saved[parts[0] + '-' + parts[1]] && saved[parts[0] + '-' + parts[1]][String(parts[2])];
+    if (row && (row.period || row.worker || row.hours)) return true;
+  } catch (e) {}
+  try {
+    const prog = JSON.parse(localStorage.getItem(`prog_${store}_${shift}_${date}`) || 'null');
+    if (!prog) return false;
+    if (prog.sent) return true;
+    const items = Object.values(prog.items || {});
+    return items.length > 0 && items.every(it => it && it.done);
+  } catch (e) { return false; }
 }
 
 function getKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
@@ -1044,6 +1066,7 @@ function saveProgress() {
     dayMemo: document.getElementById('dayMemo')?.value || '',
     pay: readPay(),
     workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
+    sent: fullReportSent,
     items: {}
   };
   document.querySelectorAll('.item').forEach(el => {
@@ -1061,10 +1084,12 @@ function saveProgress() {
   checkAllDone();
 }
 function loadProgress() {
+  fullReportSent = false;
   try {
     const s = localStorage.getItem(getKey());
     if (s) {
       const d = JSON.parse(s);
+      fullReportSent = !!d.sent;
       if (d.staff) staffName.value = d.staff;
       if (d.period) {
         applyPeriodToSelects(d.period);
@@ -1348,8 +1373,10 @@ checklistContainer.addEventListener('click', (e) => {
 
 function checkAllDone() {
   const items = checklistContainer.querySelectorAll('.item');
-  if (!items.length) {
+  const box = document.querySelector('.container');
+  if (fullReportSent || !items.length) {
     bottomBar.classList.add('hidden');
+    if (box) box.style.paddingBottom = '';
     return;
   }
   let allDone = true;
@@ -1360,7 +1387,6 @@ function checkAllDone() {
     if (cb.checked && miss.length) cb.checked = false;
   });
   bottomBar.classList.toggle('hidden', !allDone);
-  const box = document.querySelector('.container');
   if (box) box.style.paddingBottom = allDone ? '72vh' : '';
 }
 
@@ -1752,15 +1778,22 @@ sendReportBtn.onclick = async () => {
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); fullReportSent = true; saveWorkCalendar(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+    try { await navigator.share({ text: sum }); markReportSent(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
-  fullReportSent = true;
-  saveWorkCalendar();
+  markReportSent();
   alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
+function markReportSent() {
+  fullReportSent = true;
+  saveWorkCalendar();
+  saveProgress();
+  bottomBar.classList.add('hidden');
+  const box = document.querySelector('.container');
+  if (box) box.style.paddingBottom = '';
+}
 
 // ===== 출근 / 바코드 =====
 document.getElementById('clockInBtn').onclick = null;
