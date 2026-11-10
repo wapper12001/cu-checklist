@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v95</h1>
+  <h1>CU 점포 체크리스트 v96</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1088,8 +1088,9 @@ function overnightStillOpen(saved) {
 function legacyKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
 function namedKey() {
   const name = staffName.value.trim();
-  if (!name) return '';
-  return legacyKey() + '_' + encodeURIComponent(name);
+  const period = workPeriod.value.trim();
+  if (!name || !period) return '';
+  return legacyKey() + '_' + encodeURIComponent(name) + '_' + encodeURIComponent(period);
 }
 function getKey() { return namedKey() || legacyKey(); }
 function readStore(key) {
@@ -1105,8 +1106,9 @@ function personRecords() {
   const byShift = new Map();
   const keep = (shift, data) => {
     if (!shift || !data || (data.staff || '').trim() !== name) return;
-    const prev = byShift.get(shift);
-    if (!prev || (data.savedAt || 0) >= (prev.data.savedAt || 0)) byShift.set(shift, { data });
+    const id = shift + '\n' + (data.period || '').trim();
+    const prev = byShift.get(id);
+    if (!prev || (data.savedAt || 0) >= (prev.data.savedAt || 0)) byShift.set(id, { shift, data });
   };
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
@@ -1116,7 +1118,8 @@ function personRecords() {
       const at = rest.lastIndexOf(mark);
       if (at <= 0) continue;
       const after = rest.slice(at + mark.length);
-      if (after && after !== '_' + encoded) continue;
+      const nameMark = '_' + encoded;
+      if (after && after !== nameMark && !after.startsWith(nameMark + '_')) continue;
       keep(rest.slice(0, at), readStore(k));
       continue;
     }
@@ -1126,34 +1129,49 @@ function personRecords() {
       keep(data && data.shift, data);
     }
   }
-  return [...byShift.entries()].map(([shift, row]) => ({ shift, data: row.data }));
+  return [...byShift.values()];
 }
 let nameLock = false;
 function onIdentityInput() {
   if (nameLock) return false;
   const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
   if (!currentStore || !reportDate.value || !name) {
     if (shiftSelect.value) saveProgress();
+    return false;
+  }
+  const who = name + '|' + period;
+  if (!period) {
+    if (checklistContainer.dataset.who && checklistContainer.dataset.who !== who) {
+      nameLock = true;
+      renderChecklist();
+      nameLock = false;
+    }
     return false;
   }
   if (reportDate.value !== koreaNow().date) {
     if (shiftSelect.value) renderChecklist();
     return true;
   }
-  const rows = personRecords().filter(row => [...shiftSelect.options].some(opt => opt.value === row.shift));
-  if (rows.length === 1 && (shiftSelect.value !== rows[0].shift || checklistContainer.dataset.who !== name)) {
+  const rows = personRecords().filter(row => (row.data.period || '').trim() === period && [...shiftSelect.options].some(opt => opt.value === row.shift));
+  if (rows.length === 1 && (shiftSelect.value !== rows[0].shift || checklistContainer.dataset.who !== who)) {
     nameLock = true;
     shiftSelect.value = rows[0].shift;
-    if (rows[0].data.period) applyPeriodToSelects(rows[0].data.period);
     renderChecklist();
     checkAllDone();
     nameLock = false;
     return true;
   }
-  if (rows.length > 1 && shiftSelect.value && rows.some(row => row.shift === shiftSelect.value) && checklistContainer.dataset.who !== name) {
+  if (rows.length > 1 && shiftSelect.value && rows.some(row => row.shift === shiftSelect.value) && checklistContainer.dataset.who !== who) {
     nameLock = true;
     renderChecklist();
     checkAllDone();
+    nameLock = false;
+    return true;
+  }
+  if (shiftSelect.value && checklistContainer.dataset.who && checklistContainer.dataset.who !== who && !rows.some(row => row.shift === shiftSelect.value)) {
+    nameLock = true;
+    renderChecklist();
     nameLock = false;
     return true;
   }
@@ -1187,9 +1205,12 @@ function saveProgress() {
   });
   try {
     const name = staffName.value.trim();
-    if (name) localStorage.setItem(namedKey(), JSON.stringify(data));
+    const period = workPeriod.value.trim();
+    if (name && period) localStorage.setItem(namedKey(), JSON.stringify(data));
     const old = readStore(legacyKey());
-    if (!name || !old || !(old.staff || '').trim() || (old.staff || '').trim() === name) {
+    const oldName = (old && old.staff || '').trim();
+    const oldPeriod = (old && old.period || '').trim();
+    if (!old || (!oldName && !oldPeriod) || (oldName === name && oldPeriod === period)) {
       localStorage.setItem(legacyKey(), JSON.stringify(data));
     }
   } catch (e) {}
@@ -1200,17 +1221,12 @@ function loadProgress() {
   fullReportSent = false;
   try {
     const name = staffName.value.trim();
-    if (!name || !shiftSelect.value) return null;
-    const hit = personRecords().find(row => row.shift === shiftSelect.value);
+    const period = workPeriod.value.trim();
+    if (!name || !period || !shiftSelect.value) return null;
+    const hit = personRecords().find(row => row.shift === shiftSelect.value && (row.data.period || '').trim() === period);
     const d = hit && hit.data;
     if (!d) return null;
     fullReportSent = !!d.sent || reportFormFilled(d);
-    if (d.period && !workPeriod.value.trim()) {
-      nameLock = true;
-      applyPeriodToSelects(d.period);
-      nameLock = false;
-      scheduleDiscardCheck();
-    }
     if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
       document.getElementById('dayMemo').value = d.dayMemo;
     }
@@ -1235,7 +1251,7 @@ function renderChecklist() {
   }
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
-  checklistContainer.dataset.who = staffName.value.trim();
+  checklistContainer.dataset.who = staffName.value.trim() + '|' + workPeriod.value.trim();
   if (!key) {
     checklistContainer.innerHTML = '';
     return;
@@ -1810,11 +1826,14 @@ document.querySelectorAll('#bottomBar .pay-time').forEach(el => {
 });
 
 function makeSummary() {
-  const shift = allData[currentStore]?.shifts?.[shiftSelect.value] || { items: [] };
+  const shiftKey = shiftSelect.value;
+  const shift = allData[currentStore]?.shifts?.[shiftKey] || { items: [] };
   const when = new Date().toLocaleString('ko-KR');
   const names = { edu: '교육', prob: '수습', full: '정식' };
   const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
-  let sum = `전체 보고 시간 : ${when}\n구분: ${names[picked] || ''}`;
+  const opt = shiftSelect.options[shiftSelect.selectedIndex];
+  const shiftLabel = opt && opt.value ? opt.textContent.trim() : (shift.name || shiftKey || '');
+  let sum = `전체 보고\n시간 : ${when}\n구분: ${names[picked] || ''}\n점포명: ${currentStore || ''}\n근무자이름: ${staffName.value.trim()}\n근무타입: ${shiftLabel}\n근무시간대: ${workPeriod.value.trim()}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
