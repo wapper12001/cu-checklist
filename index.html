@@ -104,7 +104,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v91</h1>
+  <h1>CU 점포 체크리스트 v92</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1853,15 +1853,21 @@ sendReportBtn.onclick = async () => {
     alert('서버 저장 실패: ' + (err.message || err));
     return;
   }
+  sessionStorage.setItem('cu-go-home', '1');
+  resetToInitial();
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); resetToInitial(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+    try { await navigator.share({ text: sum }); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
-  resetToInitial();
   alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
+window.addEventListener('pageshow', () => {
+  if (sessionStorage.getItem('cu-go-home') !== '1') return;
+  sessionStorage.removeItem('cu-go-home');
+  resetToInitial();
+});
 
 // ===== 출근 / 바코드 =====
 document.getElementById('clockInBtn').onclick = null;
