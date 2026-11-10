@@ -101,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v88</h1>
+  <h1>CU 점포 체크리스트 v89</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -769,6 +769,7 @@ document.getElementById('storeCodeChange').onclick = resetStoreCode;
 const savedAccessCode = localStorage.getItem('cu-access-code') || '';
 if (savedAccessCode) enterStoreCode(savedAccessCode, true);
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+reportDate.dataset.prev = reportDate.value;
 
 storeSelect.onchange = onStoreChange;
 staffName.oninput = saveProgress;
@@ -819,7 +820,18 @@ document.getElementById('dayMemo').oninput = saveProgress;
   memo.addEventListener('focus', () => { memo.placeholder = ''; });
   memo.addEventListener('blur', () => { if (!memo.value) memo.placeholder = hint; });
 })();
-reportDate.onchange = () => { saveProgress(); renderChecklist(); };
+reportDate.onchange = () => {
+  const next = reportDate.value;
+  const prev = reportDate.dataset.prev || next;
+  if (prev !== next) {
+    reportDate.value = prev;
+    saveProgress();
+    reportDate.value = next;
+  }
+  reportDate.dataset.prev = next;
+  renderChecklist();
+  checkAllDone();
+};
 
 function onStoreChange() {
   currentStore = storeSelect.value;
@@ -1029,6 +1041,7 @@ function resumeWork() {
   const today = koreaNow().date;
   if (saved.date && saved.date < today && !overnightStillOpen(saved)) {
     reportDate.value = today;
+    reportDate.dataset.prev = today;
     fullReportSent = false;
     try { localStorage.setItem('cu-resume', JSON.stringify({ store: saved.store, shift: '', date: today })); } catch (e) {}
     onStoreChange();
@@ -1037,7 +1050,10 @@ function resumeWork() {
     if (box) box.style.paddingBottom = '';
     return;
   }
-  if (saved.date) reportDate.value = saved.date;
+  if (saved.date) {
+    reportDate.value = saved.date;
+    reportDate.dataset.prev = saved.date;
+  }
   storeSelect.value = saved.store;
   onStoreChange();
   if (saved.shift && [...shiftSelect.options].some(opt => opt.value === saved.shift)) {
@@ -1089,7 +1105,8 @@ function loadProgress() {
     const s = localStorage.getItem(getKey());
     if (s) {
       const d = JSON.parse(s);
-      fullReportSent = !!d.sent;
+      fullReportSent = !!d.sent || reportFormFilled(d);
+      if (fullReportSent) d.sent = true;
       if (d.staff) staffName.value = d.staff;
       if (d.period) {
         applyPeriodToSelects(d.period);
@@ -1104,6 +1121,12 @@ function loadProgress() {
     }
   } catch(e){}
   return null;
+}
+function reportFormFilled(d) {
+  const memo = (d.dayMemo || '').trim();
+  if (!memo || /^퇴근(합니다)?\.?$/.test(memo)) return false;
+  const pay = d.pay || {};
+  return !!(pay.lateYn && pay.deductYn && pay.extraYn);
 }
 
 function renderChecklist() {
@@ -1777,12 +1800,17 @@ sendReportBtn.onclick = async () => {
   const sum = makeSummary();
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g,'');
+  markReportSent();
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); markReportSent(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
-      if (e && e.name === 'AbortError') return;
+    try { await navigator.share({ text: sum }); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+      if (e && e.name === 'AbortError') {
+        fullReportSent = false;
+        saveProgress();
+        checkAllDone();
+        return;
+      }
     }
   }
-  markReportSent();
   alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
