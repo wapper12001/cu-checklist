@@ -104,7 +104,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v90</h1>
+  <h1>CU 점포 체크리스트 v91</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1800,6 +1800,28 @@ window.addEventListener('popstate', () => {
   history.pushState({ cu: 1 }, '');
 });
 
+function resetToInitial() {
+  try { localStorage.removeItem(getKey()); } catch (e) {}
+  try { localStorage.removeItem('cu-resume'); } catch (e) {}
+  sessionReported = {};
+  currentPhotos = {};
+  savedHasPhoto = {};
+  staffName.value = '';
+  workStart.value = '';
+  workEnd.value = '';
+  workPeriod.value = '';
+  const memo = document.getElementById('dayMemo');
+  if (memo) memo.value = '';
+  document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = false; });
+  writePay({ lateYn: 'no', lateTime: '', deductYn: 'no', deductTime: '', extraYn: 'no', extraTime: '' });
+  ['lateTime', 'deductTime', 'extraTime'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+  });
+  if (currentStore) onStoreChange();
+  fullReportSent = false;
+  window.scrollTo(0, 0);
+}
 sendReportBtn.onclick = async () => {
   if (!document.querySelector('input[name="workType"]:checked')) {
     alert('교육, 수습, 정식 중 하나를 고르세요.');
@@ -1832,10 +1854,11 @@ sendReportBtn.onclick = async () => {
     return;
   }
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+    try { await navigator.share({ text: sum }); resetToInitial(); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
       if (e && e.name === 'AbortError') return;
     }
   }
+  resetToInitial();
   alert(notice('수고하셨습니다. 즐퇴하세요'));
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
