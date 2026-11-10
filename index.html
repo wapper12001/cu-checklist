@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v92</h1>
+  <h1>CU 점포 체크리스트 v93</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1792,6 +1792,33 @@ window.addEventListener('popstate', () => {
   history.pushState({ cu: 1 }, '');
 });
 
+function backToStart() {
+  try {
+    localStorage.setItem('cu-resume', JSON.stringify({ store: lockedStore || currentStore || '', shift: '', date: koreaNow().date }));
+  } catch (e) {}
+  shiftSelect.value = '';
+  staffName.value = '';
+  workStart.value = '';
+  workEnd.value = '';
+  workPeriod.value = '';
+  document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = false; });
+  const memo = document.getElementById('dayMemo');
+  if (memo) memo.value = '';
+  document.querySelectorAll('#bottomBar input[type="radio"]').forEach(el => { el.checked = false; });
+  ['lateTime', 'deductTime', 'extraTime'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    el.disabled = true;
+  });
+  checklistContainer.innerHTML = '';
+  fullReportSent = false;
+  if (reportFields()) reportFields().classList.add('hidden');
+  bottomBar.classList.add('hidden');
+  const box = document.querySelector('.container');
+  if (box) box.style.paddingBottom = '';
+  window.scrollTo(0, 0);
+}
 sendReportBtn.onclick = async () => {
   const missing = collectMissing();
   if (missing.length) {
@@ -1823,7 +1850,12 @@ sendReportBtn.onclick = async () => {
   const phone = (store.phone || '').replace(/-/g,'');
   markReportSent();
   if (navigator.share) {
-    try { await navigator.share({ text: sum }); alert(notice('수고하셨습니다. 즐퇴하세요')); return; } catch (e) {
+    try {
+      await navigator.share({ text: sum });
+      alert(notice('수고하셨습니다. 즐퇴하세요'));
+      backToStart();
+      return;
+    } catch (e) {
       if (e && e.name === 'AbortError') {
         fullReportSent = false;
         saveProgress();
@@ -1833,6 +1865,7 @@ sendReportBtn.onclick = async () => {
     }
   }
   alert(notice('수고하셨습니다. 즐퇴하세요'));
+  backToStart();
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 function markReportSent() {
