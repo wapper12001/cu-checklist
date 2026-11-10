@@ -101,7 +101,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v87</h1>
+  <h1>CU 점포 체크리스트 v88</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1026,10 +1026,15 @@ function resumeWork() {
   try { saved = JSON.parse(localStorage.getItem('cu-resume') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.store || !allData[saved.store]) return;
   if (lockedStore && saved.store !== lockedStore) return;
-  if (saved.date && saved.shift && pastReportDone(saved.store, saved.shift, saved.date)) {
-    reportDate.value = koreaNow().date;
+  const today = koreaNow().date;
+  if (saved.date && saved.date < today && !overnightStillOpen(saved)) {
+    reportDate.value = today;
     fullReportSent = false;
+    try { localStorage.setItem('cu-resume', JSON.stringify({ store: saved.store, shift: '', date: today })); } catch (e) {}
     onStoreChange();
+    bottomBar.classList.add('hidden');
+    const box = document.querySelector('.container');
+    if (box) box.style.paddingBottom = '';
     return;
   }
   if (saved.date) reportDate.value = saved.date;
@@ -1041,20 +1046,15 @@ function resumeWork() {
     checkAllDone();
   }
 }
-function pastReportDone(store, shift, date) {
-  if (!date || date >= koreaNow().date) return false;
+function overnightStillOpen(saved) {
   try {
-    const saved = JSON.parse(localStorage.getItem('work-log-v1') || '{}');
-    const parts = date.split('-').map(Number);
-    const row = saved[parts[0] + '-' + parts[1]] && saved[parts[0] + '-' + parts[1]][String(parts[2])];
-    if (row && (row.period || row.worker || row.hours)) return true;
-  } catch (e) {}
-  try {
-    const prog = JSON.parse(localStorage.getItem(`prog_${store}_${shift}_${date}`) || 'null');
-    if (!prog) return false;
-    if (prog.sent) return true;
+    const prog = JSON.parse(localStorage.getItem(`prog_${saved.store}_${saved.shift}_${saved.date}`) || 'null');
+    if (!prog || prog.sent) return false;
+    const range = parseWorkRange(prog.period || '');
+    if (!range || range.end > range.start) return false;
     const items = Object.values(prog.items || {});
-    return items.length > 0 && items.every(it => it && it.done);
+    if (items.length && items.every(it => it && it.done)) return false;
+    return koreaNow().minutes <= range.end;
   } catch (e) { return false; }
 }
 
