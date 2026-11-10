@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v96</h1>
+  <h1>CU 점포 체크리스트 v97</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1917,10 +1917,8 @@ window.addEventListener('popstate', () => {
 });
 
 function backToStart() {
-  try {
-    localStorage.setItem('cu-resume', JSON.stringify({ store: lockedStore || currentStore || '', shift: '', date: koreaNow().date }));
-  } catch (e) {}
-  shiftSelect.value = '';
+  try { localStorage.removeItem('cu-resume'); } catch (e) {}
+  resetStoreCode();
   staffName.value = '';
   workStart.value = '';
   workEnd.value = '';
