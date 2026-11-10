@@ -63,6 +63,9 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .pay-time { margin-top: 4px; }
 .time-pair { display: flex; gap: 8px; }
 .time-pair select { flex: 1; min-width: 0; }
+.code-row { display: flex; gap: 6px; align-items: center; }
+.code-row input { flex: 1; min-width: 0; width: auto; }
+.code-row button { flex: none; width: auto; padding: 10px 12px; white-space: nowrap; }
 .date-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; }
 .date-row input[type="date"] { flex: 0 0 116px; width: 116px; min-width: 0; max-width: 116px; padding: 8px 2px; font-size: 13px; }
 .date-row label { display: inline-flex; align-items: center; gap: 2px; margin: 0; font-weight: 600; font-size: 13px; white-space: nowrap; }
@@ -101,7 +104,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v89</h1>
+  <h1>CU 점포 체크리스트 v90</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -130,8 +133,10 @@ if (document.documentElement.classList.contains('inapp')) {
       </div>
       <div id="storeCodeBox">
         <label style="margin-top:12px;">점포 코드</label>
-        <input id="storeCodeInput" autocomplete="off" placeholder="점포 코드">
-        <button type="button" class="btn-primary" id="storeCodeBtn" style="width:100%; margin-top:8px;">들어가기</button>
+        <div class="code-row">
+          <input id="storeCodeInput" autocomplete="off" placeholder="점포 코드">
+          <button type="button" class="btn-primary" id="storeCodeBtn">들어가기</button>
+        </div>
       </div>
       <div id="storePick" class="hidden">
         <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
