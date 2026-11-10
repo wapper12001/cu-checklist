@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v93</h1>
+  <h1>CU 점포 체크리스트 v95</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -775,7 +775,6 @@ reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', ye
 reportDate.dataset.prev = reportDate.value;
 
 storeSelect.onchange = onStoreChange;
-staffName.oninput = saveProgress;
 const workStart = document.getElementById('workStart');
 const workEnd = document.getElementById('workEnd');
 function fillWorkTimes() {
@@ -797,9 +796,9 @@ function clockLabel(mins) {
 }
 function syncWorkPeriod() {
   workPeriod.value = workStart.value && workEnd.value ? workStart.value + '-' + workEnd.value : '';
-  saveProgress();
-  if (shiftSelect.value) renderChecklist();
-  else scheduleDiscardCheck();
+  if (nameLock) return;
+  onIdentityInput();
+  if (!shiftSelect.value) scheduleDiscardCheck();
 }
 function applyPeriodToSelects(text) {
   const range = parseWorkRange(text);
@@ -832,8 +831,10 @@ reportDate.onchange = () => {
     reportDate.value = next;
   }
   reportDate.dataset.prev = next;
-  renderChecklist();
-  checkAllDone();
+  if (!onIdentityInput()) {
+    renderChecklist();
+    checkAllDone();
+  }
 };
 
 function onStoreChange() {
@@ -1033,7 +1034,9 @@ function saveResume() {
     localStorage.setItem('cu-resume', JSON.stringify({
       store: currentStore,
       shift: shiftSelect.value,
-      date: reportDate.value
+      date: reportDate.value,
+      staff: staffName.value.trim(),
+      period: workPeriod.value.trim()
     }));
   } catch (e) {}
 }
@@ -1060,11 +1063,15 @@ function resumeWork() {
   }
   storeSelect.value = saved.store;
   onStoreChange();
+  nameLock = true;
+  if (saved.staff) staffName.value = saved.staff;
+  if (saved.period) applyPeriodToSelects(saved.period);
+  nameLock = false;
   if (saved.shift && [...shiftSelect.options].some(opt => opt.value === saved.shift)) {
     shiftSelect.value = saved.shift;
     renderChecklist();
     checkAllDone();
-  }
+  } else onIdentityInput();
 }
 function overnightStillOpen(saved) {
   try {
@@ -1078,8 +1085,85 @@ function overnightStillOpen(saved) {
   } catch (e) { return false; }
 }
 
-function getKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
+function legacyKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
+function namedKey() {
+  const name = staffName.value.trim();
+  if (!name) return '';
+  return legacyKey() + '_' + encodeURIComponent(name);
+}
+function getKey() { return namedKey() || legacyKey(); }
+function readStore(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; }
+}
+function personRecords() {
+  const name = staffName.value.trim();
+  const date = reportDate.value;
+  if (!name || !date || !currentStore) return [];
+  const encoded = encodeURIComponent(name);
+  const prefix = `prog_${currentStore}_`;
+  const mark = `_${date}`;
+  const byShift = new Map();
+  const keep = (shift, data) => {
+    if (!shift || !data || (data.staff || '').trim() !== name) return;
+    const prev = byShift.get(shift);
+    if (!prev || (data.savedAt || 0) >= (prev.data.savedAt || 0)) byShift.set(shift, { data });
+  };
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k) continue;
+    if (k.startsWith(prefix)) {
+      const rest = k.slice(prefix.length);
+      const at = rest.lastIndexOf(mark);
+      if (at <= 0) continue;
+      const after = rest.slice(at + mark.length);
+      if (after && after !== '_' + encoded) continue;
+      keep(rest.slice(0, at), readStore(k));
+      continue;
+    }
+    const sess = `sess_${currentStore}_${date}_${encoded}_`;
+    if (k.startsWith(sess)) {
+      const data = readStore(k);
+      keep(data && data.shift, data);
+    }
+  }
+  return [...byShift.entries()].map(([shift, row]) => ({ shift, data: row.data }));
+}
+let nameLock = false;
+function onIdentityInput() {
+  if (nameLock) return false;
+  const name = staffName.value.trim();
+  if (!currentStore || !reportDate.value || !name) {
+    if (shiftSelect.value) saveProgress();
+    return false;
+  }
+  if (reportDate.value !== koreaNow().date) {
+    if (shiftSelect.value) renderChecklist();
+    return true;
+  }
+  const rows = personRecords().filter(row => [...shiftSelect.options].some(opt => opt.value === row.shift));
+  if (rows.length === 1 && (shiftSelect.value !== rows[0].shift || checklistContainer.dataset.who !== name)) {
+    nameLock = true;
+    shiftSelect.value = rows[0].shift;
+    if (rows[0].data.period) applyPeriodToSelects(rows[0].data.period);
+    renderChecklist();
+    checkAllDone();
+    nameLock = false;
+    return true;
+  }
+  if (rows.length > 1 && shiftSelect.value && rows.some(row => row.shift === shiftSelect.value) && checklistContainer.dataset.who !== name) {
+    nameLock = true;
+    renderChecklist();
+    checkAllDone();
+    nameLock = false;
+    return true;
+  }
+  if (shiftSelect.value) saveProgress();
+  return true;
+}
+staffName.oninput = onIdentityInput;
+staffName.addEventListener('compositionend', onIdentityInput);
 function saveProgress() {
+  if (!currentStore || !shiftSelect.value || !reportDate.value) return;
   const data = {
     staff: staffName.value,
     period: workPeriod.value,
@@ -1087,6 +1171,8 @@ function saveProgress() {
     pay: readPay(),
     workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
     sent: fullReportSent,
+    savedAt: Date.now(),
+    shift: shiftSelect.value,
     items: {}
   };
   document.querySelectorAll('.item').forEach(el => {
@@ -1099,31 +1185,39 @@ function saveProgress() {
       hasPhoto: (currentPhotos[id] || []).length > 0 || !!savedHasPhoto[id]
     };
   });
-  try { localStorage.setItem(getKey(), JSON.stringify(data)); } catch(e){}
+  try {
+    const name = staffName.value.trim();
+    if (name) localStorage.setItem(namedKey(), JSON.stringify(data));
+    const old = readStore(legacyKey());
+    if (!name || !old || !(old.staff || '').trim() || (old.staff || '').trim() === name) {
+      localStorage.setItem(legacyKey(), JSON.stringify(data));
+    }
+  } catch (e) {}
   saveResume();
   checkAllDone();
 }
 function loadProgress() {
   fullReportSent = false;
   try {
-    const s = localStorage.getItem(getKey());
-    if (s) {
-      const d = JSON.parse(s);
-      fullReportSent = !!d.sent || reportFormFilled(d);
-      if (fullReportSent) d.sent = true;
-      if (d.staff) staffName.value = d.staff;
-      if (d.period) {
-        applyPeriodToSelects(d.period);
-        scheduleDiscardCheck();
-      }
-      if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
-        document.getElementById('dayMemo').value = d.dayMemo;
-      }
-      if (d.pay) writePay(d.pay);
-      document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === (d.workType || ''); });
-      return d;
+    const name = staffName.value.trim();
+    if (!name || !shiftSelect.value) return null;
+    const hit = personRecords().find(row => row.shift === shiftSelect.value);
+    const d = hit && hit.data;
+    if (!d) return null;
+    fullReportSent = !!d.sent || reportFormFilled(d);
+    if (d.period && !workPeriod.value.trim()) {
+      nameLock = true;
+      applyPeriodToSelects(d.period);
+      nameLock = false;
+      scheduleDiscardCheck();
     }
-  } catch(e){}
+    if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
+      document.getElementById('dayMemo').value = d.dayMemo;
+    }
+    if (d.pay) writePay(d.pay);
+    document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === (d.workType || ''); });
+    return d;
+  } catch (e) {}
   return null;
 }
 function reportFormFilled(d) {
@@ -1141,6 +1235,7 @@ function renderChecklist() {
   }
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
+  checklistContainer.dataset.who = staffName.value.trim();
   if (!key) {
     checklistContainer.innerHTML = '';
     return;
@@ -1345,9 +1440,19 @@ async function restoreSavedPhotos(items) {
     const id = String(item.id);
     const packed = await new Promise(resolve => {
       const tx = db.transaction('photos', 'readonly');
-      const req = tx.objectStore('photos').get(getKey() + '|' + id);
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => resolve([]);
+      const keys = [getKey() + '|' + id];
+      const legacy = `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}|${id}`;
+      if (!keys.includes(legacy)) keys.push(legacy);
+      const readAt = (n) => {
+        const req = tx.objectStore('photos').get(keys[n]);
+        req.onsuccess = () => {
+          const rows = req.result || [];
+          if (rows.length || n + 1 >= keys.length) resolve(rows);
+          else readAt(n + 1);
+        };
+        req.onerror = () => resolve([]);
+      };
+      readAt(0);
     });
     if (!packed.length) continue;
     currentPhotos[id] = packed.map(b => new File([b.buf], b.name || 'photo.jpg', { type: b.type || 'image/jpeg' }));
