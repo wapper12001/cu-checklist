@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v100</h1>
+  <h1>CU 점포 체크리스트 v101</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -275,6 +275,17 @@ if (document.documentElement.classList.contains('inapp')) {
   </div>
 </div>
 
+<div id="inboundModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="inboundTitle" style="margin-top:0; color:#6B2C91;">입고·진열 확인</h3>
+    <div id="inboundBody" style="font-size:15px; line-height:1.55;"></div>
+    <label id="inboundHint" style="margin-top:12px;">아래 문장을 그대로 입력하세요.</label>
+    <textarea id="inboundMemo" placeholder="확인했습니다. 이해했습니다." style="min-height:64px;"></textarea>
+    <p id="inboundMsg" style="color:#6B2C91; min-height:1.2em; margin:6px 0;"></p>
+    <button type="button" class="btn-primary" id="inboundConfirm" style="width:100%;">확인</button>
+  </div>
+</div>
+
 <script>
 // 인앱이면 Supabase를 로드하지 않음
 if (!document.documentElement.classList.contains('inapp')) {
@@ -406,7 +417,16 @@ const I18N = {
     '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매': 'Chú ý bán rượu, thuốc lá cho người chưa đủ tuổi! Phải xem giấy tờ mọi người mua (CMND, bằng lái, QR căn cước). Nếu khách từ chối, gọi video với chủ cửa hàng rồi mới bán.',
     '본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.': 'Người giả nhân viên trụ sở, gia đình chủ hoặc người quen đều là lừa đảo. Có nhiều kiểu lừa thẻ Google Play, phiếu quà, cho vay tiền mặt. Gặp họ thì gọi tổng đài để xác nhận.',
     '챗봇 하루': 'Chatbot Haru',
-    '등록해서 업무에 활용하세요!': 'Hãy đăng ký và dùng cho công việc!'
+    '등록해서 업무에 활용하세요!': 'Hãy đăng ký và dùng cho công việc!',
+    '입고·진열 확인': 'Xác nhận nhận hàng và bày hàng',
+    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.': 'Không biết chỗ bày thì gọi chủ cửa hàng. Không được bày tùy tiện.',
+    '보관 방법을 모르면 상품 표기를 확인하세요.': 'Không biết cách bảo quản thì xem nhãn hàng.',
+    '냉동은 냉동고에 보관합니다.': 'Hàng đông để tủ đông.',
+    '냉장은 워크인 냉장고에 보관합니다.': 'Hàng mát để tủ mát walk-in.',
+    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.': 'Nhiệt độ phòng, mát, tránh nắng thì để kệ thường.',
+    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.': 'Bảo quản sai làm hỏng hàng. Nhân viên chịu trách nhiệm. Cẩn thận.',
+    '아래 문장을 그대로 입력하세요.': 'Nhập đúng câu bên dưới.',
+    '문장이 다릅니다.': 'Câu chưa đúng.'
   },
   my: {
     '언어': 'ဘာသာစကား',
@@ -479,7 +499,16 @@ const I18N = {
     '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매': 'အရွယ်မရောက်သေးသူအား အရက်၊ ဆေးလိပ် ရောင်းချရာ သတိထားပါ! ဝယ်သူတိုင်း၏ မှတ်ပုံတင်၊ ယာဉ်မောင်းလိုင်စင်၊ အီလက်ထရောနစ် QR ကို စစ်ပါ။ ငြင်းပါက ဆိုင်ပိုင်ရှင်နှင့် ဗီဒီယိုခေါ်ပြီးမှ ရောင်းပါ။',
     '본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.': 'ရုံးဝန်ထမ်း၊ ဆိုင်ပိုင်ရှင်မိသားစု၊ အသိအကျွမ်းဟန်ဆောင်သူအားလုံး လိမ်လည်မှုဖြစ်သည်။ Google Play ကတ်၊ လက်ဆောင်ဘောက်ချာ၊ ငွေချေးခြင်း လိမ်လည်မှုများရှိသည်။ ဒီလိုလူလာလျှင် ဖောက်သည်ဌာနသို့ ဖုန်းဆက်စစ်ပါ။',
     '챗봇 하루': 'ချတ်ဘော့ ဟာရူ',
-    '등록해서 업무에 활용하세요!': 'မှတ်ပုံတင်ပြီး အလုပ်တွင် သုံးပါ!'
+    '등록해서 업무에 활용하세요!': 'မှတ်ပုံတင်ပြီး အလုပ်တွင် သုံးပါ!',
+    '입고·진열 확인': 'ကုန်လက်ခံနှင့် ခင်းကျင်းအတည်ပြု',
+    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.': 'နေရာမသိရင် ဆိုင်ပိုင်ရှင်ကို ဖုန်းဆက်ပါ။ ကြိုက်သလို မခင်းရ။',
+    '보관 방법을 모르면 상품 표기를 확인하세요.': 'သိမ်းဆည်းနည်းမသိရင် ပစ္စည်းအမှတ်အသားကို ကြည့်ပါ။',
+    '냉동은 냉동고에 보관합니다.': 'အေးခဲကို ရေခဲသေတ္တာထဲထားပါ။',
+    '냉장은 워크인 냉장고에 보관합니다.': 'အေးဆေးကို walk-in ရေခဲသေတ္တာထဲထားပါ။',
+    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.': 'အခန်းအပူချိန်၊ နေရောင်ရှောင်ရန် ဆိုလျှင် ပုံမှန်စင်တွင်ထားပါ။',
+    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.': 'မှားသိမ်းရင် ကုန်ပျက်သည်။ ဝန်ထမ်းတာဝန်ဖြစ်သည်။ သတိထားပါ။',
+    '아래 문장을 그대로 입력하세요.': 'အောက်ပါစာကြောင်းကို မပြောင်းဘဲ ရိုက်ပါ။',
+    '문장이 다릅니다.': 'စာကြောင်းမတူပါ။'
   }
 };
 function escHtml(s) {
@@ -1380,6 +1409,7 @@ function renderChecklist() {
   refreshAllMiss();
   restoreSavedPhotos(items);
   fillMissingTranslations();
+  maybeInboundPopup();
 }
 
 function selectedYmd() {
@@ -1574,6 +1604,7 @@ function onItemEdited(e) {
   }
   saveProgress();
   refreshAllMiss();
+  maybeInboundPopup();
 }
 checklistContainer.addEventListener('click', (e) => {
   const cb = e.target.closest && e.target.closest('.done-cb');
@@ -1596,6 +1627,62 @@ function setReportForm(open) {
   const box = document.querySelector('.container');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
 }
+function isInboundDisplay(title) {
+  const t = (title || '').replace(/\s/g, '');
+  if (!t || t.includes('폐기')) return false;
+  if (t.includes('저온') && /입고|진열/.test(t)) return true;
+  if (t.includes('입고')) return true;
+  return (t.includes('상온') || t.includes('소분')) && t.includes('진열');
+}
+function inboundAckKey() {
+  if (!currentStore || !reportDate || !reportDate.value) return '';
+  return 'inboundAck_' + currentStore + '_' + reportDate.value;
+}
+function maybeInboundPopup() {
+  const modal = document.getElementById('inboundModal');
+  if (!modal) return;
+  const key = inboundAckKey();
+  if (!key || localStorage.getItem(key)) {
+    modal.classList.add('hidden');
+    return;
+  }
+  const items = checklistContainer.querySelectorAll('.item');
+  let next = null;
+  for (let i = 0; i < items.length; i++) {
+    const cb = items[i].querySelector('.done-cb');
+    if (cb && !cb.checked) { next = items[i]; break; }
+  }
+  if (!next || !isInboundDisplay(next.dataset.title)) {
+    modal.classList.add('hidden');
+    return;
+  }
+  if (!modal.classList.contains('hidden')) return;
+  document.getElementById('inboundTitle').innerHTML = biHtml('입고·진열 확인');
+  document.getElementById('inboundBody').innerHTML = [
+    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.',
+    '보관 방법을 모르면 상품 표기를 확인하세요.',
+    '냉동은 냉동고에 보관합니다.',
+    '냉장은 워크인 냉장고에 보관합니다.',
+    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.',
+    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.'
+  ].map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
+  document.getElementById('inboundHint').innerHTML = biHtml('아래 문장을 그대로 입력하세요.');
+  document.getElementById('inboundMemo').value = '';
+  document.getElementById('inboundMsg').textContent = '';
+  modal.classList.remove('hidden');
+}
+document.getElementById('inboundConfirm').onclick = () => {
+  const typed = document.getElementById('inboundMemo').value.trim();
+  if (typed !== '확인했습니다. 이해했습니다.') {
+    const msg = '문장이 다릅니다.';
+    document.getElementById('inboundMsg').innerHTML = biHtml(msg);
+    return;
+  }
+  const key = inboundAckKey();
+  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  document.getElementById('inboundModal').classList.add('hidden');
+};
+
 function checkAllDone() {
   const items = checklistContainer.querySelectorAll('.item');
   const box = document.querySelector('.container');
@@ -1616,6 +1703,7 @@ function checkAllDone() {
   bottomBar.classList.remove('hidden');
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
+  maybeInboundPopup();
 }
 
 function addPhotoFile(id, file) {
