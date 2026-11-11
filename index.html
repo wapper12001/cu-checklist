@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v102</h1>
+  <h1>CU 점포 체크리스트 v103</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -160,8 +160,8 @@ if (document.documentElement.classList.contains('inapp')) {
   <div id="adminScreen" class="hidden">
     <div class="card">
       <h3 style="margin-top:0;">관리자</h3>
-      <label>점포 선택</label>
-      <select id="adminStoreSelect"></select>
+      <p id="adminStoreName" style="margin:0 0 8px; font-weight:700;"></p>
+      <select id="adminStoreSelect" class="hidden"></select>
       <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
       <button class="btn-secondary" id="commonEditBtn" type="button" style="width:100%; margin-top:8px;">공통 항목 수정</button>
       <div id="commonPanel" class="hidden" style="margin-top:12px;">
@@ -178,8 +178,8 @@ if (document.documentElement.classList.contains('inapp')) {
     <div id="storeDetail" class="hidden">
       <div class="card">
         <h4 style="margin-top:0;" id="detailTitle">점포 정보</h4>
-        <label>근무자 코드</label>
-        <input type="text" id="detailCode" placeholder="근무자가 입력할 숫자">
+        <label>점포코드</label>
+        <input type="text" id="detailCode" placeholder="점포코드">
         <label style="margin-top:8px;">점장</label>
         <input type="text" id="detailManager">
         <label style="margin-top:8px;">전화번호</label>
@@ -250,8 +250,11 @@ if (document.documentElement.classList.contains('inapp')) {
 <!-- 비밀번호 모달 -->
 <div id="pwModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0;">관리자 비밀번호</h3>
-    <input type="password" id="adminPw">
+    <h3 style="margin-top:0;">관리자</h3>
+    <label>점포코드</label>
+    <input type="text" id="adminCode" autocomplete="off" placeholder="점포코드">
+    <label style="margin-top:8px;">비밀번호</label>
+    <input type="password" id="adminPw" placeholder="비밀번호">
     <button class="btn-primary" id="confirmPw" style="width:100%; margin-top:10px;">확인</button>
     <button class="btn-secondary" id="cancelPw" style="width:100%; margin-top:8px;">취소</button>
     <p id="pwMsg" style="color:#6B2C91; text-align:center;"></p>
@@ -2185,18 +2188,26 @@ document.getElementById('secretArea').addEventListener('click', function(e) {
   if (clickCount >= 10) {
     clickCount = 0;
     document.getElementById('pwModal').classList.remove('hidden');
+    document.getElementById('adminCode').value = '';
     document.getElementById('adminPw').value = '';
     document.getElementById('pwMsg').textContent = '';
-    document.getElementById('adminPw').focus();
+    document.getElementById('adminCode').focus();
   }
 });
-document.getElementById('confirmPw').onclick = () => {
-  if (document.getElementById('adminPw').value === ADMIN_PASSWORD) {
-    document.getElementById('pwModal').classList.add('hidden');
-    enterAdmin();
-  } else {
-    document.getElementById('pwMsg').textContent = '비밀번호가 틀렸습니다.';
-  }
+document.getElementById('confirmPw').onclick = async () => {
+  const code = document.getElementById('adminCode').value.trim();
+  const pw = document.getElementById('adminPw').value;
+  const msg = document.getElementById('pwMsg');
+  if (!code) { msg.textContent = '점포코드를 입력하세요.'; return; }
+  if (pw !== ADMIN_PASSWORD) { msg.textContent = '비밀번호가 틀렸습니다.'; return; }
+  const { data, error } = await supabase.from('checklist_items').select('title').eq('store_name', '__i18n__').eq('shift_key', 'access').eq('description', code);
+  if (error) { msg.textContent = '점포코드를 확인하지 못했습니다.'; return; }
+  const names = [...new Set((data || []).map(row => (row.title || '').trim()).filter(Boolean))];
+  if (!names.length) { msg.textContent = '점포코드가 맞지 않습니다.'; return; }
+  if (names.length > 1) { msg.textContent = '같은 점포코드를 쓰는 점포가 있습니다.'; return; }
+  document.getElementById('pwModal').classList.add('hidden');
+  saveAdminView({ on: true, screen: 'admin', store: names[0], shift: '', draft: null });
+  enterAdmin();
 };
 document.getElementById('cancelPw').onclick = () => document.getElementById('pwModal').classList.add('hidden');
 document.getElementById('backFromAdmin').onclick = () => {
@@ -2222,10 +2233,6 @@ async function enterAdmin() {
   reportScreen.classList.add('hidden');
   try { await loadData(true); }
   catch (e) { alert('데이터를 불러오지 못했습니다.'); return; }
-  if (!editScreen.classList.contains('hidden')) return;
-  adminScreen.classList.remove('hidden');
-  refreshAdminStoreSelect();
-  saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
 }
 function captureDraft() {
   if (restoringAdmin || editScreen.classList.contains('hidden')) return;
@@ -2299,6 +2306,8 @@ function refreshAdminStoreSelect() {
   const stores = Object.keys(allData).filter(s => s !== '__i18n__');
   sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('storeDetail').classList.add('hidden');
+  const nameLine = document.getElementById('adminStoreName');
+  if (nameLine) nameLine.textContent = '';
 }
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
@@ -2310,6 +2319,8 @@ document.getElementById('adminStoreSelect').onchange = function() {
   }
   const d = allData[name];
   document.getElementById('detailTitle').textContent = name + ' 정보';
+  const nameLine = document.getElementById('adminStoreName');
+  if (nameLine) nameLine.textContent = name;
   document.getElementById('detailCode').value = d.code || '';
   document.getElementById('detailManager').value = d.manager || '';
   document.getElementById('detailPhone').value = d.phone || '';
