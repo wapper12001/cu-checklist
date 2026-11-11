@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v105</h1>
+  <h1>CU 점포 체크리스트 v106</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -417,7 +417,8 @@ const I18N = {
     '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.': 'Gỡ thẻ tháng trước và cắm thẻ tháng mới.',
     '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.': 'Gỡ thẻ chương trình kết thúc và cắm thẻ chương trình bắt đầu.',
     '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.': 'Nơi nghỉ: ghế bàn thử món, ghế văn phòng hoặc kho, ghế bàn thử món ngoài cửa.\nKhông nghỉ ngoài nơi quy định.\nKhông nghỉ hoặc dùng điện thoại tại quầy.\nViệc riêng như dùng điện thoại chỉ làm ở nơi nghỉ.',
-    '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매': 'Chú ý bán rượu, thuốc lá cho người chưa đủ tuổi! Phải xem giấy tờ mọi người mua (CMND, bằng lái, QR căn cước). Nếu khách từ chối, gọi video với chủ cửa hàng rồi mới bán.',
+    '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 신분증 확인 거부나 인증이 안되는 신분증일 경우 꼭! 고객센터 통화 후 판매하세요.(추측, 예측 판매 절대 금지!)': 'Chú ý bán rượu, thuốc lá cho người chưa đủ tuổi! Phải xem giấy tờ mọi người mua (CMND, bằng lái, QR căn cước). Nếu khách từ chối kiểm tra hoặc giấy tờ không xác thực được, nhất định gọi tổng đài rồi mới bán. Tuyệt đối không bán theo đoán.',
+    '추측, 예측 절대 금지! 꼭! 사실 유무를 확인하세요!': 'Tuyệt đối không đoán. Nhất định phải xác nhận sự thật.',
     '본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.': 'Người giả nhân viên trụ sở, gia đình chủ hoặc người quen đều là lừa đảo. Có nhiều kiểu lừa thẻ Google Play, phiếu quà, cho vay tiền mặt. Gặp họ thì gọi tổng đài để xác nhận.',
     '챗봇 하루': 'Chatbot Haru',
     '등록해서 업무에 활용하세요!': 'Hãy đăng ký và dùng cho công việc!',
@@ -501,7 +502,8 @@ const I18N = {
     '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.': 'ယခင်လကတ်ကို ဖြုတ်ပြီး လသစ်ကတ်ကို ထိုးပါ။',
     '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.': 'ကာလကုန်သော ကတ်ကို ဖြုတ်ပြီး ကာလစသော ကတ်ကို ထိုးပါ။',
     '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.': 'နားခွင့်နေရာ: အရသာစမ်းစားပွဲကုလားထိုင်၊ ရုံး သို့မဟုတ် ဂိုဒေါင်ကုလားထိုင်၊ အပြင် အရသာစမ်းစားပွဲကုလားထိုင်။\nသတ်မှတ်နေရာပြင်ပတွင် မနားရ။\nကောင်တာတွင် မနားရ၊ ဖုန်းမသုံးရ။\nဖုန်းကဲ့သို့ အလုပ်မဟုတ်သော အပြုအမူကို နားခွင့်နေရာတွင်သာ လုပ်ပါ။',
-    '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매': 'အရွယ်မရောက်သေးသူအား အရက်၊ ဆေးလိပ် ရောင်းချရာ သတိထားပါ! ဝယ်သူတိုင်း၏ မှတ်ပုံတင်၊ ယာဉ်မောင်းလိုင်စင်၊ အီလက်ထရောနစ် QR ကို စစ်ပါ။ ငြင်းပါက ဆိုင်ပိုင်ရှင်နှင့် ဗီဒီယိုခေါ်ပြီးမှ ရောင်းပါ။',
+    '미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 신분증 확인 거부나 인증이 안되는 신분증일 경우 꼭! 고객센터 통화 후 판매하세요.(추측, 예측 판매 절대 금지!)': 'အရွယ်မရောက်သေးသူအား အရက်၊ ဆေးလိပ် ရောင်းချရာ သတိထားပါ! ဝယ်သူတိုင်း၏ မှတ်ပုံတင်၊ ယာဉ်မောင်းလိုင်စင်၊ အီလက်ထရောနစ် QR ကို စစ်ပါ။ စစ်ဆေးမှုငြင်းပါက သို့မဟုတ် အတည်မပြုနိုင်သော မှတ်ပုံတင်ဖြစ်ပါက ဖောက်သည်ဌာနသို့ ဖုန်းဆက်ပြီးမှ ရောင်းပါ။ ခန့်မှန်းရောင်းချခြင်း လုံးဝမလုပ်ရ။',
+    '추측, 예측 절대 금지! 꼭! 사실 유무를 확인하세요!': 'ခန့်မှန်းခြင်း လုံးဝမလုပ်ရ။ အမှန်ဖြစ်မဖြစ် သေချာစစ်ပါ။',
     '본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.': 'ရုံးဝန်ထမ်း၊ ဆိုင်ပိုင်ရှင်မိသားစု၊ အသိအကျွမ်းဟန်ဆောင်သူအားလုံး လိမ်လည်မှုဖြစ်သည်။ Google Play ကတ်၊ လက်ဆောင်ဘောက်ချာ၊ ငွေချေးခြင်း လိမ်လည်မှုများရှိသည်။ ဒီလိုလူလာလျှင် ဖောက်သည်ဌာနသို့ ဖုန်းဆက်စစ်ပါ။',
     '챗봇 하루': 'ချတ်ဘော့ ဟာရူ',
     '등록해서 업무에 활용하세요!': 'မှတ်ပုံတင်ပြီး အလုပ်တွင် သုံးပါ!',
@@ -1083,7 +1085,8 @@ function updateManagerInfo(d) {
         <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">${biHtml('근무자 필독!')}</button>
       </div>
       <div id="mustRead" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
-        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#f5a623; color:#3a2500; border-radius:6px; padding:2px 6px; margin-right:6px;">⚠️ 주의</span>${biHtml('미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매')}</p>
+        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#f5a623; color:#3a2500; border-radius:6px; padding:2px 6px; margin-right:6px;">⚠️ 주의</span>${biHtml('미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 신분증 확인 거부나 인증이 안되는 신분증일 경우 꼭! 고객센터 통화 후 판매하세요.(추측, 예측 판매 절대 금지!)')}</p>
+        <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#f5a623; color:#3a2500; border-radius:6px; padding:2px 6px; margin-right:6px;">⚠️ 주의</span>${biHtml('추측, 예측 절대 금지! 꼭! 사실 유무를 확인하세요!')}</p>
         <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#b00020; color:#fff; border-radius:6px; padding:2px 6px; margin-right:6px;">🚨 경고</span>${biHtml('본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.')}</p>
         <p style="margin:0 0 8px;"><strong>${biHtml('챗봇 하루')}:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> ${biHtml('등록해서 업무에 활용하세요!')}</p>
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
