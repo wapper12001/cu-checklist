@@ -41,12 +41,11 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .i-common-list { border: 1px solid #e4d7ee; border-radius: 8px; margin-bottom: 6px; background: #fff; max-height: 240px; overflow-y: auto; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
-.item.done-item { border: 2px solid #6B2C91; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
 .card.item > *:not(.item-title) { padding-left: 14px; padding-right: 14px; }
 .item-title { font-weight: 700; font-size: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: #F3E9F8; padding: 12px 14px; margin: 0 0 10px; }
 .item-no { width: 26px; height: 26px; border-radius: 50%; background: #6B2C91; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: none; }
-.edit-item { border: 1px solid #c9b0dc; border-radius: 12px; margin-bottom: 14px; overflow: hidden; padding: 0; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.edit-item { border: none; border-radius: 12px; margin-bottom: 14px; overflow: hidden; padding: 0; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
 .edit-item:nth-child(odd), .edit-item:nth-child(even) { background: #fff; }
 .edit-head { background: #F3E9F8; color: #6B2C91; display: flex; align-items: center; gap: 6px; padding: 10px 12px; font-weight: 700; }
 .edit-body { padding: 0 10px 10px; }
@@ -103,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v103</h1>
+  <h1>CU 점포 체크리스트 v101</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -160,8 +159,8 @@ if (document.documentElement.classList.contains('inapp')) {
   <div id="adminScreen" class="hidden">
     <div class="card">
       <h3 style="margin-top:0;">관리자</h3>
-      <p id="adminStoreName" style="margin:0 0 8px; font-weight:700;"></p>
-      <select id="adminStoreSelect" class="hidden"></select>
+      <label>점포 선택</label>
+      <select id="adminStoreSelect"></select>
       <button class="btn-primary" id="addStoreBtn" style="width:100%; margin-top:12px;">점포 추가</button>
       <button class="btn-secondary" id="commonEditBtn" type="button" style="width:100%; margin-top:8px;">공통 항목 수정</button>
       <div id="commonPanel" class="hidden" style="margin-top:12px;">
@@ -178,8 +177,8 @@ if (document.documentElement.classList.contains('inapp')) {
     <div id="storeDetail" class="hidden">
       <div class="card">
         <h4 style="margin-top:0;" id="detailTitle">점포 정보</h4>
-        <label>점포코드</label>
-        <input type="text" id="detailCode" placeholder="점포코드">
+        <label>근무자 코드</label>
+        <input type="text" id="detailCode" placeholder="근무자가 입력할 숫자">
         <label style="margin-top:8px;">점장</label>
         <input type="text" id="detailManager">
         <label style="margin-top:8px;">전화번호</label>
@@ -250,11 +249,8 @@ if (document.documentElement.classList.contains('inapp')) {
 <!-- 비밀번호 모달 -->
 <div id="pwModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0;">관리자</h3>
-    <label>점포코드</label>
-    <input type="text" id="adminCode" autocomplete="off" placeholder="점포코드">
-    <label style="margin-top:8px;">비밀번호</label>
-    <input type="password" id="adminPw" placeholder="비밀번호">
+    <h3 style="margin-top:0;">관리자 비밀번호</h3>
+    <input type="password" id="adminPw">
     <button class="btn-primary" id="confirmPw" style="width:100%; margin-top:10px;">확인</button>
     <button class="btn-secondary" id="cancelPw" style="width:100%; margin-top:8px;">취소</button>
     <p id="pwMsg" style="color:#6B2C91; text-align:center;"></p>
@@ -1378,7 +1374,7 @@ function renderChecklist() {
         <div class="photo-preview" id="photos-${id}"></div>
         <div class="miss-msg" id="miss-${id}"></div>` : '';
     return `
-      <div class="card item${ok ? ' done-item' : ''}" data-id="${id}" data-title="${escHtml(item.title)}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
+      <div class="card item" data-id="${id}" data-title="${escHtml(item.title)}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
         <div class="item-title"><span class="item-no">${index + 1}</span><span style="flex:1; min-width:0;">${biHtml(item.title)}</span>
           ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">${biHtml('상세보기')}</button>` : ''}
         </div>
@@ -1608,7 +1604,6 @@ function onItemEdited(e) {
   }
   saveProgress();
   refreshAllMiss();
-  syncDoneBorders();
   maybeInboundPopup();
 }
 checklistContainer.addEventListener('click', (e) => {
@@ -1620,7 +1615,7 @@ checklistContainer.addEventListener('click', (e) => {
   e.preventDefault();
   showMiss(el.dataset.id);
   alert(missMessage(miss));
-  setTimeout(() => { cb.checked = false; saveProgress(); syncDoneBorders(); }, 0);
+  setTimeout(() => { cb.checked = false; saveProgress(); }, 0);
 });
 
 function reportFields() {
@@ -1708,15 +1703,7 @@ function checkAllDone() {
   bottomBar.classList.remove('hidden');
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
-  syncDoneBorders();
   maybeInboundPopup();
-}
-
-function syncDoneBorders() {
-  checklistContainer.querySelectorAll('.item').forEach(el => {
-    const cb = el.querySelector('.done-cb');
-    el.classList.toggle('done-item', !!(cb && cb.checked));
-  });
 }
 
 function addPhotoFile(id, file) {
@@ -1895,7 +1882,6 @@ async function shareItem(id, isSms) {
     }
     saveProgress();
     showMiss(id);
-    syncDoneBorders();
   };
   if (!d.photos.length || !navigator.share) {
     alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.');
@@ -2188,26 +2174,18 @@ document.getElementById('secretArea').addEventListener('click', function(e) {
   if (clickCount >= 10) {
     clickCount = 0;
     document.getElementById('pwModal').classList.remove('hidden');
-    document.getElementById('adminCode').value = '';
     document.getElementById('adminPw').value = '';
     document.getElementById('pwMsg').textContent = '';
-    document.getElementById('adminCode').focus();
+    document.getElementById('adminPw').focus();
   }
 });
-document.getElementById('confirmPw').onclick = async () => {
-  const code = document.getElementById('adminCode').value.trim();
-  const pw = document.getElementById('adminPw').value;
-  const msg = document.getElementById('pwMsg');
-  if (!code) { msg.textContent = '점포코드를 입력하세요.'; return; }
-  if (pw !== ADMIN_PASSWORD) { msg.textContent = '비밀번호가 틀렸습니다.'; return; }
-  const { data, error } = await supabase.from('checklist_items').select('title').eq('store_name', '__i18n__').eq('shift_key', 'access').eq('description', code);
-  if (error) { msg.textContent = '점포코드를 확인하지 못했습니다.'; return; }
-  const names = [...new Set((data || []).map(row => (row.title || '').trim()).filter(Boolean))];
-  if (!names.length) { msg.textContent = '점포코드가 맞지 않습니다.'; return; }
-  if (names.length > 1) { msg.textContent = '같은 점포코드를 쓰는 점포가 있습니다.'; return; }
-  document.getElementById('pwModal').classList.add('hidden');
-  saveAdminView({ on: true, screen: 'admin', store: names[0], shift: '', draft: null });
-  enterAdmin();
+document.getElementById('confirmPw').onclick = () => {
+  if (document.getElementById('adminPw').value === ADMIN_PASSWORD) {
+    document.getElementById('pwModal').classList.add('hidden');
+    enterAdmin();
+  } else {
+    document.getElementById('pwMsg').textContent = '비밀번호가 틀렸습니다.';
+  }
 };
 document.getElementById('cancelPw').onclick = () => document.getElementById('pwModal').classList.add('hidden');
 document.getElementById('backFromAdmin').onclick = () => {
@@ -2233,6 +2211,10 @@ async function enterAdmin() {
   reportScreen.classList.add('hidden');
   try { await loadData(true); }
   catch (e) { alert('데이터를 불러오지 못했습니다.'); return; }
+  if (!editScreen.classList.contains('hidden')) return;
+  adminScreen.classList.remove('hidden');
+  refreshAdminStoreSelect();
+  saveAdminView({ on: true, screen: 'admin', store: '', shift: '', draft: null });
 }
 function captureDraft() {
   if (restoringAdmin || editScreen.classList.contains('hidden')) return;
@@ -2306,8 +2288,6 @@ function refreshAdminStoreSelect() {
   const stores = Object.keys(allData).filter(s => s !== '__i18n__');
   sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('storeDetail').classList.add('hidden');
-  const nameLine = document.getElementById('adminStoreName');
-  if (nameLine) nameLine.textContent = '';
 }
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
@@ -2319,8 +2299,6 @@ document.getElementById('adminStoreSelect').onchange = function() {
   }
   const d = allData[name];
   document.getElementById('detailTitle').textContent = name + ' 정보';
-  const nameLine = document.getElementById('adminStoreName');
-  if (nameLine) nameLine.textContent = name;
   document.getElementById('detailCode').value = d.code || '';
   document.getElementById('detailManager').value = d.manager || '';
   document.getElementById('detailPhone').value = d.phone || '';
