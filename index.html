@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v97</h1>
+  <h1>CU 점포 체크리스트 v98</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -862,7 +862,7 @@ const DISCARD_SLOTS = [
   { id: '0930', min: 9 * 60 + 30, who: 'all', title: '10시 폐기 예정', body: '샌드위치, 햄버거 등' },
   { id: '1330', min: 13 * 60 + 30, who: 'all', title: '14시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' },
   { id: '2130', min: 21 * 60 + 30, who: 'all', title: '22시 폐기 예정', body: '샌드위치, 햄버거 등' },
-  { id: '2330', min: 23 * 60 + 30, who: 'all', title: '24시 폐기 예정', body: '빵, 디저트 등. 00:00 마감자는 06시 폐기 예정 상품까지 폐기합니다.' },
+  { id: '2330', min: 23 * 60 + 30, who: 'all', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)' },
   { id: '0020', min: 20, who: '19', title: '19시간 근무 폐기', body: '06시 것까지 폐기하세요.' },
   { id: '0130', min: 1 * 60 + 30, who: '24', title: '02시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' }
 ];
@@ -939,9 +939,10 @@ function checkDiscards() {
   const key = due.map(s => s.id).join(',');
   if (modal.dataset.ids === key && !modal.classList.contains('hidden')) return;
   const store = String(currentStore || '').replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;');
+  const hours = String((allData[currentStore] && allData[currentStore].hours) || '19');
   document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
     <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
-      <p style="margin:0 0 8px;"><strong>${s.title}</strong><br>${s.body}</p>
+      <p style="margin:0 0 8px;"><strong>${s.title}</strong>${s.note19 && hours === '19' ? '<br>' + s.note19 : ''}<br>${s.body}</p>
       <div class="btn-row">
         <button type="button" class="btn-photo" data-discard="${s.id}" data-act="photo">📷 사진찍기</button>
         <button type="button" class="btn-kakao" data-discard="${s.id}" data-act="kakao">카톡</button>
