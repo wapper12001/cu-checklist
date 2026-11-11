@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v104</h1>
+  <h1>CU 점포 체크리스트 v105</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -374,6 +374,8 @@ const I18N = {
     '관리자': 'Quản lý',
     '전화번호': 'Số điện thoại',
     'CU고객센터': 'Tổng đài CU',
+    '365일 24시간 문의 가능': 'Có thể hỏi 24 giờ, 365 ngày',
+    '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'Chỉ việc chủ cửa phải giải quyết khi tổng đài không xử lý được',
     '근무자 필독!': 'Nhân viên phải đọc!',
     '미등록': 'Chưa đăng ký',
     '시재점검': 'Kiểm tiền',
@@ -456,6 +458,8 @@ const I18N = {
     '관리자': 'မန်နေဂျာ',
     '전화번호': 'ဖုန်းနံပါတ်',
     'CU고객센터': 'CU ဖောက်သည်ဌာန',
+    '365일 24시간 문의 가능': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်',
+    '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'ဖောက်သည်ဌာနက မဖြေရှင်းနိုင်၍ ဆိုင်ပိုင်ရှင် ဖြေရှင်းရမည့်ကိစ္စသာ',
     '근무자 필독!': 'ဝန်ထမ်း ဖတ်ရမည်!',
     '미등록': 'မမှတ်ထားပါ',
     '시재점검': 'ငွေစာရင်းစစ်',
@@ -1078,14 +1082,14 @@ function updateManagerInfo(d) {
         <strong>${biHtml('관리자')}</strong> ${manager}
         <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">${biHtml('근무자 필독!')}</button>
       </div>
-      <div id="mustRead" class="hidden" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
+      <div id="mustRead" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
         <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#f5a623; color:#3a2500; border-radius:6px; padding:2px 6px; margin-right:6px;">⚠️ 주의</span>${biHtml('미성년자 술, 담배 판매 주의! 모든 구매자는 신분증을 확인합니다!(주민등록증, 운전면허증, 전자신분증 QR코드). 구매 거부시 점장님과 영상통화로 인증후 판매')}</p>
         <p style="margin:0 0 10px; font-weight:800;"><span style="display:inline-block; background:#b00020; color:#fff; border-radius:6px; padding:2px 6px; margin-right:6px;">🚨 경고</span>${biHtml('본사 직원, 점주 가족, 지인 사칭은 모두 사기입니다. 구글플레이카드, 상품권, 현금 빌려주기 등 사기 유형이 많습니다. 이런 사람들 점포에 오면 고객센터에 전화해서 확인하세요.')}</p>
         <p style="margin:0 0 8px;"><strong>${biHtml('챗봇 하루')}:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> ${biHtml('등록해서 업무에 활용하세요!')}</p>
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
-      <div style="margin-top:8px;"><strong>${biHtml('전화번호')}</strong> ${phone}</div>
-      <div style="margin-top:4px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a></div>
+      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능')}</div></div>
+      <div style="margin-top:8px;"><strong>${biHtml('전화번호')}</strong> ${phone}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
