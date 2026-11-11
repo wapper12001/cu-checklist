@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v102</h1>
+  <h1>CU 점포 체크리스트 v104</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1005,18 +1005,12 @@ async function shareDiscard(id) {
   } catch (e) {}
   if (!files.length) files = photos;
   if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
-  let left = false;
-  const onHide = () => { if (document.hidden) left = true; };
-  document.addEventListener('visibilitychange', onHide);
   let ok = false;
   try {
     await navigator.share({ files });
     ok = true;
   } catch (e) {
-    ok = left;
-    if (!ok && !(e && e.name === 'AbortError')) alert('사진을 보내지 못했습니다.');
-  } finally {
-    document.removeEventListener('visibilitychange', onHide);
+    if (!(e && e.name === 'AbortError')) alert('사진을 보내지 못했습니다.');
   }
   if (!ok) return;
   const anchor = discardAnchor();
@@ -1601,7 +1595,8 @@ function onItemEdited(e) {
   const cb = e.target.classList && e.target.classList.contains('done-cb') ? e.target : null;
   if (cb && cb.checked) {
     const id = cb.closest('.item').dataset.id;
-    if (requiredMissing(id).length) cb.checked = false;
+    const reported = cb.closest('.item').dataset.reported === '1';
+    if ((needsPhoto(id) && !reported) || requiredMissing(id).length) cb.checked = false;
   }
   saveProgress();
   refreshAllMiss();
@@ -1612,7 +1607,13 @@ checklistContainer.addEventListener('click', (e) => {
   const cb = e.target.closest && e.target.closest('.done-cb');
   if (!cb) return;
   const el = cb.closest('.item');
-  const miss = requiredMissing(el.dataset.id);
+  const id = el.dataset.id;
+  if (needsPhoto(id) && el.dataset.reported !== '1') {
+    e.preventDefault();
+    setTimeout(() => { cb.checked = false; saveProgress(); syncDoneBorders(); }, 0);
+    return;
+  }
+  const miss = requiredMissing(id);
   if (!miss.length) return;
   e.preventDefault();
   showMiss(el.dataset.id);
