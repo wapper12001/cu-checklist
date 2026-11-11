@@ -41,11 +41,12 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .i-common-list { border: 1px solid #e4d7ee; border-radius: 8px; margin-bottom: 6px; background: #fff; max-height: 240px; overflow-y: auto; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .item { border: none; padding: 0 0 12px; margin-bottom: 14px; background: #fff; }
+.item.done-item { border: 2px solid #6B2C91; }
 .card.item:nth-child(odd), .card.item:nth-child(even) { background: #fff; }
 .card.item > *:not(.item-title) { padding-left: 14px; padding-right: 14px; }
 .item-title { font-weight: 700; font-size: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: #F3E9F8; padding: 12px 14px; margin: 0 0 10px; }
 .item-no { width: 26px; height: 26px; border-radius: 50%; background: #6B2C91; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex: none; }
-.edit-item { border: none; border-radius: 12px; margin-bottom: 14px; overflow: hidden; padding: 0; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.edit-item { border: 1px solid #c9b0dc; border-radius: 12px; margin-bottom: 14px; overflow: hidden; padding: 0; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
 .edit-item:nth-child(odd), .edit-item:nth-child(even) { background: #fff; }
 .edit-head { background: #F3E9F8; color: #6B2C91; display: flex; align-items: center; gap: 6px; padding: 10px 12px; font-weight: 700; }
 .edit-body { padding: 0 10px 10px; }
@@ -102,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v101</h1>
+  <h1>CU 점포 체크리스트 v102</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1374,7 +1375,7 @@ function renderChecklist() {
         <div class="photo-preview" id="photos-${id}"></div>
         <div class="miss-msg" id="miss-${id}"></div>` : '';
     return `
-      <div class="card item" data-id="${id}" data-title="${escHtml(item.title)}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
+      <div class="card item${ok ? ' done-item' : ''}" data-id="${id}" data-title="${escHtml(item.title)}" data-reported="${sv.reported ? '1' : '0'}" data-reported-at="${sv.reportedAt || ''}">
         <div class="item-title"><span class="item-no">${index + 1}</span><span style="flex:1; min-width:0;">${biHtml(item.title)}</span>
           ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">${biHtml('상세보기')}</button>` : ''}
         </div>
@@ -1604,6 +1605,7 @@ function onItemEdited(e) {
   }
   saveProgress();
   refreshAllMiss();
+  syncDoneBorders();
   maybeInboundPopup();
 }
 checklistContainer.addEventListener('click', (e) => {
@@ -1615,7 +1617,7 @@ checklistContainer.addEventListener('click', (e) => {
   e.preventDefault();
   showMiss(el.dataset.id);
   alert(missMessage(miss));
-  setTimeout(() => { cb.checked = false; saveProgress(); }, 0);
+  setTimeout(() => { cb.checked = false; saveProgress(); syncDoneBorders(); }, 0);
 });
 
 function reportFields() {
@@ -1703,7 +1705,15 @@ function checkAllDone() {
   bottomBar.classList.remove('hidden');
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
+  syncDoneBorders();
   maybeInboundPopup();
+}
+
+function syncDoneBorders() {
+  checklistContainer.querySelectorAll('.item').forEach(el => {
+    const cb = el.querySelector('.done-cb');
+    el.classList.toggle('done-item', !!(cb && cb.checked));
+  });
 }
 
 function addPhotoFile(id, file) {
@@ -1882,6 +1892,7 @@ async function shareItem(id, isSms) {
     }
     saveProgress();
     showMiss(id);
+    syncDoneBorders();
   };
   if (!d.photos.length || !navigator.share) {
     alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.');
