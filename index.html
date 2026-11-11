@@ -102,7 +102,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v98</h1>
+  <h1>CU 점포 체크리스트 v99</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -303,7 +303,7 @@ let commonTitles = [];
 let commonDesc = {};
 let commonIds = {};
 let commonHidden = {};
-const COMMON_SEED = ['고구마 호빵 등 조리 시작','담배재고체크','도시락매대 정리정돈','마감 전 정리','매출 마감','상온물류 PDA검수','상온물류 검수','상온물류 입고','상온물류 진열','상온물류 진열과 정리정돈','상품 보충','상품 보충과 정리정돈','소분박스 진열','수시업무','시재점검','야간 마감','유통기한 체크와 정리정돈','유통기한체크','저온 입고 검수와 진열2','저온 입고와 검수와 진열1','중점재고와 유통기한 체크','중점재고와 유통기한 체크와 정리정돈','중점재고체크','청소','퇴근','퇴근전 마무리 업무','폐기와 저회전 보관','휴식','PDA 유통기한 체크','지정 특정 업무','새 달 쇼카드 모으기','월 행사 쇼카드 교체','기간행사 쇼카드 교체','09:30 10시 폐기 예정 상품 폐기','13:30 14시 폐기 예정 상품 폐기','21:30 22시 폐기 예정 상품 폐기','23:30 24시 폐기 예정 상품 폐기','00:20 19시간 점포 06시까지 폐기','01:30 02시 폐기 예정 상품 폐기'];
+const COMMON_SEED = ['고구마 호빵 등 조리 시작','담배재고체크','도시락매대 정리정돈','마감 전 정리','매출 마감','상온물류 PDA검수','상온물류 검수','상온물류 입고','상온물류 진열','상온물류 진열과 정리정돈','상품 보충','상품 보충과 정리정돈','소분박스 진열','수시업무','시재점검','야간 마감','유통기한 체크와 정리정돈','유통기한체크','저온 입고 검수와 진열2','저온 입고와 검수와 진열1','중점재고와 유통기한 체크','중점재고와 유통기한 체크와 정리정돈','중점재고체크','청소','퇴근','퇴근전 마무리 업무','폐기와 저회전 보관','휴식','PDA 유통기한 체크','지정 특정 업무','새 달 쇼카드 모으기','월 행사 쇼카드 교체','기간행사 쇼카드 교체','09:30 10시 폐기 예정 상품 폐기','13:30 14시 폐기 예정 상품 폐기','21:30 22시 폐기 예정 상품 폐기','23:30 24시 폐기 예정 상품 폐기','00:20 19시간 점포는 02시 폐기 예정 상품 폐기','01:30 02시 폐기 예정 상품 폐기'];
 const COMMON_DESC = {
   'PDA 유통기한 체크': 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.',
   '지정 특정 업무': '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.',
@@ -314,7 +314,7 @@ const COMMON_DESC = {
   '13:30 14시 폐기 예정 상품 폐기': '13:30에 확인합니다. 도시락, 김밥, 주먹밥 등',
   '21:30 22시 폐기 예정 상품 폐기': '21:30에 확인합니다. 샌드위치, 햄버거 등',
   '23:30 24시 폐기 예정 상품 폐기': '23:30에 확인합니다. 빵, 디저트 등. 00:00 마감자는 06시 폐기 예정 상품까지 폐기합니다.',
-  '00:20 19시간 점포 06시까지 폐기': '19시간 점포만. 00:20에 06시 것까지 폐기합니다.',
+  '00:20 19시간 점포는 02시 폐기 예정 상품 폐기': '19시간 점포만. 00:20에 02시 폐기와 06시 것까지 폐기합니다.',
   '01:30 02시 폐기 예정 상품 폐기': '24시간 점포만. 01:30에 확인합니다. 도시락, 김밥, 주먹밥 등'
 };
 let currentStore = "";
@@ -859,12 +859,12 @@ function onStoreChange() {
 }
 
 const DISCARD_SLOTS = [
-  { id: '0930', min: 9 * 60 + 30, who: 'all', title: '10시 폐기 예정', body: '샌드위치, 햄버거 등' },
-  { id: '1330', min: 13 * 60 + 30, who: 'all', title: '14시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' },
-  { id: '2130', min: 21 * 60 + 30, who: 'all', title: '22시 폐기 예정', body: '샌드위치, 햄버거 등' },
-  { id: '2330', min: 23 * 60 + 30, who: 'all', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)' },
-  { id: '0020', min: 20, who: '19', title: '19시간 근무 폐기', body: '06시 것까지 폐기하세요.' },
-  { id: '0130', min: 1 * 60 + 30, who: '24', title: '02시 폐기 예정', body: '도시락, 김밥, 주먹밥 등' }
+  { id: '0930', min: 9 * 60 + 30, who: 'all', token: '09:30', title: '09:30 10시 폐기 예정 상품 폐기', body: '샌드위치, 햄버거 등' },
+  { id: '1330', min: 13 * 60 + 30, who: 'all', token: '13:30', title: '13:30 14시 폐기 예정 상품 폐기', body: '도시락, 김밥, 주먹밥 등' },
+  { id: '2130', min: 21 * 60 + 30, who: 'all', token: '21:30', title: '21:30 22시 폐기 예정 상품 폐기', body: '샌드위치, 햄버거 등' },
+  { id: '2330', min: 23 * 60 + 30, who: 'all', token: '23:30', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)' },
+  { id: '0020', min: 20, who: '19', token: '00:20', title: '00:20 19시간 점포는 02시 폐기 예정 상품 폐기', body: '(06시 폐기 예정 상품까지 폐기)' },
+  { id: '0130', min: 1 * 60 + 30, who: '24', token: '01:30', title: '01:30 02시 폐기 예정 상품 폐기', body: '도시락, 김밥, 주먹밥 등' }
 ];
 function koreaNow() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
@@ -965,7 +965,7 @@ document.getElementById('discardBody').onclick = e => {
 };
 async function shareDiscard(id) {
   const slot = DISCARD_SLOTS.find(s => s.id === id);
-  const photos = currentPhotos['discard-' + id] || [];
+  const photos = (currentPhotos['discard-' + id] || []).slice();
   if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
   const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
   let files = photos;
@@ -973,20 +973,65 @@ async function shareDiscard(id) {
     files = [];
     for (let i = 0; i < photos.length; i++) files.push(await stampCaption(photos[i], text, i + 1));
   } catch (e) {}
+  if (!files.length) files = photos;
   if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
+  let left = false;
+  const onHide = () => { if (document.hidden) left = true; };
+  document.addEventListener('visibilitychange', onHide);
+  let ok = false;
   try {
     await navigator.share({ files });
+    ok = true;
   } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    alert('사진을 보내지 못했습니다.');
-    return;
+    ok = left;
+    if (!ok && !(e && e.name === 'AbortError')) alert('사진을 보내지 못했습니다.');
+  } finally {
+    document.removeEventListener('visibilitychange', onHide);
   }
-  const now = koreaNow();
-  const range = parseWorkRange(workPeriod.value);
-  if (!range) return;
-  localStorage.setItem('discard45_' + currentStore + '_' + shiftAnchorDate(now, range) + '_' + id, '1');
+  if (!ok) return;
+  const anchor = discardAnchor();
+  if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, new Date().toLocaleString('ko-KR'));
+  if (slot) applyDiscardToView(slot, photos);
   document.getElementById('discardModal').dataset.ids = '';
   checkDiscards();
+}
+function discardAnchor() {
+  const range = parseWorkRange(workPeriod.value);
+  if (!currentStore || !range) return '';
+  return currentStore + '_' + shiftAnchorDate(koreaNow(), range);
+}
+function discardStamp(slotId) {
+  const anchor = discardAnchor();
+  if (!anchor) return '';
+  const value = localStorage.getItem('discard45_' + anchor + '_' + slotId) || '';
+  return value === '1' ? '폐기 알림 보고' : value;
+}
+function applyDiscardToView(slot, photos) {
+  const when = discardStamp(slot.id) || new Date().toLocaleString('ko-KR');
+  const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
+  if (!shift) return;
+  visibleItems(shift).forEach(it => {
+    const title = it.title || '';
+    if (!title.includes(slot.token) || !title.includes('폐기')) return;
+    const id = String(it.id);
+    if (photos && photos.length) currentPhotos[id] = photos.slice();
+    savedHasPhoto[id] = true;
+    sessionReported[reportKey(id)] = when;
+    const el = document.querySelector(`.item[data-id="${id}"]`);
+    if (el) {
+      el.dataset.reported = '1';
+      el.dataset.reportedAt = when;
+      const cb = el.querySelector('.done-cb');
+      if (cb) cb.checked = true;
+      const timeEl = document.getElementById('done-time-' + id);
+      if (timeEl) timeEl.textContent = when;
+      if ((currentPhotos[id] || []).length) renderPhotoPreview(id);
+      showMiss(id);
+    }
+    if ((currentPhotos[id] || []).length) persistItemPhotos(id);
+  });
+  saveProgress();
+  checkAllDone();
 }
 setInterval(checkDiscards, 20000);
 
@@ -1271,6 +1316,13 @@ function renderChecklist() {
   checklistContainer.innerHTML = items.map((item, index) => {
     const id = String(item.id);
     const sv = (saved && saved.items && (saved.items[item.id] || saved.items[id])) || {};
+    const doneSlot = DISCARD_SLOTS.find(s => (item.title || '').includes(s.token) && (item.title || '').includes('폐기') && discardStamp(s.id));
+    if (doneSlot) {
+      sv.done = true;
+      sv.reported = true;
+      sv.reportedAt = sv.reportedAt || discardStamp(doneSlot.id);
+      sv.hasPhoto = true;
+    }
     if (sv.reported && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
     if (sv.hasPhoto) savedHasPhoto[id] = true;
     const ok = sv.done && requiredMissing(id).length === 0;
