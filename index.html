@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v108</h1>
+  <h1>CU 점포 체크리스트 v109</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -265,6 +265,12 @@ if (document.documentElement.classList.contains('inapp')) {
     <div id="discardBody" style="font-size:15px; line-height:1.5;"></div>
   </div>
 </div>
+<div id="midTagModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 style="margin-top:0; color:#6B2C91;">가격표·쇼카드</h3>
+    <div id="midTagBody" style="font-size:15px; line-height:1.5;"></div>
+  </div>
+</div>
 <div id="barcodeModal" class="modal hidden">
   <div class="modal-content">
     <h3 style="margin-top:0;">바코드 스캔</h3>
@@ -377,6 +383,7 @@ const I18N = {
     '365일 24시간 문의 가능': 'Có thể hỏi 24 giờ, 365 ngày',
     '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'Chỉ việc chủ cửa phải giải quyết khi tổng đài không xử lý được',
     '근무자 필독!': 'Nhân viên phải đọc!',
+    '가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.': 'Tìm từ 5 sản phẩm trở lên thiếu bảng giá hoặc thẻ +1 rồi báo cáo.',
     '미등록': 'Chưa đăng ký',
     '시재점검': 'Kiểm tiền',
     '중점재고체크': 'Kiểm hàng trọng điểm',
@@ -464,6 +471,7 @@ const I18N = {
     '365일 24시간 문의 가능': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်',
     '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'ဖောက်သည်ဌာနက မဖြေရှင်းနိုင်၍ ဆိုင်ပိုင်ရှင် ဖြေရှင်းရမည့်ကိစ္စသာ',
     '근무자 필독!': 'ဝန်ထမ်း ဖတ်ရမည်!',
+    '가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.': 'စျေးနှုန်းတံဆိပ် သို့မဟုတ် +1 ကတ်မပါသော ပစ္စည်း ၅ ခုနှင့်အထက် ရှာပြီး အစီရင်ခံပါ။',
     '미등록': 'မမှတ်ထားပါ',
     '시재점검': 'ငွေစာရင်းစစ်',
     '중점재고체크': 'အဓိကပစ္စည်းစစ်',
@@ -886,6 +894,7 @@ function onStoreChange() {
     storeInfo.innerHTML = '';
     checklistContainer.innerHTML = '';
     document.getElementById('discardModal').classList.add('hidden');
+    document.getElementById('midTagModal').classList.add('hidden');
     return;
   }
   updateManagerInfo(d);
@@ -974,6 +983,7 @@ function checkDiscards() {
   const modal = document.getElementById('discardModal');
   if (!due.length) {
     modal.classList.add('hidden');
+    checkMidTag();
     return;
   }
   const key = due.map(s => s.id).join(',');
@@ -994,6 +1004,7 @@ function checkDiscards() {
   modal.dataset.ids = key;
   modal.classList.remove('hidden');
   discardShownAt = Date.now();
+  checkMidTag();
 }
 document.getElementById('discardBody').onclick = e => {
   const btn = e.target.closest('button');
@@ -1073,6 +1084,75 @@ function applyDiscardToView(slot, photos) {
   checkAllDone();
 }
 setInterval(checkDiscards, 20000);
+
+function shiftMidpoint(range) {
+  const day = 24 * 60;
+  const dur = range.start < range.end ? range.end - range.start : (day - range.start) + range.end;
+  if (dur <= 0) return null;
+  return (range.start + Math.floor(dur / 2)) % day;
+}
+function midTagKey() {
+  const range = parseWorkRange(workPeriod.value);
+  if (!currentStore || !range) return '';
+  return 'midtag_' + currentStore + '_' + shiftAnchorDate(koreaNow(), range) + '_' + encodeURIComponent(workPeriod.value.trim());
+}
+function midTagDue() {
+  const range = parseWorkRange(workPeriod.value);
+  if (!currentStore || !allData[currentStore] || !range) return false;
+  const mid = shiftMidpoint(range);
+  if (mid == null || !slotAlreadyDue(mid, range, koreaNow().minutes)) return false;
+  const key = midTagKey();
+  return !!key && !localStorage.getItem(key);
+}
+function checkMidTag() {
+  const modal = document.getElementById('midTagModal');
+  if (!modal) return;
+  const discardOpen = !document.getElementById('discardModal').classList.contains('hidden');
+  if (!midTagDue() || discardOpen) {
+    modal.classList.add('hidden');
+    return;
+  }
+  if (!modal.classList.contains('hidden')) return;
+  document.getElementById('midTagBody').innerHTML = `
+    <p style="margin:0 0 8px;">${biHtml('가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.')}</p>
+    <div class="btn-row">
+      <button type="button" class="btn-photo" data-act="photo">📷 사진찍기</button>
+      <button type="button" class="btn-kakao" data-act="kakao">카톡</button>
+      <button type="button" class="btn-sms" data-act="sms">문자</button>
+    </div>
+    <div class="photo-preview" id="photos-mid-tag"></div>`;
+  renderPhotoPreview('mid-tag');
+  modal.classList.remove('hidden');
+}
+document.getElementById('midTagBody').onclick = e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.act === 'photo') takePhoto('mid-tag');
+  if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareMidTag();
+};
+async function shareMidTag() {
+  const photos = (currentPhotos['mid-tag'] || []).slice();
+  if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
+  const text = '업무: 가격표, +1 쇼카드 없는 상품 보고\n상태: 완료';
+  let files = photos;
+  try {
+    files = [];
+    for (let i = 0; i < photos.length; i++) files.push(await stampCaption(photos[i], text, i + 1));
+  } catch (e) {}
+  if (!files.length) files = photos;
+  if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
+  let ok = false;
+  try {
+    await navigator.share({ files });
+    ok = true;
+  } catch (e) {
+    if (!(e && e.name === 'AbortError')) alert('사진을 보내지 못했습니다.');
+  }
+  if (!ok) return;
+  const key = midTagKey();
+  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  document.getElementById('midTagModal').classList.add('hidden');
+}
 
 function updateManagerInfo(d) {
   if (!d) {
