@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v126</h1>
+  <h1>CU 점포 체크리스트 v127</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -118,7 +118,10 @@ if (document.documentElement.classList.contains('inapp')) {
         <button class="btn-primary" id="clockInBtn" type="button" style="flex:1; margin:0;">출근 (QR 스캔)</button>
         <div class="qr-help">
           <button type="button" class="btn btn-secondary" id="qrHelpBtn" style="margin:0; white-space:nowrap;">상세보기</button>
-          <div class="qr-help-pop"><img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법"></div>
+          <div class="qr-help-pop">
+            <p data-ko="포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔" style="margin:0 0 8px; font-size:14px; line-height:1.45; color:#333;"></p>
+            <img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법">
+          </div>
         </div>
       </div>
       <label data-ko="언어">언어</label>
