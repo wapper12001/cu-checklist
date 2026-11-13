@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v111</h1>
+  <h1>CU 점포 체크리스트 v112</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2315,9 +2315,43 @@ function stopQr() {
   const video = document.getElementById('qrVideo');
   if (video) video.srcObject = null;
 }
+function parseCuQr(text) {
+  const raw = String(text || '').trim().replace(/[\s-]/g, '');
+  if (!/^bgf/i.test(raw)) return null;
+  const body = raw.slice(3);
+  const take = (n) => {
+    if (body.length <= n) return null;
+    const ymd = body.slice(-n);
+    const storeCode = body.slice(0, -n);
+    if (!/^\d+$/.test(ymd) || !storeCode) return null;
+    return { storeCode, ymd };
+  };
+  return take(8) || take(6);
+}
+function myStoreCode() {
+  const fromStore = currentStore && allData[currentStore] ? String(allData[currentStore].code || '').trim() : '';
+  return fromStore || String(localStorage.getItem('cu-access-code') || '').trim();
+}
+function sameStoreCode(a, b) {
+  const x = String(a || '').replace(/\s/g, '').toLowerCase();
+  const y = String(b || '').replace(/\s/g, '').toLowerCase();
+  return !!x && x === y;
+}
+function qrDateOk(ymd) {
+  const today = koreaNow().date.replace(/-/g, '');
+  if (ymd.length === 8) return ymd === today;
+  if (ymd.length === 6) return ymd === today.slice(2);
+  return false;
+}
 function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
+  const parsed = parseCuQr(code);
+  if (!parsed) { alert('CU 출근 QR이 아닙니다.'); return; }
+  const mine = myStoreCode();
+  if (!mine) { alert('먼저 점포 코드로 들어가세요.'); return; }
+  if (!sameStoreCode(parsed.storeCode, mine)) { alert('이 점포 QR이 아닙니다.'); return; }
+  if (!qrDateOk(parsed.ymd)) { alert('오늘 출근 QR이 아닙니다.'); return; }
   clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), store: currentStore || '', date: (reportDate && reportDate.value) || koreaNow().date };
   showClockIn();
   document.querySelectorAll('.item').forEach(el => {
