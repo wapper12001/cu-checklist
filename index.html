@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v114</h1>
+  <h1>CU 점포 체크리스트 v115</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1459,6 +1459,7 @@ function renderChecklist() {
       desc = desc && desc !== how ? how + '\n' + desc : how;
     }
     const descHtml = biHtml(desc);
+    const clockImg = isClockItem(item.title) ? '<img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법" style="width:100%; border-radius:8px; display:block; margin-top:8px;">' : '';
     const photoRow = needsPhoto(id) ? `
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 ${biHtml('사진찍기')}</button>
