@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v123</h1>
+  <h1>CU 점포 체크리스트 v124</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -383,7 +383,7 @@ const I18N = {
     '관리자 전화번호': 'Số điện thoại quản lý',
     '전화번호': 'Số điện thoại',
     'CU고객센터': 'Tổng đài CU',
-    '365일 24시간 문의 가능': 'Có thể hỏi 24 giờ, 365 ngày',
+    '365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)': 'Có thể hỏi 24 giờ, 365 ngày. (Câu nói: Xin lỗi, tôi chưa nắm rõ nên sẽ gọi tổng đài và giải quyết cùng quý khách.)',
     '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'Chỉ việc chủ cửa phải giải quyết khi tổng đài không xử lý được',
     '근무자 필독!': 'Nhân viên phải đọc!',
     '포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔': 'Màn hình chính POS, chọn biểu tượng QR. Quét QR xác nhận nhân viên bên phải bằng camera điện thoại.',
@@ -473,7 +473,7 @@ const I18N = {
     '관리자 전화번호': 'မန်နေဂျာ ဖုန်းနံပါတ်',
     '전화번호': 'ဖုန်းနံပါတ်',
     'CU고객센터': 'CU ဖောက်သည်ဌာန',
-    '365일 24시간 문의 가능': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်',
+    '365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်။ (ပြောရန်: တောင်းပန်ပါတယ်။ အတိအကျ မသိသေးလို့ ဖောက်သည်ဌာနကို ဖုန်းဆက်ပြီး အတူတူ ဖြေရှင်းပေးပါမယ်။)',
     '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'ဖောက်သည်ဌာနက မဖြေရှင်းနိုင်၍ ဆိုင်ပိုင်ရှင် ဖြေရှင်းရမည့်ကိစ္စသာ',
     '근무자 필독!': 'ဝန်ထမ်း ဖတ်ရမည်!',
     '포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔': 'POS ပင်မမျက်နှာပြင်တွင် QR အိုင်ကွန်ကို ရွေးပါ။ ညာဘက် ဝန်ထမ်းအတည်ပြု QR ကို ဖုန်းကင်မရာဖြင့် စကန်ဖတ်ပါ။',
@@ -1184,7 +1184,7 @@ function updateManagerInfo(d) {
         <p style="margin:0 0 8px;"><strong>${biHtml('챗봇 하루')}:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> ${biHtml('등록해서 업무에 활용하세요!')}</p>
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
-      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능')}</div></div>
+      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)')}</div></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
