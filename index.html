@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v120</h1>
+  <h1>CU 점포 체크리스트 v121</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2122,10 +2122,7 @@ function makeSummary() {
   const opt = shiftSelect.options[shiftSelect.selectedIndex];
   const shiftLabel = opt && opt.value ? opt.textContent.trim() : (shift.name || shiftKey || '');
   let sum = `전체 보고\n시간 : ${when}\n구분: ${names[picked] || ''}\n점포명: ${currentStore || ''}\n근무자이름: ${staffName.value.trim()}\n근무타입: ${shiftLabel}\n근무시간대: ${workPeriod.value.trim()}`;
-  if (clockInRecord && clockInRecord.at) {
-    sum += `\n출근 시간: ${clockInRecord.at}`;
-    sum += `\n출근 점포: ${clockInRecord.store || currentStore || ''}`;
-  }
+  if (clockInRecord && clockInRecord.at) sum += `\n출근 점포: ${clockInRecord.store || currentStore || ''}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
@@ -2297,10 +2294,8 @@ let qrRunning = false;
 function clockDetailHtml() {
   if (!clockInRecord || !clockInRecord.at) return '';
   const store = escHtml(clockInRecord.store || currentStore || '');
-  const at = escHtml(clockInRecord.at);
   return `<div class="clock-detail" style="font-size:14px; line-height:1.5; margin:0 0 8px;">
     <div><strong>점포명:</strong> ${store}</div>
-    <div><strong>출근 시간:</strong> ${at}</div>
   </div>`;
 }
 function showClockIn() {}
