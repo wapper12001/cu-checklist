@@ -32,6 +32,11 @@ textarea::placeholder { color: #aaa; }
 button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-primary { background: #6B2C91; color: white; }
 .btn-secondary { background: #f0f0f0; color: #333; }
+.qr-help { position: relative; }
+.qr-help-pop { display: none; position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; width: min(92vw, 420px); background: #fff; border: 1px solid #6B2C91; border-radius: 8px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.qr-help:hover .qr-help-pop, .qr-help.open .qr-help-pop { display: block; }
+.qr-help.closed .qr-help-pop { display: none; }
+.qr-help-pop img { width: 100%; display: block; border-radius: 6px; }
 .btn-kakao { background: #FEE500; color: #3C1E1E; }
 .btn-sms { background: #4CAF50; color: white; }
 .btn-photo { background: #2196F3; color: white; }
@@ -103,19 +108,18 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v109</h1>
+  <h1>CU 점포 체크리스트 v126</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
   <div id="reportScreen">
     <div class="card">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-        <button class="btn-primary" id="clockInBtn" type="button" disabled style="flex:1; margin:0; background:#6B2C91; color:#fff; opacity:0.55; cursor:default;">출근 (바코드 스캔)</button>
-        <span style="color:#b00020; font-weight:800; font-size:13px; white-space:nowrap;">※ 업데이트 예정</span>
-      </div>
-      <div id="clockInfo" class="hidden">
-        <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
-        <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
+        <button class="btn-primary" id="clockInBtn" type="button" style="flex:1; margin:0;">출근 (QR 스캔)</button>
+        <div class="qr-help">
+          <button type="button" class="btn btn-secondary" id="qrHelpBtn" style="margin:0; white-space:nowrap;">상세보기</button>
+          <div class="qr-help-pop"><img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법"></div>
+        </div>
       </div>
       <label data-ko="언어">언어</label>
       <select id="langSelect">
@@ -273,11 +277,9 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 <div id="barcodeModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0;">바코드 스캔</h3>
-    <p style="font-size:14px;">카메라로 바코드를 찍거나 번호를 입력하세요.</p>
-    <input type="file" id="barcodeFile" accept="image/*" capture="environment" style="margin-bottom:10px;">
-    <input type="text" id="barcodeInput" placeholder="바코드 번호 입력">
-    <button class="btn-primary" id="confirmBarcode" style="width:100%; margin-top:10px;">출근 처리</button>
+    <h3 style="margin-top:0;">출근 QR 스캔</h3>
+    <p id="qrMsg" style="font-size:14px;">포스 근무자 인증 QR을 비추세요.</p>
+    <video id="qrVideo" playsinline autoplay muted style="width:100%; background:#111; border-radius:8px;"></video>
     <button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button>
   </div>
 </div>
@@ -378,11 +380,13 @@ const I18N = {
     '문자': 'Tin nhắn',
     '사진이 없습니다.': 'Chưa có ảnh.',
     '관리자': 'Quản lý',
+    '관리자 전화번호': 'Số điện thoại quản lý',
     '전화번호': 'Số điện thoại',
     'CU고객센터': 'Tổng đài CU',
-    '365일 24시간 문의 가능': 'Có thể hỏi 24 giờ, 365 ngày',
+    '365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)': 'Có thể hỏi 24 giờ, 365 ngày. (Câu nói: Xin lỗi, tôi chưa nắm rõ nên sẽ gọi tổng đài và giải quyết cùng quý khách.)',
     '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'Chỉ việc chủ cửa phải giải quyết khi tổng đài không xử lý được',
     '근무자 필독!': 'Nhân viên phải đọc!',
+    '포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔': 'Màn hình chính POS, chọn biểu tượng QR. Quét QR xác nhận nhân viên bên phải bằng camera điện thoại.',
     '가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.': 'Tìm từ 5 sản phẩm trở lên thiếu bảng giá hoặc thẻ +1 rồi báo cáo.',
     '미등록': 'Chưa đăng ký',
     '시재점검': 'Kiểm tiền',
@@ -466,11 +470,13 @@ const I18N = {
     '문자': 'စာတို',
     '사진이 없습니다.': 'ဓာတ်ပုံမရှိပါ။',
     '관리자': 'မန်နေဂျာ',
+    '관리자 전화번호': 'မန်နေဂျာ ဖုန်းနံပါတ်',
     '전화번호': 'ဖုန်းနံပါတ်',
     'CU고객센터': 'CU ဖောက်သည်ဌာန',
-    '365일 24시간 문의 가능': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်',
+    '365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်။ (ပြောရန်: တောင်းပန်ပါတယ်။ အတိအကျ မသိသေးလို့ ဖောက်သည်ဌာနကို ဖုန်းဆက်ပြီး အတူတူ ဖြေရှင်းပေးပါမယ်။)',
     '고객센터에서 해결 안되고, 점장님이 해결해야할 문제만': 'ဖောက်သည်ဌာနက မဖြေရှင်းနိုင်၍ ဆိုင်ပိုင်ရှင် ဖြေရှင်းရမည့်ကိစ္စသာ',
     '근무자 필독!': 'ဝန်ထမ်း ဖတ်ရမည်!',
+    '포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔': 'POS ပင်မမျက်နှာပြင်တွင် QR အိုင်ကွန်ကို ရွေးပါ။ ညာဘက် ဝန်ထမ်းအတည်ပြု QR ကို ဖုန်းကင်မရာဖြင့် စကန်ဖတ်ပါ။',
     '가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.': 'စျေးနှုန်းတံဆိပ် သို့မဟုတ် +1 ကတ်မပါသော ပစ္စည်း ၅ ခုနှင့်အထက် ရှာပြီး အစီရင်ခံပါ။',
     '미등록': 'မမှတ်ထားပါ',
     '시재점검': 'ငွေစာရင်းစစ်',
@@ -1162,12 +1168,15 @@ function updateManagerInfo(d) {
   const esc = s => String(s).replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
   const manager = esc(d.manager || '미등록');
   const phone = esc(d.phone || '미등록');
+  const phoneHtml = d.phone ? `<a href="tel:${esc(d.phone)}" style="color:#6B2C91;">${phone}</a>` : phone;
   storeInfo.innerHTML = `
     <div style="margin-top:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <strong>${biHtml('관리자')}</strong> ${manager}
         <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">${biHtml('근무자 필독!')}</button>
       </div>
+      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)')}</div></div>
+      <div style="margin-top:8px;"><strong>${biHtml('관리자 전화번호')}</strong> ${phoneHtml}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
       <div id="mustRead" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
         <p style="margin:0 0 10px; font-weight:800; text-align:center;">※ ${biHtml('업무원칙')} ※</p>
         <p style="margin:0 0 10px; font-weight:800;">${biHtml('모든 업무는 추측, 예측 행동 절대 금지! 꼭! 사실 유무를 확인 후 행동 하세요!')}</p>
@@ -1176,8 +1185,6 @@ function updateManagerInfo(d) {
         <p style="margin:0 0 8px;"><strong>${biHtml('챗봇 하루')}:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> ${biHtml('등록해서 업무에 활용하세요!')}</p>
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
-      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능')}</div></div>
-      <div style="margin-top:8px;"><strong>${biHtml('전화번호')}</strong> ${phone}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
@@ -1356,6 +1363,7 @@ function saveProgress() {
     pay: readPay(),
     workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
     sent: fullReportSent,
+    clockIn: clockInRecord && clockInRecord.at ? clockInRecord : null,
     savedAt: Date.now(),
     shift: shiftSelect.value,
     items: {}
@@ -1394,6 +1402,8 @@ function loadProgress() {
     const d = hit && hit.data;
     if (!d) return null;
     fullReportSent = !!d.sent || reportFormFilled(d);
+    if (d.clockIn && d.clockIn.at) clockInRecord = d.clockIn;
+    showClockIn();
     if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
       document.getElementById('dayMemo').value = d.dayMemo;
     }
@@ -1444,6 +1454,11 @@ function renderChecklist() {
       sv.reportedAt = sv.reportedAt || discardStamp(doneSlot.id);
       sv.hasPhoto = true;
     }
+    if (clockInRecord && clockInRecord.at && isClockItem(item.title)) {
+      sv.done = true;
+      sv.reported = true;
+      sv.reportedAt = clockInRecord.at;
+    }
     if (sv.reported && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
     if (sv.hasPhoto) savedHasPhoto[id] = true;
     const ok = sv.done && requiredMissing(id).length === 0;
@@ -1451,7 +1466,16 @@ function renderChecklist() {
     if (!desc && (item.title || '').trim() === '휴식') {
       desc = '지정 휴게장소: 시식대 의자, 오피스나 창고 의자, 외부 시식대 의자.\n지정 휴게 장소 밖에서는 쉬지 않습니다.\n카운터에서 휴식하거나 휴대폰을 쓰지 않습니다.\n휴대폰 등 업무 외 행동은 휴게장소에서 합니다.';
     }
+    if (isClockItem(item.title)) {
+      const how = '포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔';
+      const rest = (desc || '').replace(how, '').split('\n').map(line => line.trim()).filter(line => {
+        const t = line.replace(/\s/g, '');
+        return t && !t.includes('명찰') && !t.includes('영찰') && !(t.includes('바코드') && t.includes('스캔'));
+      }).join('\n');
+      desc = rest ? how + '\n' + rest : how;
+    }
     const descHtml = biHtml(desc);
+    const clockImg = isClockItem(item.title) ? '<img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법" style="width:100%; border-radius:8px; display:block; margin-top:8px;">' : '';
     const photoRow = needsPhoto(id) ? `
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 ${biHtml('사진찍기')}</button>
@@ -1465,8 +1489,9 @@ function renderChecklist() {
         <div class="item-title"><span class="item-no">${index + 1}</span><span style="flex:1; min-width:0;">${biHtml(item.title)}</span>
           ${desc ? `<button class="btn btn-secondary" style="margin-left:8px; padding:4px 8px; font-size:12px;" data-action="toggle-desc">${biHtml('상세보기')}</button>` : ''}
         </div>
-        <div class="item-desc hidden" data-tr="${encodeURIComponent(desc)}">${descHtml}</div>
+        <div class="item-desc hidden" data-tr="${encodeURIComponent(desc)}">${descHtml}${clockImg}</div>
         <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>${biHtml('완료')}</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
+        ${isClockItem(item.title) ? clockDetailHtml() : ''}
         <label>${biHtml('메모')}</label><textarea>${sv.memo||''}</textarea>
         ${photoRow}
       </div>`;
@@ -1606,6 +1631,7 @@ function itemById(id) {
   return visibleItems(shift).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
+  if (miss.includes('출근')) return '출근 QR을 스캔하세요.';
   if (miss.includes('사진')) return '사진이 없습니다.';
   if (miss.includes('보고')) return '카톡 또는 문자 보고가 안 됐습니다.';
   return '';
@@ -1667,7 +1693,12 @@ function needsPhoto(id) {
   const it = itemById(id);
   return !!(it && (it.photo_required === true || it.photo_required === 'true' || it.photo_required === 1));
 }
+function isClockItem(title) {
+  return (title || '').replace(/\s/g, '').includes('출근');
+}
 function requiredMissing(id) {
+  const it = itemById(id);
+  if (it && isClockItem(it.title)) return clockInRecord && clockInRecord.at ? [] : ['출근'];
   if (!needsPhoto(id)) return [];
   const miss = [];
   if (!(currentPhotos[id] || []).length && !savedHasPhoto[String(id)]) miss.push('사진');
@@ -2094,6 +2125,7 @@ function makeSummary() {
   const opt = shiftSelect.options[shiftSelect.selectedIndex];
   const shiftLabel = opt && opt.value ? opt.textContent.trim() : (shift.name || shiftKey || '');
   let sum = `전체 보고\n시간 : ${when}\n구분: ${names[picked] || ''}\n점포명: ${currentStore || ''}\n근무자이름: ${staffName.value.trim()}\n근무타입: ${shiftLabel}\n근무시간대: ${workPeriod.value.trim()}`;
+  if (clockInRecord && clockInRecord.at) sum += `\n출근 점포: ${clockInRecord.store || currentStore || ''}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
@@ -2194,6 +2226,8 @@ function backToStart() {
     el.disabled = true;
   });
   checklistContainer.innerHTML = '';
+  clockInRecord = null;
+  showClockIn();
   fullReportSent = false;
   if (reportFields()) reportFields().classList.add('hidden');
   bottomBar.classList.add('hidden');
@@ -2256,18 +2290,164 @@ function markReportSent() {
   saveProgress();
 }
 
-// ===== 출근 / 바코드 =====
-document.getElementById('clockInBtn').onclick = null;
-document.getElementById('confirmBarcode').onclick = () => {
-  const code = document.getElementById('barcodeInput').value.trim() || '스캔됨';
-  const now = new Date();
-  document.getElementById('clockTime').textContent = now.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-  document.getElementById('barcodeValue').textContent = code;
-  document.getElementById('clockInfo').classList.remove('hidden');
+// ===== 출근 QR =====
+let clockInRecord = null;
+let qrStream = null;
+let qrRunning = false;
+function clockDetailHtml() {
+  if (!clockInRecord || !clockInRecord.at) return '';
+  const store = escHtml(clockInRecord.store || currentStore || '');
+  return `<div class="clock-detail" style="font-size:14px; line-height:1.5; margin:0 0 8px;">
+    <div><strong>점포명:</strong> ${store}</div>
+  </div>`;
+}
+function showClockIn() {}
+function stopQr() {
+  qrRunning = false;
+  if (qrStream) qrStream.getTracks().forEach(t => t.stop());
+  qrStream = null;
+  const video = document.getElementById('qrVideo');
+  if (video) video.srcObject = null;
+}
+function parseCuQr(text) {
+  const raw = String(text || '').trim().replace(/[\s-]/g, '');
+  if (!/^bgf/i.test(raw)) return null;
+  const body = raw.slice(3);
+  const take = (n) => {
+    if (body.length <= n) return null;
+    const ymd = body.slice(-n);
+    const storeCode = body.slice(0, -n);
+    if (!/^\d+$/.test(ymd) || !storeCode) return null;
+    return { storeCode, ymd };
+  };
+  return take(8) || take(6);
+}
+function myStoreCode() {
+  const fromStore = currentStore && allData[currentStore] ? String(allData[currentStore].code || '').trim() : '';
+  return fromStore || String(localStorage.getItem('cu-access-code') || '').trim();
+}
+function sameStoreCode(a, b) {
+  const x = String(a || '').replace(/\s/g, '').toLowerCase();
+  const y = String(b || '').replace(/\s/g, '').toLowerCase();
+  return !!x && x === y;
+}
+function qrDateOk(ymd) {
+  const today = koreaNow().date.replace(/-/g, '');
+  if (ymd.length === 8) return ymd === today;
+  if (ymd.length === 6) return ymd === today.slice(2);
+  return false;
+}
+function finishClockIn(code) {
+  stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
-  alert('출근 처리되었습니다.');
+  const parsed = parseCuQr(code);
+  if (!parsed) { alert('CU 출근 QR이 아닙니다.'); return; }
+  const mine = myStoreCode();
+  if (!mine) { alert('먼저 점포 코드로 들어가세요.'); return; }
+  if (!sameStoreCode(parsed.storeCode, mine)) { alert('이 점포 QR이 아닙니다.'); return; }
+  if (!qrDateOk(parsed.ymd)) { alert('오늘 출근 QR이 아닙니다.'); return; }
+  clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), store: currentStore || '', date: (reportDate && reportDate.value) || koreaNow().date };
+  showClockIn();
+  document.querySelectorAll('.item').forEach(el => {
+    if (!isClockItem(el.dataset.title)) return;
+    const id = el.dataset.id;
+    el.dataset.reported = '1';
+    el.dataset.reportedAt = clockInRecord.at;
+    sessionReported[reportKey(id)] = clockInRecord.at;
+    const cb = el.querySelector('.done-cb');
+    if (cb) cb.checked = true;
+    const timeEl = document.getElementById('done-time-' + id);
+    if (timeEl) timeEl.textContent = clockInRecord.at;
+    const old = el.querySelector('.clock-detail');
+    if (old) old.remove();
+    const done = el.querySelector('.done-check');
+    if (done) done.insertAdjacentHTML('afterend', clockDetailHtml());
+  });
+  saveProgress();
+  syncDoneBorders();
+  checkAllDone();
+  alert('출근 처리되었습니다.\n' + clockInRecord.at);
+}
+async function loadJsQR() {
+  if (window.jsQR) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+document.getElementById('qrHelpBtn').onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const box = document.querySelector('.qr-help');
+  const showing = box.classList.contains('open') || (box.matches(':hover') && !box.classList.contains('closed'));
+  box.classList.toggle('open', !showing);
+  box.classList.toggle('closed', showing);
 };
-document.getElementById('cancelBarcode').onclick = () => document.getElementById('barcodeModal').classList.add('hidden');
+document.querySelector('.qr-help-pop').onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const box = document.querySelector('.qr-help');
+  box.classList.remove('open');
+  box.classList.add('closed');
+};
+document.querySelector('.qr-help').addEventListener('mouseleave', () => {
+  document.querySelector('.qr-help').classList.remove('closed');
+});
+document.getElementById('clockInBtn').onclick = async () => {
+  const modal = document.getElementById('barcodeModal');
+  const msg = document.getElementById('qrMsg');
+  modal.classList.remove('hidden');
+  msg.textContent = '포스 근무자 인증 QR을 비추세요.';
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  } catch (e) {
+    modal.classList.add('hidden');
+    alert('카메라를 열 수 없습니다.');
+    return;
+  }
+  const video = document.getElementById('qrVideo');
+  video.srcObject = qrStream;
+  await video.play().catch(() => {});
+  let detector = null;
+  if ('BarcodeDetector' in window) {
+    try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+  }
+  if (!detector) {
+    try { await loadJsQR(); } catch (e) { msg.textContent = '이 휴대폰에서는 QR을 읽지 못합니다.'; }
+  }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  qrRunning = true;
+  const loop = async () => {
+    if (!qrRunning) return;
+    if (video.readyState >= 2 && video.videoWidth) {
+      let code = '';
+      if (detector) {
+        try {
+          const found = await detector.detect(video);
+          if (found && found[0]) code = found[0].rawValue || '';
+        } catch (e) {}
+      } else if (window.jsQR) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const found = window.jsQR(img.data, img.width, img.height);
+        if (found) code = found.data || '';
+      }
+      if (code) { finishClockIn(code); return; }
+    }
+    setTimeout(loop, 300);
+  };
+  loop();
+};
+document.getElementById('cancelBarcode').onclick = () => {
+  stopQr();
+  document.getElementById('barcodeModal').classList.add('hidden');
+};
 
 // ===== 숨김 관리자 (10번) =====
 document.getElementById('secretArea').addEventListener('click', function(e) {
