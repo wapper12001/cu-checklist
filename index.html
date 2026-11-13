@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v110</h1>
+  <h1>CU 점포 체크리스트 v111</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -113,8 +113,9 @@ if (document.documentElement.classList.contains('inapp')) {
         <button class="btn-primary" id="clockInBtn" type="button" style="flex:1; margin:0;">출근 (QR 스캔)</button>
       </div>
       <div id="clockInfo" class="hidden">
+        <div class="info-line"><strong>점포명:</strong> <span id="clockStore"></span></div>
         <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
-        <div class="info-line"><strong>QR:</strong> <span id="barcodeValue" style="word-break:break-all;"></span></div>
+        <div class="info-line"><strong>링크:</strong> <span id="barcodeValue" style="word-break:break-all;"></span></div>
       </div>
       <label data-ko="언어">언어</label>
       <select id="langSelect">
@@ -1472,6 +1473,7 @@ function renderChecklist() {
         </div>
         <div class="item-desc hidden" data-tr="${encodeURIComponent(desc)}">${descHtml}</div>
         <div class="done-check"><input type="checkbox" class="done-cb" ${ok ? 'checked' : ''}><span>${biHtml('완료')}</span><span class="done-time" id="done-time-${id}">${sv.reported && sv.reportedAt ? sv.reportedAt : ''}</span></div>
+        ${isClockItem(item.title) ? clockDetailHtml() : ''}
         <label>${biHtml('메모')}</label><textarea>${sv.memo||''}</textarea>
         ${photoRow}
       </div>`;
@@ -2105,7 +2107,11 @@ function makeSummary() {
   const opt = shiftSelect.options[shiftSelect.selectedIndex];
   const shiftLabel = opt && opt.value ? opt.textContent.trim() : (shift.name || shiftKey || '');
   let sum = `전체 보고\n시간 : ${when}\n구분: ${names[picked] || ''}\n점포명: ${currentStore || ''}\n근무자이름: ${staffName.value.trim()}\n근무타입: ${shiftLabel}\n근무시간대: ${workPeriod.value.trim()}`;
-  if (clockInRecord && clockInRecord.at) sum += `\n출근 시간: ${clockInRecord.at}`;
+  if (clockInRecord && clockInRecord.at) {
+    sum += `\n출근 시간: ${clockInRecord.at}`;
+    sum += `\n출근 점포: ${clockInRecord.store || currentStore || ''}`;
+    sum += `\n출근 링크: ${clockInRecord.qr || ''}`;
+  }
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
@@ -2274,14 +2280,32 @@ function markReportSent() {
 let clockInRecord = null;
 let qrStream = null;
 let qrRunning = false;
+function clockDetailHtml() {
+  if (!clockInRecord || !clockInRecord.at) return '';
+  const store = escHtml(clockInRecord.store || currentStore || '');
+  const at = escHtml(clockInRecord.at);
+  const qr = String(clockInRecord.qr || '');
+  const link = /^https?:\/\//i.test(qr)
+    ? `<a href="${escAttr(qr)}" target="_blank" rel="noopener" style="word-break:break-all;">${escHtml(qr)}</a>`
+    : `<span style="word-break:break-all;">${escHtml(qr)}</span>`;
+  return `<div class="clock-detail" style="font-size:14px; line-height:1.5; margin:0 0 8px;">
+    <div><strong>점포명:</strong> ${store}</div>
+    <div><strong>출근 시간:</strong> ${at}</div>
+    <div><strong>링크:</strong> ${link}</div>
+  </div>`;
+}
 function showClockIn() {
   const box = document.getElementById('clockInfo');
   if (!clockInRecord || !clockInRecord.at) {
     box.classList.add('hidden');
     return;
   }
+  document.getElementById('clockStore').textContent = clockInRecord.store || currentStore || '';
   document.getElementById('clockTime').textContent = clockInRecord.at;
-  document.getElementById('barcodeValue').textContent = clockInRecord.qr || '';
+  const qr = String(clockInRecord.qr || '');
+  const slot = document.getElementById('barcodeValue');
+  if (/^https?:\/\//i.test(qr)) slot.innerHTML = `<a href="${escAttr(qr)}" target="_blank" rel="noopener">${escHtml(qr)}</a>`;
+  else slot.textContent = qr;
   box.classList.remove('hidden');
 }
 function stopQr() {
@@ -2294,7 +2318,7 @@ function stopQr() {
 function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
-  clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), date: (reportDate && reportDate.value) || koreaNow().date };
+  clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), store: currentStore || '', date: (reportDate && reportDate.value) || koreaNow().date };
   showClockIn();
   document.querySelectorAll('.item').forEach(el => {
     if (!isClockItem(el.dataset.title)) return;
@@ -2306,6 +2330,10 @@ function finishClockIn(code) {
     if (cb) cb.checked = true;
     const timeEl = document.getElementById('done-time-' + id);
     if (timeEl) timeEl.textContent = clockInRecord.at;
+    const old = el.querySelector('.clock-detail');
+    if (old) old.remove();
+    const done = el.querySelector('.done-check');
+    if (done) done.insertAdjacentHTML('afterend', clockDetailHtml());
   });
   saveProgress();
   syncDoneBorders();
