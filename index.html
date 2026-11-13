@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v121</h1>
+  <h1>CU 점포 체크리스트 v122</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -143,6 +143,7 @@ if (document.documentElement.classList.contains('inapp')) {
         <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
         <select id="storeSelect"></select>
         <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">점포 코드 변경</button>
+        <div id="storeManager" style="margin-top:10px; font-size:15px; line-height:1.5;"></div>
       </div>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
@@ -380,6 +381,7 @@ const I18N = {
     '문자': 'Tin nhắn',
     '사진이 없습니다.': 'Chưa có ảnh.',
     '관리자': 'Quản lý',
+    '관리자 전화번호': 'Số điện thoại quản lý',
     '전화번호': 'Số điện thoại',
     'CU고객센터': 'Tổng đài CU',
     '365일 24시간 문의 가능': 'Có thể hỏi 24 giờ, 365 ngày',
@@ -469,6 +471,7 @@ const I18N = {
     '문자': 'စာတို',
     '사진이 없습니다.': 'ဓာတ်ပုံမရှိပါ။',
     '관리자': 'မန်နေဂျာ',
+    '관리자 전화번호': 'မန်နေဂျာ ဖုန်းနံပါတ်',
     '전화번호': 'ဖုန်းနံပါတ်',
     'CU고객센터': 'CU ဖောက်သည်ဌာန',
     '365일 24시간 문의 가능': '၃၆၅ ရက်၊ ၂၄ နာရီ မေးနိုင်သည်',
@@ -815,6 +818,8 @@ function resetStoreCode() {
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
   storeInfo.innerHTML = '';
+  const managerLine = document.getElementById('storeManager');
+  if (managerLine) managerLine.innerHTML = '';
   document.getElementById('storePick').classList.add('hidden');
   document.getElementById('storeCodeBox').classList.remove('hidden');
   document.getElementById('storeCodeInput').value = '';
@@ -896,6 +901,8 @@ function onStoreChange() {
   if (!currentStore || !d) {
     shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
     storeInfo.innerHTML = '';
+    const managerLine = document.getElementById('storeManager');
+    if (managerLine) managerLine.innerHTML = '';
     checklistContainer.innerHTML = '';
     document.getElementById('discardModal').classList.add('hidden');
     document.getElementById('midTagModal').classList.add('hidden');
@@ -1161,11 +1168,18 @@ async function shareMidTag() {
 function updateManagerInfo(d) {
   if (!d) {
     storeInfo.innerHTML = '';
+    const managerLine = document.getElementById('storeManager');
+    if (managerLine) managerLine.innerHTML = '';
     return;
   }
   const esc = s => String(s).replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
   const manager = esc(d.manager || '미등록');
   const phone = esc(d.phone || '미등록');
+  const managerLine = document.getElementById('storeManager');
+  if (managerLine) {
+    const phoneHtml = d.phone ? `<a href="tel:${esc(d.phone)}" style="color:#6B2C91;">${phone}</a>` : phone;
+    managerLine.innerHTML = `<div><strong>${biHtml('관리자')}</strong> ${manager}</div><div><strong>${biHtml('관리자 전화번호')}</strong> ${phoneHtml}</div>`;
+  }
   storeInfo.innerHTML = `
     <div style="margin-top:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
