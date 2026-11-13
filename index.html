@@ -103,19 +103,18 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v109</h1>
+  <h1>CU 점포 체크리스트 v110</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
   <div id="reportScreen">
     <div class="card">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-        <button class="btn-primary" id="clockInBtn" type="button" disabled style="flex:1; margin:0; background:#6B2C91; color:#fff; opacity:0.55; cursor:default;">출근 (바코드 스캔)</button>
-        <span style="color:#b00020; font-weight:800; font-size:13px; white-space:nowrap;">※ 업데이트 예정</span>
+        <button class="btn-primary" id="clockInBtn" type="button" style="flex:1; margin:0;">출근 (QR 스캔)</button>
       </div>
       <div id="clockInfo" class="hidden">
         <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
-        <div class="info-line"><strong>바코드:</strong> <span id="barcodeValue"></span></div>
+        <div class="info-line"><strong>QR:</strong> <span id="barcodeValue" style="word-break:break-all;"></span></div>
       </div>
       <label data-ko="언어">언어</label>
       <select id="langSelect">
@@ -273,11 +272,9 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 <div id="barcodeModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0;">바코드 스캔</h3>
-    <p style="font-size:14px;">카메라로 바코드를 찍거나 번호를 입력하세요.</p>
-    <input type="file" id="barcodeFile" accept="image/*" capture="environment" style="margin-bottom:10px;">
-    <input type="text" id="barcodeInput" placeholder="바코드 번호 입력">
-    <button class="btn-primary" id="confirmBarcode" style="width:100%; margin-top:10px;">출근 처리</button>
+    <h3 style="margin-top:0;">출근 QR 스캔</h3>
+    <p id="qrMsg" style="font-size:14px;">포스 근무자 인증 QR을 비추세요.</p>
+    <video id="qrVideo" playsinline autoplay muted style="width:100%; background:#111; border-radius:8px;"></video>
     <button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button>
   </div>
 </div>
@@ -1356,6 +1353,7 @@ function saveProgress() {
     pay: readPay(),
     workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
     sent: fullReportSent,
+    clockIn: clockInRecord && clockInRecord.at ? clockInRecord : null,
     savedAt: Date.now(),
     shift: shiftSelect.value,
     items: {}
@@ -1394,6 +1392,8 @@ function loadProgress() {
     const d = hit && hit.data;
     if (!d) return null;
     fullReportSent = !!d.sent || reportFormFilled(d);
+    if (d.clockIn && d.clockIn.at) clockInRecord = d.clockIn;
+    showClockIn();
     if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
       document.getElementById('dayMemo').value = d.dayMemo;
     }
@@ -1443,6 +1443,11 @@ function renderChecklist() {
       sv.reported = true;
       sv.reportedAt = sv.reportedAt || discardStamp(doneSlot.id);
       sv.hasPhoto = true;
+    }
+    if (clockInRecord && clockInRecord.at && isClockItem(item.title)) {
+      sv.done = true;
+      sv.reported = true;
+      sv.reportedAt = clockInRecord.at;
     }
     if (sv.reported && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
     if (sv.hasPhoto) savedHasPhoto[id] = true;
@@ -1606,6 +1611,7 @@ function itemById(id) {
   return visibleItems(shift).find(it => String(it.id) === String(id));
 }
 function missMessage(miss) {
+  if (miss.includes('출근')) return '출근 QR을 스캔하세요.';
   if (miss.includes('사진')) return '사진이 없습니다.';
   if (miss.includes('보고')) return '카톡 또는 문자 보고가 안 됐습니다.';
   return '';
@@ -1667,7 +1673,12 @@ function needsPhoto(id) {
   const it = itemById(id);
   return !!(it && (it.photo_required === true || it.photo_required === 'true' || it.photo_required === 1));
 }
+function isClockItem(title) {
+  return (title || '').replace(/\s/g, '').includes('출근');
+}
 function requiredMissing(id) {
+  const it = itemById(id);
+  if (it && isClockItem(it.title)) return clockInRecord && clockInRecord.at ? [] : ['출근'];
   if (!needsPhoto(id)) return [];
   const miss = [];
   if (!(currentPhotos[id] || []).length && !savedHasPhoto[String(id)]) miss.push('사진');
@@ -2094,6 +2105,7 @@ function makeSummary() {
   const opt = shiftSelect.options[shiftSelect.selectedIndex];
   const shiftLabel = opt && opt.value ? opt.textContent.trim() : (shift.name || shiftKey || '');
   let sum = `전체 보고\n시간 : ${when}\n구분: ${names[picked] || ''}\n점포명: ${currentStore || ''}\n근무자이름: ${staffName.value.trim()}\n근무타입: ${shiftLabel}\n근무시간대: ${workPeriod.value.trim()}`;
+  if (clockInRecord && clockInRecord.at) sum += `\n출근 시간: ${clockInRecord.at}`;
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
     const at = sessionReported[reportKey(it.id)] || '';
@@ -2194,6 +2206,8 @@ function backToStart() {
     el.disabled = true;
   });
   checklistContainer.innerHTML = '';
+  clockInRecord = null;
+  showClockIn();
   fullReportSent = false;
   if (reportFields()) reportFields().classList.add('hidden');
   bottomBar.classList.add('hidden');
@@ -2256,18 +2270,110 @@ function markReportSent() {
   saveProgress();
 }
 
-// ===== 출근 / 바코드 =====
-document.getElementById('clockInBtn').onclick = null;
-document.getElementById('confirmBarcode').onclick = () => {
-  const code = document.getElementById('barcodeInput').value.trim() || '스캔됨';
-  const now = new Date();
-  document.getElementById('clockTime').textContent = now.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-  document.getElementById('barcodeValue').textContent = code;
-  document.getElementById('clockInfo').classList.remove('hidden');
+// ===== 출근 QR =====
+let clockInRecord = null;
+let qrStream = null;
+let qrRunning = false;
+function showClockIn() {
+  const box = document.getElementById('clockInfo');
+  if (!clockInRecord || !clockInRecord.at) {
+    box.classList.add('hidden');
+    return;
+  }
+  document.getElementById('clockTime').textContent = clockInRecord.at;
+  document.getElementById('barcodeValue').textContent = clockInRecord.qr || '';
+  box.classList.remove('hidden');
+}
+function stopQr() {
+  qrRunning = false;
+  if (qrStream) qrStream.getTracks().forEach(t => t.stop());
+  qrStream = null;
+  const video = document.getElementById('qrVideo');
+  if (video) video.srcObject = null;
+}
+function finishClockIn(code) {
+  stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
-  alert('출근 처리되었습니다.');
+  clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), date: (reportDate && reportDate.value) || koreaNow().date };
+  showClockIn();
+  document.querySelectorAll('.item').forEach(el => {
+    if (!isClockItem(el.dataset.title)) return;
+    const id = el.dataset.id;
+    el.dataset.reported = '1';
+    el.dataset.reportedAt = clockInRecord.at;
+    sessionReported[reportKey(id)] = clockInRecord.at;
+    const cb = el.querySelector('.done-cb');
+    if (cb) cb.checked = true;
+    const timeEl = document.getElementById('done-time-' + id);
+    if (timeEl) timeEl.textContent = clockInRecord.at;
+  });
+  saveProgress();
+  syncDoneBorders();
+  checkAllDone();
+  alert('출근 처리되었습니다.\n' + clockInRecord.at);
+}
+async function loadJsQR() {
+  if (window.jsQR) return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+document.getElementById('clockInBtn').onclick = async () => {
+  const modal = document.getElementById('barcodeModal');
+  const msg = document.getElementById('qrMsg');
+  modal.classList.remove('hidden');
+  msg.textContent = '포스 근무자 인증 QR을 비추세요.';
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  } catch (e) {
+    modal.classList.add('hidden');
+    alert('카메라를 열 수 없습니다.');
+    return;
+  }
+  const video = document.getElementById('qrVideo');
+  video.srcObject = qrStream;
+  await video.play().catch(() => {});
+  let detector = null;
+  if ('BarcodeDetector' in window) {
+    try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+  }
+  if (!detector) {
+    try { await loadJsQR(); } catch (e) { msg.textContent = '이 휴대폰에서는 QR을 읽지 못합니다.'; }
+  }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  qrRunning = true;
+  const loop = async () => {
+    if (!qrRunning) return;
+    if (video.readyState >= 2 && video.videoWidth) {
+      let code = '';
+      if (detector) {
+        try {
+          const found = await detector.detect(video);
+          if (found && found[0]) code = found[0].rawValue || '';
+        } catch (e) {}
+      } else if (window.jsQR) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const found = window.jsQR(img.data, img.width, img.height);
+        if (found) code = found.data || '';
+      }
+      if (code) { finishClockIn(code); return; }
+    }
+    setTimeout(loop, 300);
+  };
+  loop();
 };
-document.getElementById('cancelBarcode').onclick = () => document.getElementById('barcodeModal').classList.add('hidden');
+document.getElementById('cancelBarcode').onclick = () => {
+  stopQr();
+  document.getElementById('barcodeModal').classList.add('hidden');
+};
 
 // ===== 숨김 관리자 (10번) =====
 document.getElementById('secretArea').addEventListener('click', function(e) {
