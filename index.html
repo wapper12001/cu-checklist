@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v127</h1>
+  <h1>CU 점포 체크리스트 v128</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2340,15 +2340,18 @@ function qrDateOk(ymd) {
   if (ymd.length === 6) return ymd === today.slice(2);
   return false;
 }
+function cameraDeniedMessage() {
+  return '카메라를 켤 수 없습니다.\n카메라 권한 설정이 필요합니다.\n\n카카오톡 안에서 열었다면 크롬 또는 사파리로 여세요.\n아이폰: 설정 > Safari > 카메라 > 허용\n갤럭시: 크롬 주소창 자물쇠 > 권한 > 카메라 > 허용';
+}
 function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
   const parsed = parseCuQr(code);
-  if (!parsed) { alert('CU 출근 QR이 아닙니다.'); return; }
+  if (!parsed) { alert('QR코드 인식 오류\nCU 출근 QR이 아닙니다.'); return; }
   const mine = myStoreCode();
   if (!mine) { alert('먼저 점포 코드로 들어가세요.'); return; }
-  if (!sameStoreCode(parsed.storeCode, mine)) { alert('이 점포 QR이 아닙니다.'); return; }
-  if (!qrDateOk(parsed.ymd)) { alert('오늘 출근 QR이 아닙니다.'); return; }
+  if (!sameStoreCode(parsed.storeCode, mine)) { alert('QR코드 인식 오류\n이 점포 QR이 아닙니다.'); return; }
+  if (!qrDateOk(parsed.ymd)) { alert('QR코드 인식 오류\n오늘 출근 QR이 아닙니다.'); return; }
   clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), store: currentStore || '', date: (reportDate && reportDate.value) || koreaNow().date };
   showClockIn();
   document.querySelectorAll('.item').forEach(el => {
@@ -2404,11 +2407,16 @@ document.getElementById('clockInBtn').onclick = async () => {
   const msg = document.getElementById('qrMsg');
   modal.classList.remove('hidden');
   msg.textContent = '포스 근무자 인증 QR을 비추세요.';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    modal.classList.add('hidden');
+    alert(cameraDeniedMessage());
+    return;
+  }
   try {
     qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
   } catch (e) {
     modal.classList.add('hidden');
-    alert('카메라를 열 수 없습니다.');
+    alert(cameraDeniedMessage());
     return;
   }
   const video = document.getElementById('qrVideo');
