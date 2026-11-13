@@ -35,6 +35,7 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .qr-help { position: relative; }
 .qr-help-pop { display: none; position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; width: min(92vw, 420px); background: #fff; border: 1px solid #6B2C91; border-radius: 8px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .qr-help:hover .qr-help-pop, .qr-help.open .qr-help-pop { display: block; }
+.qr-help.closed .qr-help-pop { display: none; }
 .qr-help-pop img { width: 100%; display: block; border-radius: 6px; }
 .btn-kakao { background: #FEE500; color: #3C1E1E; }
 .btn-sms { background: #4CAF50; color: white; }
@@ -107,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v117</h1>
+  <h1>CU 점포 체크리스트 v118</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2384,8 +2385,21 @@ async function loadJsQR() {
 document.getElementById('qrHelpBtn').onclick = (e) => {
   e.preventDefault();
   e.stopPropagation();
-  document.querySelector('.qr-help').classList.toggle('open');
+  const box = document.querySelector('.qr-help');
+  const showing = box.classList.contains('open') || (box.matches(':hover') && !box.classList.contains('closed'));
+  box.classList.toggle('open', !showing);
+  box.classList.toggle('closed', showing);
 };
+document.querySelector('.qr-help-pop').onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const box = document.querySelector('.qr-help');
+  box.classList.remove('open');
+  box.classList.add('closed');
+};
+document.querySelector('.qr-help').addEventListener('mouseleave', () => {
+  document.querySelector('.qr-help').classList.remove('closed');
+});
 document.getElementById('clockInBtn').onclick = async () => {
   const modal = document.getElementById('barcodeModal');
   const msg = document.getElementById('qrMsg');
