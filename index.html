@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v122</h1>
+  <h1>CU 점포 체크리스트 v123</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -143,7 +143,6 @@ if (document.documentElement.classList.contains('inapp')) {
         <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
         <select id="storeSelect"></select>
         <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">점포 코드 변경</button>
-        <div id="storeManager" style="margin-top:10px; font-size:15px; line-height:1.5;"></div>
       </div>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
@@ -818,8 +817,6 @@ function resetStoreCode() {
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
   storeInfo.innerHTML = '';
-  const managerLine = document.getElementById('storeManager');
-  if (managerLine) managerLine.innerHTML = '';
   document.getElementById('storePick').classList.add('hidden');
   document.getElementById('storeCodeBox').classList.remove('hidden');
   document.getElementById('storeCodeInput').value = '';
@@ -901,8 +898,6 @@ function onStoreChange() {
   if (!currentStore || !d) {
     shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
     storeInfo.innerHTML = '';
-    const managerLine = document.getElementById('storeManager');
-    if (managerLine) managerLine.innerHTML = '';
     checklistContainer.innerHTML = '';
     document.getElementById('discardModal').classList.add('hidden');
     document.getElementById('midTagModal').classList.add('hidden');
@@ -1168,24 +1163,19 @@ async function shareMidTag() {
 function updateManagerInfo(d) {
   if (!d) {
     storeInfo.innerHTML = '';
-    const managerLine = document.getElementById('storeManager');
-    if (managerLine) managerLine.innerHTML = '';
     return;
   }
   const esc = s => String(s).replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;').replace(/>/g, '&' + 'gt;');
   const manager = esc(d.manager || '미등록');
   const phone = esc(d.phone || '미등록');
-  const managerLine = document.getElementById('storeManager');
-  if (managerLine) {
-    const phoneHtml = d.phone ? `<a href="tel:${esc(d.phone)}" style="color:#6B2C91;">${phone}</a>` : phone;
-    managerLine.innerHTML = `<div><strong>${biHtml('관리자')}</strong> ${manager}</div><div><strong>${biHtml('관리자 전화번호')}</strong> ${phoneHtml}</div>`;
-  }
+  const phoneHtml = d.phone ? `<a href="tel:${esc(d.phone)}" style="color:#6B2C91;">${phone}</a>` : phone;
   storeInfo.innerHTML = `
     <div style="margin-top:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <strong>${biHtml('관리자')}</strong> ${manager}
         <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">${biHtml('근무자 필독!')}</button>
       </div>
+      <div style="margin-top:8px;"><strong>${biHtml('관리자 전화번호')}</strong> ${phoneHtml}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
       <div id="mustRead" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
         <p style="margin:0 0 10px; font-weight:800; text-align:center;">※ ${biHtml('업무원칙')} ※</p>
         <p style="margin:0 0 10px; font-weight:800;">${biHtml('모든 업무는 추측, 예측 행동 절대 금지! 꼭! 사실 유무를 확인 후 행동 하세요!')}</p>
@@ -1195,7 +1185,6 @@ function updateManagerInfo(d) {
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
       <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능')}</div></div>
-      <div style="margin-top:8px;"><strong>${biHtml('전화번호')}</strong> ${phone}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
