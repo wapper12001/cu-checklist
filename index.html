@@ -108,12 +108,13 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v124</h1>
+  <h1>CU 점포 체크리스트 v125</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
   <div id="reportScreen">
     <div class="card">
+      <div id="storeInfo"></div>
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
         <button class="btn-primary" id="clockInBtn" type="button" style="flex:1; margin:0;">출근 (QR 스캔)</button>
         <div class="qr-help">
@@ -154,7 +155,6 @@ if (document.documentElement.classList.contains('inapp')) {
         <select id="workEnd" aria-label="종료"></select>
       </div>
       <input type="hidden" id="workPeriod">
-      <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
     <div class="secret-area" id="secretArea">CU</div>
@@ -1170,12 +1170,13 @@ function updateManagerInfo(d) {
   const phone = esc(d.phone || '미등록');
   const phoneHtml = d.phone ? `<a href="tel:${esc(d.phone)}" style="color:#6B2C91;">${phone}</a>` : phone;
   storeInfo.innerHTML = `
-    <div style="margin-top:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <strong>${biHtml('관리자')}</strong> ${manager}
+    <div style="margin-bottom:12px; padding:12px; background:#f6f1fa; border:1px solid #6B2C91; border-radius:8px; font-size:15px;">
+      <div><strong>${biHtml('관리자')}</strong> ${manager}</div>
+      <div style="margin-top:8px;"><strong>${biHtml('관리자 전화번호')}</strong> ${phoneHtml}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
+      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)')}</div></div>
+      <div style="margin-top:10px;">
         <button type="button" id="mustReadBtn" style="background:#b00020; color:#fff; padding:6px 10px; font-size:13px;">${biHtml('근무자 필독!')}</button>
       </div>
-      <div style="margin-top:8px;"><strong>${biHtml('관리자 전화번호')}</strong> ${phoneHtml}<div style="color:#5c3d78; font-size:13px;">${biHtml('고객센터에서 해결 안되고, 점장님이 해결해야할 문제만')}</div></div>
       <div id="mustRead" style="margin-top:10px; padding:12px; background:#fff4f4; border:2px solid #b00020; border-radius:8px; color:#7a0015; line-height:1.55;">
         <p style="margin:0 0 10px; font-weight:800; text-align:center;">※ ${biHtml('업무원칙')} ※</p>
         <p style="margin:0 0 10px; font-weight:800;">${biHtml('모든 업무는 추측, 예측 행동 절대 금지! 꼭! 사실 유무를 확인 후 행동 하세요!')}</p>
@@ -1184,7 +1185,6 @@ function updateManagerInfo(d) {
         <p style="margin:0 0 8px;"><strong>${biHtml('챗봇 하루')}:</strong> <a href="http://pf.kakao.com/_xmxdCbs" target="_blank" rel="noopener" style="color:#b00020;">http://pf.kakao.com/_xmxdCbs</a> ${biHtml('등록해서 업무에 활용하세요!')}</p>
         <img src="cu-chatbot-auth.png" alt="CU챗봇하루 인증방법" style="width:100%; border-radius:8px; display:block;">
       </div>
-      <div style="margin-top:8px;"><strong>${biHtml('CU고객센터')}</strong> <a href="tel:1577-3663" style="color:#6B2C91;">1577-3663</a><div style="color:#5c3d78; font-size:13px;">${biHtml('365일 24시간 문의 가능 (멘트: 죄송합니다. 제가 정확히 몰라서 고객센터와 통화하면서 해결해 드리겠습니다.)')}</div></div>
     </div>`;
   document.getElementById('mustReadBtn').onclick = () => {
     document.getElementById('mustRead').classList.toggle('hidden');
