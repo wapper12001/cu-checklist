@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v118</h1>
+  <h1>CU 점포 체크리스트 v119</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1465,7 +1465,11 @@ function renderChecklist() {
     }
     if (isClockItem(item.title)) {
       const how = '포스 메인 화면 QR 코드 아이콘 선택. 우측 근무자 인증용 QR코드 휴대폰 카메라 스캔';
-      desc = desc && desc !== how ? how + '\n' + desc : how;
+      const rest = (desc || '').replace(how, '').split('\n').map(line => line.trim()).filter(line => {
+        const t = line.replace(/\s/g, '');
+        return t && !t.includes('명찰') && !t.includes('영찰') && !(t.includes('바코드') && t.includes('스캔'));
+      }).join('\n');
+      desc = rest ? how + '\n' + rest : how;
     }
     const descHtml = biHtml(desc);
     const clockImg = isClockItem(item.title) ? '<img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법" style="width:100%; border-radius:8px; display:block; margin-top:8px;">' : '';
