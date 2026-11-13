@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v119</h1>
+  <h1>CU 점포 체크리스트 v120</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2125,7 +2125,6 @@ function makeSummary() {
   if (clockInRecord && clockInRecord.at) {
     sum += `\n출근 시간: ${clockInRecord.at}`;
     sum += `\n출근 점포: ${clockInRecord.store || currentStore || ''}`;
-    sum += `\n출근 링크: ${clockInRecord.qr || ''}`;
   }
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
@@ -2299,14 +2298,9 @@ function clockDetailHtml() {
   if (!clockInRecord || !clockInRecord.at) return '';
   const store = escHtml(clockInRecord.store || currentStore || '');
   const at = escHtml(clockInRecord.at);
-  const qr = String(clockInRecord.qr || '');
-  const link = /^https?:\/\//i.test(qr)
-    ? `<a href="${escAttr(qr)}" target="_blank" rel="noopener" style="word-break:break-all;">${escHtml(qr)}</a>`
-    : `<span style="word-break:break-all;">${escHtml(qr)}</span>`;
   return `<div class="clock-detail" style="font-size:14px; line-height:1.5; margin:0 0 8px;">
     <div><strong>점포명:</strong> ${store}</div>
     <div><strong>출근 시간:</strong> ${at}</div>
-    <div><strong>링크:</strong> ${link}</div>
   </div>`;
 }
 function showClockIn() {}
