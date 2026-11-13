@@ -103,7 +103,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v112</h1>
+  <h1>CU 점포 체크리스트 v113</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -111,11 +111,6 @@ if (document.documentElement.classList.contains('inapp')) {
     <div class="card">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
         <button class="btn-primary" id="clockInBtn" type="button" style="flex:1; margin:0;">출근 (QR 스캔)</button>
-      </div>
-      <div id="clockInfo" class="hidden">
-        <div class="info-line"><strong>점포명:</strong> <span id="clockStore"></span></div>
-        <div class="info-line"><strong>출근시간:</strong> <span id="clockTime"></span></div>
-        <div class="info-line"><strong>링크:</strong> <span id="barcodeValue" style="word-break:break-all;"></span></div>
       </div>
       <label data-ko="언어">언어</label>
       <select id="langSelect">
@@ -2294,20 +2289,7 @@ function clockDetailHtml() {
     <div><strong>링크:</strong> ${link}</div>
   </div>`;
 }
-function showClockIn() {
-  const box = document.getElementById('clockInfo');
-  if (!clockInRecord || !clockInRecord.at) {
-    box.classList.add('hidden');
-    return;
-  }
-  document.getElementById('clockStore').textContent = clockInRecord.store || currentStore || '';
-  document.getElementById('clockTime').textContent = clockInRecord.at;
-  const qr = String(clockInRecord.qr || '');
-  const slot = document.getElementById('barcodeValue');
-  if (/^https?:\/\//i.test(qr)) slot.innerHTML = `<a href="${escAttr(qr)}" target="_blank" rel="noopener">${escHtml(qr)}</a>`;
-  else slot.textContent = qr;
-  box.classList.remove('hidden');
-}
+function showClockIn() {}
 function stopQr() {
   qrRunning = false;
   if (qrStream) qrStream.getTracks().forEach(t => t.stop());
