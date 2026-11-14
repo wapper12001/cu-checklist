@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>CU 점포 체크리스트</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#6B2C91">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CU체크">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script>
 // 가장 먼저 실행되는 인앱 감지
 (function(){
@@ -108,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v130</h1>
+  <h1>CU 점포 체크리스트 v131</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3129,6 +3137,9 @@ document.getElementById('cancelEdit').onclick = () => {
     alert('초기화 오류: ' + err.message);
   }
 }
+</script>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
 </script>
 </body>
 </html>
