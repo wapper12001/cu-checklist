@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v127</h1>
+  <h1>CU 점포 체크리스트 v129</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1217,13 +1217,83 @@ function saveResume() {
     }));
   } catch (e) {}
 }
+function addDays(dateStr, days) {
+  const [y, m, d] = String(dateStr || '').split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+function shiftBundleDate(now, range) {
+  if (!now || !range) return now ? now.date : '';
+  if (range.start > range.end) {
+    if (now.minutes <= range.end + 60) return addDays(now.date, -1);
+    return now.date;
+  }
+  if (range.start <= 6 * 60 && now.minutes > range.end) {
+    const wait = (24 * 60 - now.minutes) + range.start;
+    if (wait > 0 && wait <= 90) return addDays(now.date, 1);
+  }
+  return now.date;
+}
+function samePersonRecord(data, saved) {
+  if (!data) return false;
+  const name = (saved.staff || '').trim();
+  const period = (saved.period || '').trim();
+  if (name && (data.staff || '').trim() && (data.staff || '').trim() !== name) return false;
+  if (period && (data.period || '').trim() && (data.period || '').trim() !== period) return false;
+  return true;
+}
+function findShiftRecord(saved) {
+  if (!saved || !saved.store || !saved.shift || !saved.date) return null;
+  const name = (saved.staff || '').trim();
+  const period = (saved.period || '').trim();
+  const prefix = `prog_${saved.store}_${saved.shift}_${saved.date}`;
+  if (name && period) {
+    const named = readStore(prefix + '_' + encodeURIComponent(name) + '_' + encodeURIComponent(period));
+    if (named) return named;
+  }
+  const legacy = readStore(prefix);
+  if (samePersonRecord(legacy, saved)) return legacy;
+  return null;
+}
+function shiftStillOpen(saved) {
+  const now = koreaNow();
+  const range = parseWorkRange((saved && saved.period) || '');
+  if (!range || !saved || !saved.date) return false;
+  const own = findShiftRecord(saved);
+  if (own && own.sent) return false;
+  if (range.start > range.end) {
+    if (now.date === saved.date) return true;
+    if (now.date === addDays(saved.date, 1)) return now.minutes <= range.end + 60;
+    return false;
+  }
+  if (saved.date === addDays(now.date, 1) && range.start <= 6 * 60) return true;
+  if (now.date === addDays(saved.date, 1) && range.start <= 90 && now.minutes <= range.end + 60) return true;
+  if (now.date === saved.date) return now.minutes <= range.end + 60;
+  return false;
+}
+function checklistHasProgress() {
+  if (document.querySelector('.item .done-cb:checked')) return true;
+  const memo = document.getElementById('dayMemo');
+  return !!(memo && memo.value.trim());
+}
+function holdShiftDate() {
+  const range = parseWorkRange(workPeriod.value);
+  if (!range || !reportDate.value) return;
+  const now = koreaNow();
+  const bundle = shiftBundleDate(now, range);
+  if (!bundle || bundle === reportDate.value || bundle === now.date) return;
+  if (checklistHasProgress()) return;
+  reportDate.value = bundle;
+  reportDate.dataset.prev = bundle;
+}
 function resumeWork() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('cu-resume') || 'null'); } catch (e) { saved = null; }
   if (!saved || !saved.store || !allData[saved.store]) return;
   if (lockedStore && saved.store !== lockedStore) return;
   const today = koreaNow().date;
-  if (saved.date && saved.date < today && !overnightStillOpen(saved)) {
+  if (saved.date && saved.date < today && !shiftStillOpen(saved)) {
     reportDate.value = today;
     reportDate.dataset.prev = today;
     fullReportSent = false;
@@ -1249,17 +1319,6 @@ function resumeWork() {
     renderChecklist();
     checkAllDone();
   } else onIdentityInput();
-}
-function overnightStillOpen(saved) {
-  try {
-    const prog = JSON.parse(localStorage.getItem(`prog_${saved.store}_${saved.shift}_${saved.date}`) || 'null');
-    if (!prog || prog.sent) return false;
-    const range = parseWorkRange(prog.period || '');
-    if (!range || range.end > range.start) return false;
-    const items = Object.values(prog.items || {});
-    if (items.length && items.every(it => it && it.done)) return false;
-    return koreaNow().minutes <= range.end;
-  } catch (e) { return false; }
 }
 
 function legacyKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
@@ -1326,8 +1385,12 @@ function onIdentityInput() {
     }
     return false;
   }
+  holdShiftDate();
   if (reportDate.value !== koreaNow().date) {
-    if (shiftSelect.value) renderChecklist();
+    if (shiftSelect.value) {
+      renderChecklist();
+      checkAllDone();
+    }
     return true;
   }
   const rows = personRecords().filter(row => (row.data.period || '').trim() === period && [...shiftSelect.options].some(opt => opt.value === row.shift));
