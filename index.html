@@ -108,7 +108,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v129</h1>
+  <h1>CU 점포 체크리스트 v130</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -971,7 +971,7 @@ function dueDiscards() {
   if (!currentStore || !allData[currentStore]) return [];
   const range = parseWorkRange(workPeriod.value);
   if (!range) return [];
-  const hours = String(allData[currentStore].hours || '19');
+  const hours = effectiveHours();
   const now = koreaNow();
   const anchor = shiftAnchorDate(now, range);
   return DISCARD_SLOTS.filter(s => {
@@ -998,7 +998,7 @@ function checkDiscards() {
   const key = due.map(s => s.id).join(',');
   if (modal.dataset.ids === key && !modal.classList.contains('hidden')) return;
   const store = String(currentStore || '').replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;');
-  const hours = String((allData[currentStore] && allData[currentStore].hours) || '19');
+  const hours = effectiveHours();
   document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
     <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
       <p style="margin:0 0 8px;"><strong>${s.title}</strong>${s.note19 && hours === '19' ? '<br>' + s.note19 : ''}<br>${s.body}</p>
@@ -1057,7 +1057,7 @@ function discardAnchor() {
 function discardTitleMatches(title, slot) {
   const t = title || '';
   if (t.includes(slot.token) && t.includes('폐기')) return true;
-  return String((allData[currentStore] && allData[currentStore].hours) || '') === '19' && (slot.also || []).includes(t.trim());
+  return effectiveHours() === '19' && (slot.also || []).includes(t.trim());
 }
 function discardStamp(slotId) {
   const anchor = discardAnchor();
@@ -1222,6 +1222,23 @@ function addDays(dateStr, days) {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + days);
   return dt.toISOString().slice(0, 10);
+}
+function shiftStoreKind(range) {
+  if (!range) return '';
+  if (range.end <= 60) return '19';
+  const hour = Math.floor(range.end / 60);
+  if (hour >= 5 && hour <= 8) return '24';
+  return '';
+}
+function effectiveHours() {
+  const kind = shiftStoreKind(parseWorkRange(workPeriod.value));
+  if (kind) return kind;
+  return String((allData[currentStore] && allData[currentStore].hours) || '19');
+}
+function payDateFor(range, anchorDate) {
+  if (!range || !anchorDate) return anchorDate || '';
+  if (shiftStoreKind(range) === '24' && range.start > range.end) return addDays(anchorDate, 1);
+  return anchorDate;
 }
 function shiftBundleDate(now, range) {
   if (!now || !range) return now ? now.date : '';
@@ -1429,6 +1446,8 @@ function saveProgress() {
     pay: readPay(),
     workType: (document.querySelector('input[name="workType"]:checked') || {}).value || '',
     sent: fullReportSent,
+    shiftKind: shiftStoreKind(parseWorkRange(workPeriod.value)),
+    payDate: payDateFor(parseWorkRange(workPeriod.value), reportDate.value),
     clockIn: clockInRecord && clockInRecord.at ? clockInRecord : null,
     savedAt: Date.now(),
     shift: shiftSelect.value,
@@ -1681,7 +1700,7 @@ function visibleItems(shift) {
     if (i < added.length - 1) body.push({ id: 'rest-before-' + added[i + 1].id, title: '휴식', desc: '', photo_required: false });
   });
   const range = parseWorkRange(workPeriod.value);
-  const hours19 = String((allData[currentStore] && allData[currentStore].hours) || '') === '19';
+  const hours19 = effectiveHours() === '19';
   if (hours19 && range && (inShift(23 * 60 + 30, range) || inShift(20, range))) {
     [
       { id: 'discard-02-19', title: '02시 폐기 예정 상품 폐기', desc: '19시간 점포. 02시 폐기 예정 상품을 폐기하고 사진으로 보고합니다.', photo_required: true },
