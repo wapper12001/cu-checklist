@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>재직증명서 - CU 편의점</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif; background:#eee; margin:0; color:#111; }
+  .toolbar { text-align:center; padding:12px; }
+  .toolbar button { font-size:15px; padding:8px 18px; margin:0 4px; cursor:pointer; border:1px solid #652f8d; background:#652f8d; color:#fff; border-radius:6px; }
+  .toolbar button.sub { background:#fff; color:#652f8d; }
+  .toolbar p { font-size:13px; color:#555; margin:8px 0 0; }
+  .page { width:210mm; min-height:297mm; margin:0 auto 20px; background:#fff; padding:22mm 20mm; box-shadow:0 0 8px rgba(0,0,0,.15); position:relative; }
+  .doc-no { font-size:13px; }
+  h1 { text-align:center; font-size:34px; letter-spacing:18px; margin:18mm 0 14mm; }
+  h2 { font-size:16px; margin:8mm 0 2mm; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th, td { border:1px solid #333; padding:10px 8px; vertical-align:middle; }
+  th { background:#f3f0f7; width:22%; font-weight:600; text-align:center; }
+  td input, td select { width:100%; border:none; font:inherit; background:transparent; outline:none; }
+  td input:focus { background:#fffbe6; }
+  .inline input { width:auto; }
+  .statement { text-align:center; font-size:17px; margin:16mm 0 10mm; line-height:1.9; }
+  .issue-date { text-align:center; font-size:16px; margin-bottom:12mm; }
+  .issuer { width:80%; margin:0 auto; font-size:16px; }
+  .issuer .row { display:flex; align-items:center; margin:8px 0; }
+  .issuer .label { width:30%; }
+  .issuer input { flex:1; border:none; border-bottom:1px solid #999; font:inherit; padding:4px; outline:none; }
+  .seal { width:70px; height:70px; border:1px dashed #999; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; color:#888; margin-left:10px; }
+  .footer { position:absolute; bottom:18mm; left:20mm; right:20mm; text-align:center; font-size:12px; color:#666; }
+  @media print {
+    body { background:#fff; }
+    .toolbar { display:none; }
+    .page { box-shadow:none; margin:0; width:auto; min-height:auto; padding:0; }
+    td input:focus { background:transparent; }
+    .seal { border-color:#bbb; }
+    .footer { position:fixed; bottom:0; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button onclick="window.print()">인쇄 / PDF로 저장</button>
+  <p>빈칸을 클릭해 입력한 뒤 인쇄하세요. PDF는 인쇄 창에서 대상을 "PDF로 저장"으로 고르면 됩니다.</p>
+</div>
+
+<div class="page">
+  <div class="doc-no">발급번호: <input style="border:none;border-bottom:1px solid #999;font:inherit;width:140px"></div>
+
+  <h1>재직증명서</h1>
+
+  <h2>1. 인적 사항</h2>
+  <table>
+    <tr><th>성 명</th><td><input></td><th>생년월일</th><td><input></td></tr>
+    <tr><th>주 소</th><td colspan="3"><input></td></tr>
+  </table>
+
+  <h2>2. 재직 사항</h2>
+  <table>
+    <tr><th>점 포 명</th><td colspan="3">
+      <input></td></tr>
+    <tr><th>직 책</th><td colspan="3"><input></td></tr>
+    <tr><th>입 사 일</th><td><input></td><th>퇴사일</th><td><input></td></tr>
+    <tr><th>재직 기간</th><td colspan="3"><input></td></tr>
+    <tr><th>용 도</th><td colspan="3"><input></td></tr>
+  </table>
+
+  <p class="statement">위 사람은 상기와 같이 당 점포에 재직하고 있음(재직하였음)을 증명합니다.</p>
+
+  <p class="issue-date">발급일: <input style="border:none;border-bottom:1px solid #999;font:inherit;width:200px"></p>
+
+  <div class="issuer">
+    <div class="row"><span class="label">점 포 명</span><input></div>
+    <div class="row"><span class="label">사업자등록번호</span><input></div>
+    <div class="row"><span class="label">주 소</span><input></div>
+    <div class="row"><span class="label">발급자(대표자/점장)</span><input></div>
+    <div class="row"><span class="label">서 명</span><input><span class="seal">(인)</span></div>
+  </div>
+
+  <div class="footer">본 증명서는 발급일 기준으로 작성되었습니다.</div>
+</div>
+
+
+</body>
+</html>
