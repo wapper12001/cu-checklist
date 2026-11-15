@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>CU 점포 체크리스트</title>
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
@@ -116,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v132</h1>
+  <h1>CU 점포 체크리스트 v133</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3232,7 +3231,11 @@ document.getElementById('cancelEdit').onclick = () => {
 }
 </script>
 <script>
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(list) {
+    list.forEach(function(reg) { reg.unregister(); });
+  });
+}
 </script>
 </body>
 </html>
