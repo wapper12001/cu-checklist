@@ -22,6 +22,10 @@
   td input, td select { width:100%; border:none; font:inherit; background:transparent; outline:none; }
   td input:focus { background:#fffbe6; }
   .inline input { width:auto; }
+  textarea.addr { width:100%; border:none; font:inherit; background:transparent; outline:none; resize:none; overflow:hidden; line-height:1.5; padding:0; display:block; }
+  td textarea.addr:focus { background:#fffbe6; }
+  .issuer .addr-row { align-items:flex-start; }
+  .issuer textarea.addr { flex:1; border-bottom:1px solid #999; padding:4px; }
   .statement { text-align:center; font-size:17px; margin:16mm 0 10mm; line-height:1.9; }
   .issue-date { text-align:center; font-size:16px; margin-bottom:12mm; }
   .issuer { width:80%; margin:0 auto; font-size:16px; }
@@ -36,7 +40,19 @@
     .page { box-shadow:none; margin:0; width:auto; min-height:auto; padding:0; }
     td input:focus { background:transparent; }
     .seal { border-color:#bbb; }
-    .footer { position:fixed; bottom:0; }
+    td textarea.addr:focus { background:transparent; }
+    .footer { position:static; margin-top:8mm; }
+    .doc-no { font-size:12px; }
+    h1 { font-size:30px; margin:6mm 0 8mm; }
+    h2 { font-size:15px; margin:5mm 0 2mm; }
+    table { font-size:14px; }
+    th, td { padding:7px 8px; }
+    .statement { font-size:16px; margin:10mm 0 6mm; line-height:1.7; }
+    .issue-date { margin-bottom:8mm; }
+    .issuer { font-size:15px; }
+    .issuer .row { margin:5px 0; }
+    .seal { width:60px; height:60px; }
+    .page { break-inside:avoid; page-break-inside:avoid; }
   }
 </style>
 </head>
@@ -54,7 +70,7 @@
   <h2>1. 인적 사항</h2>
   <table>
     <tr><th>성 명</th><td><input></td><th>생년월일</th><td><input></td></tr>
-    <tr><th>주 소</th><td colspan="3"><input></td></tr>
+    <tr><th>주 소</th><td colspan="3"><textarea class="addr" rows="2"></textarea></td></tr>
   </table>
 
   <h2>2. 재직 사항</h2>
@@ -74,7 +90,7 @@
   <div class="issuer">
     <div class="row"><span class="label">점 포 명</span><input></div>
     <div class="row"><span class="label">사업자등록번호</span><input></div>
-    <div class="row"><span class="label">주 소</span><input></div>
+    <div class="row addr-row"><span class="label">주 소</span><textarea class="addr" rows="2"></textarea></div>
     <div class="row"><span class="label">발급자(대표자/점장)</span><input></div>
     <div class="row"><span class="label">서 명</span><input><span class="seal">(인)</span></div>
   </div>
@@ -82,6 +98,11 @@
   <div class="footer">본 증명서는 발급일 기준으로 작성되었습니다.</div>
 </div>
 
-
+<script>
+  document.querySelectorAll('textarea.addr').forEach(function(t){
+    function fit(){ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; }
+    t.addEventListener('input', fit); fit();
+  });
+</script>
 </body>
 </html>
