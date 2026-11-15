@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v135</h1>
+  <h1>CU 점포 체크리스트 v136</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1641,9 +1641,6 @@ function renderChecklist() {
     if (btn.dataset.clockSend) return;
     btn.addEventListener('click', () => shareItem(btn.closest('.item').dataset.id, true));
   });
-  checklistContainer.querySelectorAll('[data-clock-send]').forEach(btn => {
-    btn.addEventListener('click', () => shareClockIn(btn.dataset.clockSend === 'sms'));
-  });
   checklistContainer.querySelectorAll('[data-action="toggle-desc"]').forEach(btn => {
     btn.type = 'button';
     btn.addEventListener('click', () => {
@@ -1865,6 +1862,12 @@ function onItemEdited(e) {
   syncDoneBorders();
   maybeInboundPopup();
 }
+checklistContainer.addEventListener('click', (e) => {
+  const clockBtn = e.target.closest && e.target.closest('[data-clock-send]');
+  if (!clockBtn) return;
+  e.preventDefault();
+  shareClockIn(clockBtn.dataset.clockSend === 'sms');
+});
 checklistContainer.addEventListener('click', (e) => {
   const cb = e.target.closest && e.target.closest('.done-cb');
   if (!cb) return;
