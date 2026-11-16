@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v137</h1>
+  <h1>CU 점포 체크리스트 v138</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1669,6 +1669,7 @@ function renderChecklist() {
   restoreSavedPhotos(items);
   fillMissingTranslations();
   maybeInboundPopup();
+  applyPendingShare();
 }
 
 function selectedYmd() {
@@ -2174,30 +2175,7 @@ async function stampCaption(file, text, index) {
 }
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
-  const itemEl = document.querySelector(`.item[data-id="${id}"]`);
   const text = `업무: ${d.title}\n상태: 완료`;
-  const mark = () => {
-    if (itemEl) {
-      const t = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-      const key = reportKey(id);
-      if (!sessionReported[key]) {
-        sessionReported[key] = t;
-        itemEl.dataset.reported = '1';
-        itemEl.dataset.reportedAt = t;
-        const cb = itemEl.querySelector('.done-cb');
-        if (cb) cb.checked = true;
-      } else {
-        extraReported[key] = extraReported[key] || [];
-        extraReported[key].push(t);
-      }
-      const timeEl = document.getElementById('done-time-' + id);
-      if (timeEl) timeEl.innerHTML = timeHtml(id, sessionReported[key] || '');
-    }
-    saveProgress();
-    showMiss(id);
-    syncDoneBorders();
-    checkAllDone();
-  };
   if (!d.photos.length || !navigator.share) {
     alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.');
     return;
@@ -2207,13 +2185,77 @@ async function shareItem(id, isSms) {
     files = [];
     for (let i = 0; i < d.photos.length; i++) files.push(await stampCaption(d.photos[i], text, i + 1));
   } catch (e) {}
+  let leftPage = false;
+  const noteLeave = () => { if (document.visibilityState === 'hidden') leftPage = true; };
+  const noteHide = () => { leftPage = true; };
+  document.addEventListener('visibilitychange', noteLeave);
+  window.addEventListener('pagehide', noteHide);
+  rememberShare(id);
   try {
     await navigator.share({ files });
-    mark();
+    markReported(id);
+    clearSharePending(id);
   } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    alert('사진을 보내지 못했습니다.');
+    if (leftPage) {
+      markReported(id);
+      clearSharePending(id);
+    } else if (e && e.name === 'AbortError') {
+      clearSharePending(id);
+    } else {
+      clearSharePending(id);
+      alert('사진을 보내지 못했습니다.');
+    }
+  } finally {
+    document.removeEventListener('visibilitychange', noteLeave);
+    window.removeEventListener('pagehide', noteHide);
   }
+}
+function rememberShare(id) {
+  try {
+    localStorage.setItem('cu-share-pending', JSON.stringify({ key: getKey(), id: String(id), at: Date.now() }));
+  } catch (e) {}
+}
+function clearSharePending(id) {
+  try {
+    const raw = localStorage.getItem('cu-share-pending');
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (!id || String(p.id) === String(id)) localStorage.removeItem('cu-share-pending');
+  } catch (e) {}
+}
+function markReported(id) {
+  const itemEl = document.querySelector('.item[data-id="' + String(id).replace(/"/g, '') + '"]');
+  const t = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const key = reportKey(id);
+  if (!sessionReported[key]) {
+    sessionReported[key] = t;
+    if (itemEl) {
+      itemEl.dataset.reported = '1';
+      itemEl.dataset.reportedAt = t;
+      const cb = itemEl.querySelector('.done-cb');
+      if (cb) cb.checked = true;
+    }
+  } else {
+    extraReported[key] = extraReported[key] || [];
+    extraReported[key].push(t);
+  }
+  const timeEl = document.getElementById('done-time-' + id);
+  if (timeEl) timeEl.innerHTML = timeHtml(id, sessionReported[key] || '');
+  saveProgress();
+  showMiss(id);
+  syncDoneBorders();
+  checkAllDone();
+}
+function applyPendingShare() {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem('cu-share-pending') || 'null'); } catch (e) { return; }
+  if (!p || p.key !== getKey()) return;
+  if (Date.now() - p.at > 3 * 60 * 60 * 1000) { clearSharePending(p.id); return; }
+  const el = document.querySelector('.item[data-id="' + String(p.id).replace(/"/g, '') + '"]');
+  if (!el) return;
+  clearSharePending(p.id);
+  if (sessionReported[reportKey(p.id)] || el.dataset.reported === '1') return;
+  markReported(p.id);
 }
 window.shareItem = shareItem;
 
