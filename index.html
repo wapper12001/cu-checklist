@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v136</h1>
+  <h1>CU 점포 체크리스트 v137</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1491,7 +1491,17 @@ function saveProgress() {
     let extraAt = (extraReported[reportKey(id)] || []).slice();
     if (!extraAt.length && Array.isArray(prev.extraAt)) extraAt = prev.extraAt.filter(Boolean);
     let hasPhoto = (currentPhotos[id] || []).length > 0 || !!savedHasPhoto[id] || !!prev.hasPhoto;
-    if (!done && el.dataset.userUnchecked !== '1' && (prev.done || prev.reported || prev.reportedAt)) {
+    if (isClockItem(el.dataset.title)) {
+      if (clockInRecord && clockInRecord.at) {
+        done = true;
+        reported = true;
+        reportedAt = clockInRecord.at;
+      } else {
+        done = false;
+        reported = false;
+        reportedAt = '';
+      }
+    } else if (!done && el.dataset.userUnchecked !== '1' && (prev.done || prev.reported || prev.reportedAt)) {
       done = true;
       reported = true;
       reportedAt = reportedAt || prev.reportedAt || '';
@@ -1582,10 +1592,16 @@ function renderChecklist() {
       sv.reportedAt = sv.reportedAt || discardStamp(doneSlot.id);
       sv.hasPhoto = true;
     }
-    if (clockInRecord && clockInRecord.at && isClockItem(item.title)) {
-      sv.done = true;
-      sv.reported = true;
-      sv.reportedAt = clockInRecord.at;
+    if (isClockItem(item.title)) {
+      if (clockInRecord && clockInRecord.at) {
+        sv.done = true;
+        sv.reported = true;
+        sv.reportedAt = clockInRecord.at;
+      } else {
+        sv.done = false;
+        sv.reported = false;
+        sv.reportedAt = '';
+      }
     }
     if ((sv.reported || sv.done) && sv.reportedAt) sessionReported[reportKey(id)] = sv.reportedAt;
     if (Array.isArray(sv.extraAt)) extraReported[reportKey(id)] = sv.extraAt.filter(Boolean);
@@ -1605,7 +1621,7 @@ function renderChecklist() {
     }
     const descHtml = biHtml(desc);
     const clockImg = isClockItem(item.title) ? '<img src="cu-clock-qr.png" alt="근무자 인증 QR 스캔 방법" style="width:100%; border-radius:8px; display:block; margin-top:8px;">' : '';
-    const photoRow = needsPhoto(id) ? `
+    const photoRow = needsPhoto(id) && !isClockItem(item.title) ? `
         <div class="btn-row">
           <button type="button" class="btn-photo">📷 ${biHtml('사진찍기')}</button>
           <button type="button" class="btn-kakao">${biHtml('카톡')}</button>
@@ -1863,6 +1879,12 @@ function onItemEdited(e) {
   maybeInboundPopup();
 }
 checklistContainer.addEventListener('click', (e) => {
+  const scanBtn = e.target.closest && e.target.closest('[data-clock-scan]');
+  if (scanBtn) {
+    e.preventDefault();
+    startClockScan();
+    return;
+  }
   const clockBtn = e.target.closest && e.target.closest('[data-clock-send]');
   if (!clockBtn) return;
   e.preventDefault();
@@ -2458,7 +2480,11 @@ let clockInRecord = null;
 let qrStream = null;
 let qrRunning = false;
 function clockDetailHtml() {
-  if (!clockInRecord || !clockInRecord.at) return '';
+  if (!clockInRecord || !clockInRecord.at) {
+    return `<div class="clock-detail" style="margin:0 0 8px;">
+      <button type="button" class="btn-primary" data-clock-scan="1" style="width:100%;">QR 스캔</button>
+    </div>`;
+  }
   const store = escHtml(clockInRecord.store || currentStore || '');
   return `<div class="clock-detail" style="font-size:14px; line-height:1.5; margin:0 0 8px;">
     <div><strong>점포명:</strong> ${store}</div>
@@ -2618,7 +2644,8 @@ document.querySelector('.qr-help-pop').onclick = (e) => {
 document.querySelector('.qr-help').addEventListener('mouseleave', () => {
   document.querySelector('.qr-help').classList.remove('closed');
 });
-document.getElementById('clockInBtn').onclick = async () => {
+document.getElementById('clockInBtn').onclick = () => startClockScan();
+async function startClockScan() {
   const modal = document.getElementById('barcodeModal');
   const msg = document.getElementById('qrMsg');
   modal.classList.remove('hidden');
