@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>CU 점포 체크리스트</title>
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
@@ -115,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v138</h1>
+  <h1>CU 점포 체크리스트 v139</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -131,6 +132,7 @@ if (document.documentElement.classList.contains('inapp')) {
           </div>
         </div>
       </div>
+      <button type="button" class="btn-secondary" id="homeBtn" style="width:100%; margin:0 0 12px;">홈 화면에 추가</button>
       <label data-ko="언어">언어</label>
       <select id="langSelect">
         <option value="">한국어</option>
@@ -292,6 +294,13 @@ if (document.documentElement.classList.contains('inapp')) {
     <button type="button" class="btn-kakao" id="sendNowKakao" style="width:100%;">카톡</button>
     <button type="button" class="btn-sms" id="sendNowSms" style="width:100%; margin-top:8px;">문자</button>
     <button type="button" class="btn-secondary" id="sendNowClose" style="width:100%; margin-top:8px;">닫기</button>
+  </div>
+</div>
+<div id="homeModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 style="margin-top:0; color:#6B2C91;">홈 화면에 추가</h3>
+    <p id="homeHelp" style="font-size:15px; line-height:1.55; white-space:pre-line;"></p>
+    <button type="button" class="btn-secondary" id="homeClose" style="width:100%;">닫기</button>
   </div>
 </div>
 <div id="barcodeModal" class="modal hidden">
@@ -3338,10 +3347,33 @@ document.getElementById('cancelEdit').onclick = () => {
 </script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(list) {
-    list.forEach(function(reg) { reg.unregister(); });
-  });
+  navigator.serviceWorker.register('sw.js').catch(function(){});
 }
+var deferredInstall = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredInstall = e;
+});
+var homeBtn = document.getElementById('homeBtn');
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+  if (homeBtn) homeBtn.style.display = 'none';
+}
+if (homeBtn) homeBtn.onclick = async function() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    try { await deferredInstall.userChoice; } catch (e) {}
+    deferredInstall = null;
+    return;
+  }
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  document.getElementById('homeHelp').textContent = ios
+    ? '사파리 하단의 공유 버튼을 누르세요.\n홈 화면에 추가를 누르면\nCU체크 아이콘이 생깁니다.'
+    : '크롬 오른쪽 위 메뉴를 누르세요.\n홈 화면에 추가 또는 앱 설치를 누르면\nCU체크 아이콘이 생깁니다.';
+  document.getElementById('homeModal').classList.remove('hidden');
+};
+document.getElementById('homeClose').onclick = function() {
+  document.getElementById('homeModal').classList.add('hidden');
+};
 </script>
 </body>
 </html>
