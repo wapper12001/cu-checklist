@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v140</h1>
+  <h1>CU 점포 체크리스트 v141</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1720,13 +1720,25 @@ function isAmbientLogistics(title) {
 function addItemOnce(items, it) {
   if (!items.some(x => (x.title || '').trim() === it.title)) items.push(it);
 }
+function is19CloseShift() {
+  const hours = String((allData[currentStore] && allData[currentStore].hours) || '');
+  if (hours !== '19') return false;
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) return false;
+  const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
+  const name = ((shift && shift.name) || '') + (shiftSelect.value || '');
+  if (name.includes('마감')) return true;
+  return range.end <= 60;
+}
 function visibleItems(shift) {
   let items = (shift?.items || []).filter(it => it && it.title);
   const tempTitle = '중집기온도체크';
   const tempDesc = '아이스크림냉동고\n얼음컵냉동고\n에비비냉동고\n리치인냉동고\n\n워크인냉장고\n오픈쇼케이스냉장고\n기타냉장고';
-  if (!items.some(it => (it.title || '').replace(/\s/g, '') === tempTitle)) {
+  const tempItem = { id: 'equip-temp', title: tempTitle, desc: tempDesc, photo_required: true };
+  const closing19 = is19CloseShift();
+  if (!items.some(it => (it.title || '').replace(/\s/g, '') === tempTitle) && !closing19) {
     const at = items.findIndex(it => (it.title || '').replace(/\s/g, '').includes('중점재고체크'));
-    if (at >= 0) items.splice(at + 1, 0, { id: 'equip-temp', title: tempTitle, desc: tempDesc, photo_required: true });
+    if (at >= 0) items.splice(at + 1, 0, tempItem);
   }
   let removed = false;
   if (hideCigaretteCheck()) {
@@ -1747,6 +1759,14 @@ function visibleItems(shift) {
       collapsed.push(it);
     });
     items = collapsed;
+  }
+  if (closing19) {
+    items = items.filter(it => (it.title || '').replace(/\s/g, '') !== tempTitle);
+    const closeAt = items.findIndex(it => (it.title || '').replace(/\s/g, '').includes('마감'));
+    const beforeEnd = items.findIndex(it => (it.title || '').trim().startsWith('퇴근전'));
+    const at = closeAt >= 0 ? closeAt : beforeEnd;
+    if (at >= 0) items.splice(at, 0, tempItem);
+    else items.push(tempItem);
   }
   const endAt = items.findIndex(it => {
     const t = (it.title || '').trim();
