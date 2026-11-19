@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v141</h1>
+  <h1>CU 점포 체크리스트 v142</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2656,15 +2656,16 @@ function qrDateOk(ymd) {
   if (ymd.length === 6) return ymd === today.slice(2);
   return false;
 }
-function finishClockIn(code) {
+async function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
   const parsed = parseCuQr(code);
   if (!parsed) { alert('CU 출근 QR이 아닙니다.'); return; }
-  const mine = myStoreCode();
-  if (!mine) { alert('먼저 점포 코드로 들어가세요.'); return; }
-  if (!sameStoreCode(parsed.storeCode, mine)) { alert('이 점포 QR이 아닙니다.'); return; }
   if (!qrDateOk(parsed.ymd)) { alert('오늘 출근 QR이 아닙니다.'); return; }
+  if (!sameStoreCode(parsed.storeCode, myStoreCode())) {
+    const ok = await enterStoreCode(parsed.storeCode, false);
+    if (!ok) return;
+  }
   clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), store: currentStore || '', date: (reportDate && reportDate.value) || koreaNow().date };
   showClockIn();
   document.querySelectorAll('.item').forEach(el => {
