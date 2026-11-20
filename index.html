@@ -82,6 +82,11 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .date-row label { display: inline-flex; align-items: center; gap: 2px; margin: 0; font-weight: 600; font-size: 13px; white-space: nowrap; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
+.area-pick { position: relative; }
+.area-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 50; background: #fff; border: 1px solid #c9b0dc; border-radius: 8px; max-height: 220px; overflow-y: auto; box-shadow: 0 8px 20px rgba(0,0,0,.12); }
+.area-list button { display: block; width: 100%; text-align: left; background: #fff; color: #222; border: none; border-bottom: 1px solid #f3e9f8; border-radius: 0; padding: 12px; font-size: 16px; font-weight: 600; }
+.area-list button:active { background: #f3e9f8; }
+.area-empty { padding: 12px; color: #777; font-size: 14px; }
 .secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .modal-content { background: white; padding: 20px; border-radius: 12px; width: 92%; max-width: 420px; max-height: 90vh; overflow-y: auto; }
@@ -115,7 +120,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v154</h1>
+  <h1>CU 점포 체크리스트 v155</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -236,20 +241,20 @@ if (document.documentElement.classList.contains('inapp')) {
           <option value="24">24시간</option>
         </select>
         <label style="margin-top:8px;">시</label>
-        <input type="text" id="detailCitySearch" placeholder="초성 검색 예: ㅂㅊ" autocomplete="off">
-        <select id="detailCity" style="margin-top:6px;">
-          <option value="">시 선택</option>
-        </select>
+        <div class="area-pick">
+          <input type="text" id="detailCity" placeholder="ㅂ 또는 부" autocomplete="off">
+          <div id="detailCityList" class="area-list hidden"></div>
+        </div>
         <label style="margin-top:8px;">구</label>
-        <input type="text" id="detailGuSearch" placeholder="초성 검색 예: ㅇㅁ" autocomplete="off">
-        <select id="detailDistrict" style="margin-top:6px;">
-          <option value="">구 선택</option>
-        </select>
+        <div class="area-pick">
+          <input type="text" id="detailDistrict" placeholder="ㅂ 또는 원" autocomplete="off">
+          <div id="detailGuList" class="area-list hidden"></div>
+        </div>
         <label style="margin-top:8px;">동</label>
-        <input type="text" id="detailDongSearch" placeholder="초성 검색 예: ㅈㄷ" autocomplete="off">
-        <select id="detailDong" style="margin-top:6px;">
-          <option value="">동 선택</option>
-        </select>
+        <div class="area-pick">
+          <input type="text" id="detailDong" placeholder="ㅂ 또는 중" autocomplete="off">
+          <div id="detailDongList" class="area-list hidden"></div>
+        </div>
         <p style="font-size:13px; color:#555; margin:6px 0 0;">상세 주소는 적지 않습니다. 시, 구, 동만 고르면 됩니다.</p>
         <button class="btn-primary" id="saveDetailBtn" style="width:100%; margin-top:12px;">점포 정보 저장</button>
       </div>
@@ -3232,9 +3237,95 @@ function matchesArea(name, query) {
   if (String(name).includes(q)) return true;
   return choseong(name).includes(choseong(q));
 }
-function areaQuery(id) {
-  const el = document.getElementById(id);
-  return el ? el.value : '';
+function hideAreaLists() {
+  ['detailCityList', 'detailGuList', 'detailDongList'].forEach(id => {
+    const box = document.getElementById(id);
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  });
+}
+function showAreaList(listId, names, onPick) {
+  const box = document.getElementById(listId);
+  if (!names.length) {
+    box.innerHTML = '<div class="area-empty">없는 이름입니다.</div>';
+    box.classList.remove('hidden');
+    return;
+  }
+  box.innerHTML = names.map(name => '<button type="button">' + escHtml(name) + '</button>').join('');
+  box.classList.remove('hidden');
+  box.querySelectorAll('button').forEach((btn, i) => {
+    btn.onpointerdown = (e) => {
+      e.preventDefault();
+      onPick(names[i]);
+    };
+  });
+}
+function chosenArea(inputId, names) {
+  const el = document.getElementById(inputId);
+  const typed = el.value.trim();
+  const picked = el.dataset.value || '';
+  if (picked && typed === picked && names.includes(picked)) return picked;
+  return names.includes(typed) ? typed : '';
+}
+function resetGuAndDong(city) {
+  const gu = document.getElementById('detailDistrict');
+  const dong = document.getElementById('detailDong');
+  dong.value = '';
+  dong.dataset.value = '';
+  const gus = areaGus(city);
+  if (city && !gus.length) {
+    gu.value = '구 없음';
+    gu.dataset.value = '';
+    gu.disabled = true;
+  } else {
+    gu.disabled = false;
+    gu.value = '';
+    gu.dataset.value = '';
+  }
+}
+function pickCity(name) {
+  const input = document.getElementById('detailCity');
+  input.value = name;
+  input.dataset.value = name;
+  hideAreaLists();
+  resetGuAndDong(name);
+}
+function pickGu(name) {
+  const input = document.getElementById('detailDistrict');
+  input.value = name;
+  input.dataset.value = name;
+  hideAreaLists();
+  const dong = document.getElementById('detailDong');
+  dong.value = '';
+  dong.dataset.value = '';
+}
+function pickDong(name) {
+  const input = document.getElementById('detailDong');
+  input.value = name;
+  input.dataset.value = name;
+  hideAreaLists();
+}
+function openCityList() {
+  const input = document.getElementById('detailCity');
+  const q = input.value.trim();
+  if (!q || q === (input.dataset.value || '')) { document.getElementById('detailCityList').classList.add('hidden'); return; }
+  showAreaList('detailCityList', areaCities().filter(name => matchesArea(name, q)), pickCity);
+}
+function openGuList() {
+  const input = document.getElementById('detailDistrict');
+  const city = chosenArea('detailCity', areaCities());
+  const q = input.value.trim();
+  if (input.disabled || !city || !q || q === (input.dataset.value || '')) { document.getElementById('detailGuList').classList.add('hidden'); return; }
+  showAreaList('detailGuList', areaGus(city).filter(name => matchesArea(name, q)), pickGu);
+}
+function openDongList() {
+  const input = document.getElementById('detailDong');
+  const city = chosenArea('detailCity', areaCities());
+  const gus = areaGus(city);
+  const gu = gus.length ? chosenArea('detailDistrict', gus) : '';
+  const q = input.value.trim();
+  if (!city || (gus.length && !gu) || !q || q === (input.dataset.value || '')) { document.getElementById('detailDongList').classList.add('hidden'); return; }
+  showAreaList('detailDongList', areaDongs(city, gu).filter(name => matchesArea(name, q)), pickDong);
 }
 function splitSavedArea(district) {
   const raw = String(district || '');
@@ -3243,74 +3334,46 @@ function splitSavedArea(district) {
   if (AREAS['부천시'] && AREAS['부천시'][raw]) return { city: '부천시', gu: raw };
   return { city: '', gu: '' };
 }
-function fillCitySelect(selected) {
-  const sel = document.getElementById('detailCity');
-  const names = areaCities().filter(name => matchesArea(name, areaQuery('detailCitySearch')));
-  sel.innerHTML = '<option value="">시 선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
-  if (names.length === 1 && areaQuery('detailCitySearch')) sel.value = names[0];
-  else if (selected && names.includes(selected)) sel.value = selected;
-}
-function fillGuSelect(city, selected) {
-  const sel = document.getElementById('detailDistrict');
-  const gus = areaGus(city);
-  if (!gus.length) {
-    sel.innerHTML = '<option value="">구 없음</option>';
-    sel.value = '';
-    sel.disabled = !!city;
-    return;
-  }
-  sel.disabled = false;
-  const names = gus.filter(name => matchesArea(name, areaQuery('detailGuSearch')));
-  sel.innerHTML = '<option value="">구 선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
-  if (names.length === 1 && areaQuery('detailGuSearch')) sel.value = names[0];
-  else if (selected && names.includes(selected)) sel.value = selected;
-}
-function fillDongSelect(city, gu, selected) {
-  const sel = document.getElementById('detailDong');
-  const names = areaDongs(city, gu).filter(name => matchesArea(name, areaQuery('detailDongSearch')));
-  sel.innerHTML = '<option value="">동 선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
-  if (names.length === 1 && areaQuery('detailDongSearch')) sel.value = names[0];
-  else if (selected && names.includes(selected)) sel.value = selected;
-}
 function showStoreArea(district, dong) {
-  ['detailCitySearch', 'detailGuSearch', 'detailDongSearch'].forEach(id => { document.getElementById(id).value = ''; });
   const area = splitSavedArea(district);
-  fillCitySelect(area.city);
-  fillGuSelect(area.city, area.gu);
-  fillDongSelect(area.city, area.gu, dong || '');
+  const city = document.getElementById('detailCity');
+  const gu = document.getElementById('detailDistrict');
+  const dongEl = document.getElementById('detailDong');
+  city.value = area.city || '';
+  city.dataset.value = area.city || '';
+  const gus = areaGus(area.city);
+  if (area.city && !gus.length) {
+    gu.value = '구 없음';
+    gu.dataset.value = '';
+    gu.disabled = true;
+  } else {
+    gu.disabled = false;
+    gu.value = area.gu || '';
+    gu.dataset.value = area.gu || '';
+  }
+  dongEl.value = dong || '';
+  dongEl.dataset.value = dong || '';
+  hideAreaLists();
 }
-document.getElementById('detailCitySearch').oninput = function() {
-  const before = document.getElementById('detailCity').value;
-  fillCitySelect(before);
-  const after = document.getElementById('detailCity').value;
-  if (after === before) return;
-  document.getElementById('detailGuSearch').value = '';
-  document.getElementById('detailDongSearch').value = '';
-  fillGuSelect(after, '');
-  fillDongSelect(after, document.getElementById('detailDistrict').value, '');
+document.getElementById('detailCity').oninput = function() {
+  if (this.value.trim() !== (this.dataset.value || '')) this.dataset.value = '';
+  resetGuAndDong('');
+  openCityList();
 };
-document.getElementById('detailGuSearch').oninput = function() {
-  const city = document.getElementById('detailCity').value;
-  const before = document.getElementById('detailDistrict').value;
-  fillGuSelect(city, before);
-  const after = document.getElementById('detailDistrict').value;
-  if (after === before) return;
-  document.getElementById('detailDongSearch').value = '';
-  fillDongSelect(city, after, '');
+document.getElementById('detailDistrict').oninput = function() {
+  if (this.value.trim() !== (this.dataset.value || '')) this.dataset.value = '';
+  const dong = document.getElementById('detailDong');
+  dong.value = '';
+  dong.dataset.value = '';
+  openGuList();
 };
-document.getElementById('detailDongSearch').oninput = function() {
-  fillDongSelect(document.getElementById('detailCity').value, document.getElementById('detailDistrict').value, document.getElementById('detailDong').value);
+document.getElementById('detailDong').oninput = function() {
+  if (this.value.trim() !== (this.dataset.value || '')) this.dataset.value = '';
+  openDongList();
 };
-document.getElementById('detailCity').onchange = function() {
-  document.getElementById('detailGuSearch').value = '';
-  document.getElementById('detailDongSearch').value = '';
-  fillGuSelect(this.value, '');
-  fillDongSelect(this.value, document.getElementById('detailDistrict').value, '');
-};
-document.getElementById('detailDistrict').onchange = function() {
-  document.getElementById('detailDongSearch').value = '';
-  fillDongSelect(document.getElementById('detailCity').value, this.value, '');
-};
+document.getElementById('detailCity').onfocus = openCityList;
+document.getElementById('detailDistrict').onfocus = openGuList;
+document.getElementById('detailDong').onfocus = openDongList;
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
   const detail = document.getElementById('storeDetail');
@@ -3338,9 +3401,10 @@ document.getElementById('saveDetailBtn').onclick = async () => {
   allData[name].manager = document.getElementById('detailManager').value.trim();
   allData[name].phone = document.getElementById('detailPhone').value.trim();
   allData[name].hours = document.getElementById('detailHours').value;
-  const city = document.getElementById('detailCity').value;
-  const gu = document.getElementById('detailDistrict').value;
-  const dong = document.getElementById('detailDong').value;
+  const city = chosenArea('detailCity', areaCities());
+  const gus = areaGus(city);
+  const gu = gus.length ? chosenArea('detailDistrict', gus) : '';
+  const dong = chosenArea('detailDong', areaDongs(city, gu));
   const point = areaPoint(city, gu, dong);
   if (!point) {
     alert('시, 구, 동을 선택하세요.');
