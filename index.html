@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v149</h1>
+  <h1>CU 점포 체크리스트 v150</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -981,7 +981,7 @@ function slotNote(slot, hours) {
 }
 async function loadPopups() {
   popupRows = [];
-  const { data, error } = await supabase.from('checklist_items').select('*').eq('store_name', '__popup__').eq('shift_key', 'alarm').order('item_order');
+  const { data, error } = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'alarm').order('item_order');
   if (error) { console.error(error); return; }
   popupRows = (data || []).map(it => {
     let o = {};
@@ -1004,7 +1004,7 @@ async function loadPopups() {
     };
   }).filter(s => s.title);
   inboundSaved = null;
-  const inbound = await supabase.from('checklist_items').select('*').eq('store_name', '__popup__').eq('shift_key', 'inbound').order('item_order').limit(1);
+  const inbound = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'inbound').order('item_order').limit(1);
   if (!inbound.error && inbound.data && inbound.data[0]) {
     try { inboundSaved = JSON.parse(inbound.data[0].description || '{}'); } catch (e) { inboundSaved = null; }
   }
@@ -3407,11 +3407,18 @@ function readPopupDraft() {
   });
   return list;
 }
+function popupLineLabel(s) {
+  const title = (s.title || '').trim();
+  const time = s.time || '';
+  if (!title) return (time ? time + ' ' : '') + '새 알림';
+  if (time && title.startsWith(time)) return title;
+  return (time ? time + ' ' : '') + title;
+}
 function renderPopupEditor() {
   const panel = document.getElementById('popupList');
   panel.innerHTML = popupDraft.map(s => `
     <div class="popup-row" data-id="${escAttr(s.id)}">
-      <button type="button" class="common-line popup-line">${escHtml((s.time || '') + ' ' + (s.title || '새 알림'))}</button>
+      <button type="button" class="common-line popup-line">${escHtml(popupLineLabel(s))}</button>
       <div class="popup-edit ${s.id === openPopupId ? '' : 'hidden'}" style="padding:8px 0 12px;">
       <label>시각</label>
       <input class="p-time" type="time" value="${escAttr(s.time || '09:30')}">
@@ -3450,10 +3457,10 @@ function renderPopupEditor() {
   openPopupId = '';
 }
 async function persistPopups(list) {
-  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__popup__').eq('shift_key', 'alarm');
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'alarm');
   if (delErr) throw delErr;
   const rows = list.filter(s => s.title).map((s, i) => ({
-    store_name: '__popup__',
+    store_name: '__i18n__',
     shift_key: 'alarm',
     shift_name: '알림',
     item_order: i + 1,
@@ -3492,10 +3499,10 @@ async function saveInboundFromForm() {
     return false;
   }
   const description = JSON.stringify({ title, body, phrase });
-  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__popup__').eq('shift_key', 'inbound');
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'inbound');
   if (delErr) throw delErr;
   const { error } = await supabase.from('checklist_items').insert({
-    store_name: '__popup__',
+    store_name: '__i18n__',
     shift_key: 'inbound',
     shift_name: '입고',
     item_order: 1,
@@ -3522,7 +3529,7 @@ async function savePopupDraft() {
     fillInboundEditor();
     alert('팝업 알림을 저장했습니다.');
   } catch (e) {
-    alert('저장하지 못했습니다.');
+    alert('저장하지 못했습니다.\n' + (e && e.message ? e.message : e));
   }
 }
 async function deletePopup(index) {
