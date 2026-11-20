@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v156</h1>
+  <h1>CU 점포 체크리스트 v157</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -216,6 +216,39 @@ if (document.documentElement.classList.contains('inapp')) {
           <button type="button" class="btn-secondary" id="addPopupBtn" style="width:100%; margin-top:8px;">팝업 추가</button>
         </div>
         <button type="button" class="btn-primary" id="savePopupBtn" style="width:100%; margin-top:8px;">팝업 저장</button>
+      </div>
+      <button class="btn-secondary" id="dateRuleBtn" type="button" style="width:100%; margin-top:8px;">날짜 항목</button>
+      <div id="dateRulePanel" class="hidden" style="margin-top:12px;">
+        <p style="font-size:13px; color:#555; margin:0 0 8px;">날짜는 아래 것만 고릅니다. 명절은 그해 날짜를 직접 넣습니다.</p>
+        <h4 style="margin:8px 0;">명절 당일</h4>
+        <label>추석 당일</label>
+        <div id="chuseokDates"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <input type="date" id="chuseokInput" style="flex:1; width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:16px;">
+          <button type="button" class="btn-secondary" id="chuseokAddBtn">추가</button>
+        </div>
+        <label style="margin-top:10px;">설 당일</label>
+        <div id="seollalDates"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <input type="date" id="seollalInput" style="flex:1; width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:16px;">
+          <button type="button" class="btn-secondary" id="seollalAddBtn">추가</button>
+        </div>
+        <h4 style="margin:14px 0 8px;">빼는 항목</h4>
+        <p style="font-size:13px; color:#555; margin:0 0 6px;">고른 날에 목록의 항목을 뺍니다.</p>
+        <label style="display:inline-flex; margin-right:10px;"><input type="checkbox" data-remove-when="sun"> 일요일</label>
+        <label style="display:inline-flex; margin-right:10px;"><input type="checkbox" data-remove-when="chuseok"> 추석 당일</label>
+        <label style="display:inline-flex;"><input type="checkbox" data-remove-when="seollal"> 설 당일</label>
+        <label style="margin-top:8px; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="ambientRemove"> 상온 물류 (입고, 검수, 진열, 소분 박스)</label>
+        <div id="removeTitleList"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <select id="removeTitlePick" style="flex:1;"></select>
+          <button type="button" class="btn-secondary" id="removeTitleAddBtn">추가</button>
+        </div>
+        <h4 style="margin:14px 0 8px;">넣는 항목</h4>
+        <p style="font-size:13px; color:#555; margin:0 0 6px;">공통 항목을 고르고 날짜만 체크합니다. 일요일 항목은 4시간 이하 근무에는 나오지 않습니다.</p>
+        <div id="dateAddList"></div>
+        <button type="button" class="btn-secondary" id="dateAddBtn" style="width:100%; margin-top:8px;">넣는 항목 추가</button>
+        <button type="button" class="btn-primary" id="dateRuleSave" style="width:100%; margin-top:8px;">날짜 항목 저장</button>
       </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
@@ -1055,6 +1088,7 @@ async function loadPopups() {
   if (!weather.error && weather.data && weather.data[0]) {
     try { weatherSaved = JSON.parse(weather.data[0].description || '{}'); } catch (e) { weatherSaved = null; }
   }
+  await loadDateRules();
 }
 const INBOUND_DEFAULT = {
   title: '입고·진열 확인',
@@ -1839,14 +1873,117 @@ function isSelectedSunday() {
   const { y, m, d } = selectedYmd();
   return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12))) === 'Sun';
 }
-function showcardKinds() {
+const REMOVE_WHEN = ['sun', 'chuseok', 'seollal'];
+const ADD_WHEN = [
+  { id: 'sun', label: '일요일' },
+  { id: 'before-last', label: '말일 전날' },
+  { id: 'last', label: '말일' },
+  { id: 'd1', label: '1일' },
+  { id: 'd2', label: '2일' },
+  { id: 'd16', label: '16일' }
+];
+let dateRules = null;
+let dateDraft = null;
+function defaultDateRules() {
+  return {
+    chuseok: [],
+    seollal: [],
+    removeWhen: ['sun', 'chuseok', 'seollal'],
+    removeTitles: ['__ambient__'],
+    adds: [
+      { title: 'PDA 유통기한 체크', when: ['sun'] },
+      { title: '지정 특정 업무', when: ['sun'] },
+      { title: '새 달 쇼카드 모으기', when: ['before-last'] },
+      { title: '월 행사 쇼카드 교체', when: ['last', 'd1', 'd2'] },
+      { title: '기간행사 쇼카드 교체', when: ['d16'] }
+    ]
+  };
+}
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || '');
+}
+function normalizeDateRules(src) {
+  const base = defaultDateRules();
+  const o = src || {};
+  const removeWhen = REMOVE_WHEN.filter(id => (Array.isArray(o.removeWhen) ? o.removeWhen : base.removeWhen).includes(id));
+  const removeTitles = (Array.isArray(o.removeTitles) ? o.removeTitles : base.removeTitles).map(t => String(t || '').trim()).filter(t => t === '__ambient__' || t);
+  const adds = (Array.isArray(o.adds) ? o.adds : base.adds).map(row => ({
+    title: String((row && row.title) || '').trim(),
+    when: ADD_WHEN.map(w => w.id).filter(id => ((row && row.when) || []).includes(id))
+  })).filter(row => row.title && row.when.length);
+  return {
+    chuseok: [...new Set((o.chuseok || []).filter(isYmd))].sort(),
+    seollal: [...new Set((o.seollal || []).filter(isYmd))].sort(),
+    removeWhen,
+    removeTitles: [...new Set(removeTitles)],
+    adds
+  };
+}
+function currentDateRules() {
+  return dateRules || defaultDateRules();
+}
+async function loadDateRules() {
+  dateRules = null;
+  const { data, error } = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'date-rules').order('item_order').limit(1);
+  if (error || !data || !data[0]) return;
+  try { dateRules = normalizeDateRules(JSON.parse(data[0].description || '{}')); } catch (e) { dateRules = null; }
+}
+function selectedYmdText() {
+  const { y, m, d } = selectedYmd();
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function dateFlags() {
   const { y, m, d } = selectedYmd();
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const kinds = [];
-  if (d === last || d === 1 || d === 2) kinds.push('month');
-  if (d === last - 1) kinds.push('prep');
-  if (d === 16) kinds.push('period');
-  return kinds;
+  const rules = currentDateRules();
+  const ymd = selectedYmdText();
+  const flags = new Set();
+  if (isSelectedSunday()) flags.add('sun');
+  if (d === last - 1) flags.add('before-last');
+  if (d === last) flags.add('last');
+  if (d === 1) flags.add('d1');
+  if (d === 2) flags.add('d2');
+  if (d === 16) flags.add('d16');
+  if ((rules.chuseok || []).includes(ymd)) flags.add('chuseok');
+  if ((rules.seollal || []).includes(ymd)) flags.add('seollal');
+  return flags;
+}
+function shouldRemoveItem(title) {
+  const rules = currentDateRules();
+  const flags = dateFlags();
+  if (!rules.removeWhen.some(id => flags.has(id))) return false;
+  const compact = (title || '').replace(/\s/g, '');
+  return rules.removeTitles.some(name => {
+    if (name === '__ambient__') return isAmbientLogistics(title);
+    return compact && compact === name.replace(/\s/g, '');
+  });
+}
+function dateItemId(title) {
+  const known = {
+    'PDA 유통기한 체크': 'sunday-pda',
+    '지정 특정 업무': 'sunday-task',
+    '새 달 쇼카드 모으기': 'showcard-prep',
+    '월 행사 쇼카드 교체': 'showcard-month',
+    '기간행사 쇼카드 교체': 'showcard-period'
+  };
+  return known[title] || ('date-' + encodeURIComponent(title));
+}
+function dateExtras() {
+  const flags = dateFlags();
+  const extra = [];
+  currentDateRules().adds.forEach(row => {
+    const matched = row.when.filter(id => flags.has(id));
+    if (!matched.length) return;
+    if (matched.every(id => id === 'sun') && skipSundayTasks()) return;
+    if (extra.some(it => it.title === row.title)) return;
+    extra.push({
+      id: dateItemId(row.title),
+      title: row.title,
+      desc: (commonDesc[row.title] || COMMON_DESC[row.title] || ''),
+      photo_required: true
+    });
+  });
+  return extra;
 }
 function shiftMinutes(range) {
   return range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end;
@@ -1897,8 +2034,8 @@ function visibleItems(shift) {
     if (next.length !== items.length) removed = true;
     items = next;
   }
-  if (isSelectedSunday()) {
-    const next = items.filter(it => !isAmbientLogistics(it.title));
+  {
+    const next = items.filter(it => !shouldRemoveItem(it.title));
     if (next.length !== items.length) removed = true;
     items = next;
   }
@@ -1925,15 +2062,7 @@ function visibleItems(shift) {
   });
   const body = endAt < 0 ? items : items.slice(0, endAt);
   const tail = endAt < 0 ? [] : items.slice(endAt);
-  const extra = [];
-  if (isSelectedSunday() && !skipSundayTasks()) {
-    extra.push({ id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
-    extra.push({ id: 'sunday-task', title: '지정 특정 업무', desc: '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
-  }
-  const kinds = showcardKinds();
-  if (kinds.includes('prep')) extra.push({ id: 'showcard-prep', title: '새 달 쇼카드 모으기', desc: '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.', photo_required: true });
-  if (kinds.includes('month')) extra.push({ id: 'showcard-month', title: '월 행사 쇼카드 교체', desc: '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.', photo_required: true });
-  if (kinds.includes('period')) extra.push({ id: 'showcard-period', title: '기간행사 쇼카드 교체', desc: '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.', photo_required: true });
+  const extra = dateExtras();
   const added = [];
   extra.forEach(it => {
     if (!body.some(x => (x.title || '').trim() === it.title)) added.push(it);
@@ -3823,6 +3952,140 @@ document.getElementById('timePopupBtn').onclick = () => document.getElementById(
 document.getElementById('inboundLineBtn').onclick = () => document.getElementById('inboundEdit').classList.toggle('hidden');
 document.getElementById('weatherLineBtn').onclick = () => document.getElementById('weatherEdit').classList.toggle('hidden');
 document.getElementById('savePopupBtn').onclick = savePopupDraft;
+function commonTitleOptions() {
+  const names = (commonTitles.length ? commonTitles : COMMON_SEED).slice();
+  return names.filter(Boolean).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function renderHolidayDates(kind) {
+  const box = document.getElementById(kind + 'Dates');
+  const list = dateDraft[kind] || [];
+  box.innerHTML = list.length ? list.map((day, i) => '<div style="display:flex; gap:8px; align-items:center; margin:4px 0;"><span>' + escHtml(day) + '</span><button type="button" class="btn-secondary" data-i="' + i + '">빼기</button></div>').join('') : '<p style="font-size:13px; color:#777; margin:4px 0;">아직 없습니다.</p>';
+  box.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => {
+      dateDraft[kind].splice(Number(btn.dataset.i), 1);
+      renderHolidayDates(kind);
+    };
+  });
+}
+function renderRemoveTitles() {
+  const box = document.getElementById('removeTitleList');
+  const titles = dateDraft.removeTitles.filter(name => name !== '__ambient__');
+  box.innerHTML = titles.map((name, i) => '<div style="display:flex; gap:8px; align-items:center; margin-top:6px;"><span style="flex:1;">' + escHtml(name) + '</span><button type="button" class="btn-secondary" data-i="' + i + '">빼기</button></div>').join('');
+  box.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => {
+      const titlesNow = dateDraft.removeTitles.filter(name => name !== '__ambient__');
+      titlesNow.splice(Number(btn.dataset.i), 1);
+      dateDraft.removeTitles = (dateDraft.removeTitles.includes('__ambient__') ? ['__ambient__'] : []).concat(titlesNow);
+      renderRemoveTitles();
+      fillRemovePicker();
+    };
+  });
+  document.getElementById('ambientRemove').checked = dateDraft.removeTitles.includes('__ambient__');
+}
+function fillRemovePicker() {
+  const sel = document.getElementById('removeTitlePick');
+  const used = new Set(dateDraft.removeTitles);
+  const names = commonTitleOptions().filter(name => !used.has(name));
+  sel.innerHTML = '<option value="">항목 선택</option>' + names.map(name => '<option value="' + escAttr(name) + '">' + escHtml(name) + '</option>').join('');
+}
+function renderDateAdds() {
+  const box = document.getElementById('dateAddList');
+  const names = commonTitleOptions();
+  box.innerHTML = dateDraft.adds.map((row, i) => {
+    const opts = names.map(name => '<option value="' + escAttr(name) + '"' + (name === row.title ? ' selected' : '') + '>' + escHtml(name) + '</option>').join('');
+    const checks = ADD_WHEN.map(when => '<label style="display:inline-flex; margin:4px 8px 0 0;"><input type="checkbox" data-i="' + i + '" data-when="' + when.id + '"' + (row.when.includes(when.id) ? ' checked' : '') + '> ' + when.label + '</label>').join('');
+    return '<div style="border-top:1px solid #eee; padding:8px 0;"><select data-add-title="' + i + '">' + opts + '</select><div>' + checks + '</div><button type="button" class="btn-secondary" data-del-add="' + i + '" style="margin-top:6px;">삭제</button></div>';
+  }).join('');
+  box.querySelectorAll('[data-add-title]').forEach(sel => {
+    sel.onchange = () => { dateDraft.adds[Number(sel.dataset.addTitle)].title = sel.value; };
+  });
+  box.querySelectorAll('[data-when]').forEach(boxInput => {
+    boxInput.onchange = () => {
+      const row = dateDraft.adds[Number(boxInput.dataset.i)];
+      const when = boxInput.dataset.when;
+      row.when = boxInput.checked ? [...new Set(row.when.concat(when))] : row.when.filter(id => id !== when);
+    };
+  });
+  box.querySelectorAll('[data-del-add]').forEach(btn => {
+    btn.onclick = () => {
+      dateDraft.adds.splice(Number(btn.dataset.delAdd), 1);
+      renderDateAdds();
+    };
+  });
+}
+function openDateRules() {
+  dateDraft = normalizeDateRules(dateRules || defaultDateRules());
+  renderHolidayDates('chuseok');
+  renderHolidayDates('seollal');
+  document.querySelectorAll('[data-remove-when]').forEach(box => {
+    box.checked = dateDraft.removeWhen.includes(box.dataset.removeWhen);
+  });
+  renderRemoveTitles();
+  fillRemovePicker();
+  renderDateAdds();
+}
+function addHoliday(kind) {
+  const input = document.getElementById(kind + 'Input');
+  const value = input.value;
+  if (!isYmd(value)) { alert('날짜를 고르세요.'); return; }
+  if (!dateDraft[kind].includes(value)) dateDraft[kind].push(value);
+  dateDraft[kind].sort();
+  input.value = '';
+  renderHolidayDates(kind);
+}
+document.getElementById('dateRuleBtn').onclick = () => {
+  const panel = document.getElementById('dateRulePanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) openDateRules();
+};
+document.getElementById('chuseokAddBtn').onclick = () => addHoliday('chuseok');
+document.getElementById('seollalAddBtn').onclick = () => addHoliday('seollal');
+document.getElementById('ambientRemove').onchange = function() {
+  dateDraft.removeTitles = dateDraft.removeTitles.filter(name => name !== '__ambient__');
+  if (this.checked) dateDraft.removeTitles.unshift('__ambient__');
+};
+document.querySelectorAll('[data-remove-when]').forEach(box => {
+  box.onchange = () => {
+    dateDraft.removeWhen = [...document.querySelectorAll('[data-remove-when]:checked')].map(el => el.dataset.removeWhen);
+  };
+});
+document.getElementById('removeTitleAddBtn').onclick = () => {
+  const name = document.getElementById('removeTitlePick').value;
+  if (!name || dateDraft.removeTitles.includes(name)) return;
+  dateDraft.removeTitles.push(name);
+  renderRemoveTitles();
+  fillRemovePicker();
+};
+document.getElementById('dateAddBtn').onclick = () => {
+  const names = commonTitleOptions();
+  dateDraft.adds.push({ title: names[0] || '', when: ['sun'] });
+  renderDateAdds();
+};
+document.getElementById('dateRuleSave').onclick = async () => {
+  dateDraft.removeWhen = [...document.querySelectorAll('[data-remove-when]:checked')].map(el => el.dataset.removeWhen);
+  if (dateDraft.adds.some(row => row.title && !(row.when || []).length)) { alert('넣는 항목의 날짜를 하나 이상 체크하세요.'); return; }
+  const rules = normalizeDateRules(dateDraft);
+  if (!rules.removeWhen.length) { alert('빼는 날을 하나 이상 고르세요.'); return; }
+  try {
+    const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'date-rules');
+    if (delErr) throw delErr;
+    const { error } = await supabase.from('checklist_items').insert({
+      store_name: '__i18n__',
+      shift_key: 'date-rules',
+      shift_name: '날짜',
+      item_order: 1,
+      title: 'rules',
+      description: JSON.stringify(rules),
+      photo_required: false
+    });
+    if (error) throw error;
+    dateRules = rules;
+    dateDraft = normalizeDateRules(rules);
+    alert('날짜 항목이 저장되었습니다.');
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e));
+  }
+};
 document.getElementById('addCommonBtn').onclick = addNewCommon;
 document.getElementById('commonSearch').oninput = renderCommonList;
 window.pickCommon = pickCommon;
