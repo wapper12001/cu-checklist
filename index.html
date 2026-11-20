@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v146</h1>
+  <h1>CU 점포 체크리스트 v157</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -185,6 +185,71 @@ if (document.documentElement.classList.contains('inapp')) {
         <input id="commonSearch" placeholder="공통 항목 검색" style="margin-top:12px;">
         <div id="commonList"></div>
       </div>
+      <button class="btn-secondary" id="popupEditBtn" type="button" style="width:100%; margin-top:8px;">팝업 알림 수정</button>
+      <div id="popupPanel" class="hidden" style="margin-top:12px;">
+        <p style="font-size:13px; color:#555; margin:0 0 8px;">종류를 누르면 그 알림만 열립니다. 내용을 고친 뒤 저장을 누르세요. 삭제는 바로 지워집니다.</p>
+        <button type="button" class="btn-secondary" id="condPopupBtn" style="width:100%;">특정 조건 팝업 알람</button>
+        <div id="condPopupBox" class="hidden">
+          <button type="button" class="common-line" id="inboundLineBtn">입고·진열 확인</button>
+          <div id="inboundEdit" class="hidden" style="padding:8px 0 12px;">
+            <label>제목</label>
+            <input id="inboundEditTitle">
+            <label style="margin-top:8px;">내용. 한 줄에 하나</label>
+            <textarea id="inboundEditBody" style="min-height:140px;"></textarea>
+            <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
+            <input id="inboundEditPhrase">
+          </div>
+          <button type="button" class="common-line" id="weatherLineBtn">눈·비 점검</button>
+          <div id="weatherEdit" class="hidden" style="padding:8px 0 12px;">
+            <p style="font-size:13px; color:#555; margin:0 0 8px;">눈이나 비가 오거나, 그 근무시간 안에 내릴 때 뜹니다.</p>
+            <label>제목</label>
+            <input id="weatherEditTitle">
+            <label style="margin-top:8px;">내용. 한 줄에 하나</label>
+            <textarea id="weatherEditBody" style="min-height:120px;"></textarea>
+            <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
+            <input id="weatherEditPhrase">
+          </div>
+        </div>
+        <button type="button" class="btn-secondary" id="timePopupBtn" style="width:100%; margin-top:8px;">시각 팝업 알람</button>
+        <div id="timePopupBox" class="hidden">
+          <div id="popupList"></div>
+          <button type="button" class="btn-secondary" id="addPopupBtn" style="width:100%; margin-top:8px;">팝업 추가</button>
+        </div>
+        <button type="button" class="btn-primary" id="savePopupBtn" style="width:100%; margin-top:8px;">팝업 저장</button>
+      </div>
+      <button class="btn-secondary" id="dateRuleBtn" type="button" style="width:100%; margin-top:8px;">날짜 항목</button>
+      <div id="dateRulePanel" class="hidden" style="margin-top:12px;">
+        <p style="font-size:13px; color:#555; margin:0 0 8px;">날짜는 아래 것만 고릅니다. 명절은 그해 날짜를 직접 넣습니다.</p>
+        <h4 style="margin:8px 0;">명절 당일</h4>
+        <label>추석 당일</label>
+        <div id="chuseokDates"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <input type="date" id="chuseokInput" style="flex:1; width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:16px;">
+          <button type="button" class="btn-secondary" id="chuseokAddBtn">추가</button>
+        </div>
+        <label style="margin-top:10px;">설 당일</label>
+        <div id="seollalDates"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <input type="date" id="seollalInput" style="flex:1; width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:16px;">
+          <button type="button" class="btn-secondary" id="seollalAddBtn">추가</button>
+        </div>
+        <h4 style="margin:14px 0 8px;">빼는 항목</h4>
+        <p style="font-size:13px; color:#555; margin:0 0 6px;">고른 날에 목록의 항목을 뺍니다.</p>
+        <label style="display:inline-flex; margin-right:10px;"><input type="checkbox" data-remove-when="sun"> 일요일</label>
+        <label style="display:inline-flex; margin-right:10px;"><input type="checkbox" data-remove-when="chuseok"> 추석 당일</label>
+        <label style="display:inline-flex;"><input type="checkbox" data-remove-when="seollal"> 설 당일</label>
+        <label style="margin-top:8px; display:flex; align-items:center; gap:6px;"><input type="checkbox" id="ambientRemove"> 상온 물류 (입고, 검수, 진열, 소분 박스)</label>
+        <div id="removeTitleList"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <select id="removeTitlePick" style="flex:1;"></select>
+          <button type="button" class="btn-secondary" id="removeTitleAddBtn">추가</button>
+        </div>
+        <h4 style="margin:14px 0 8px;">넣는 항목</h4>
+        <p style="font-size:13px; color:#555; margin:0 0 6px;">공통 항목을 고르고 날짜만 체크합니다. 일요일 항목은 4시간 이하 근무에는 나오지 않습니다.</p>
+        <div id="dateAddList"></div>
+        <button type="button" class="btn-secondary" id="dateAddBtn" style="width:100%; margin-top:8px;">넣는 항목 추가</button>
+        <button type="button" class="btn-primary" id="dateRuleSave" style="width:100%; margin-top:8px;">날짜 항목 저장</button>
+      </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
 
@@ -203,6 +268,19 @@ if (document.documentElement.classList.contains('inapp')) {
           <option value="19">19시간</option>
           <option value="24">24시간</option>
         </select>
+        <label style="margin-top:8px;">시/도</label>
+        <select id="detailSido">
+          <option value="">선택</option>
+        </select>
+        <label style="margin-top:8px;">시/군/구</label>
+        <select id="detailDistrict">
+          <option value="">선택</option>
+        </select>
+        <label style="margin-top:8px;">동/리</label>
+        <select id="detailDong">
+          <option value="">선택</option>
+        </select>
+        <p style="font-size:13px; color:#555; margin:6px 0 0;">상세 주소는 적지 않습니다.</p>
         <button class="btn-primary" id="saveDetailBtn" style="width:100%; margin-top:12px;">점포 정보 저장</button>
       </div>
 
@@ -313,6 +391,16 @@ if (document.documentElement.classList.contains('inapp')) {
     <button type="button" class="btn-primary" id="inboundConfirm" style="width:100%;">확인</button>
   </div>
 </div>
+<div id="weatherModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="weatherTitle" style="margin-top:0; color:#6B2C91;">눈·비 점검</h3>
+    <div id="weatherBody" style="font-size:15px; line-height:1.55;"></div>
+    <label id="weatherHint" style="margin-top:12px;">아래 문장을 그대로 입력하세요.</label>
+    <textarea id="weatherMemo" placeholder="이해했습니다!" style="min-height:64px;"></textarea>
+    <p id="weatherMsg" style="color:#6B2C91; min-height:1.2em; margin:6px 0;"></p>
+    <button type="button" class="btn-primary" id="weatherConfirm" style="width:100%;">확인</button>
+  </div>
+</div>
 
 <script>
 // 인앱이면 Supabase를 로드하지 않음
@@ -325,6 +413,7 @@ if (!document.documentElement.classList.contains('inapp')) {
   // 인앱에서는 안내만 표시하고 앱 초기화 안 함
 }
 </script>
+<script src="areas.js"></script>
 <script>
 function initApp() {
   console.log('initApp started');
@@ -681,6 +770,10 @@ async function loadData(forAdmin) {
         manager: s.manager || '',
         phone: s.phone || '',
         hours: s.hours || '19',
+        district: s.district || '',
+        dong: s.dong || '',
+        latitude: s.latitude || null,
+        longitude: s.longitude || null,
         shifts: {}
       };
     }
@@ -724,6 +817,7 @@ async function loadData(forAdmin) {
       });
     });
     if (forAdmin) {
+      await loadPopups();
       restoreAdmin();
       ensureCommonSeed();
     } else {
@@ -750,7 +844,11 @@ async function saveStoreToDb(name) {
   const { error } = await supabase.from('stores').update({
     manager: d.manager || '',
     phone: d.phone || '',
-    hours: d.hours || '19'
+    hours: d.hours || '19',
+    district: d.district || '',
+    dong: d.dong || '',
+    latitude: d.latitude || null,
+    longitude: d.longitude || null
   }).eq('name', name);
   if (error) throw error;
 }
@@ -806,6 +904,7 @@ async function loadOneStore(name) {
     if (!allData[name].shifts[it.shift_key]) allData[name].shifts[it.shift_key] = { name: it.shift_name || it.shift_key, items: [] };
     allData[name].shifts[it.shift_key].items.push({ id: it.id, title: it.title, desc: it.description || '', photo_required: it.photo_required });
   });
+  await loadPopups();
 }
 function showLockedStore(name) {
   lockedStore = name;
@@ -941,10 +1040,95 @@ const DISCARD_SLOTS = [
   { id: '0930', min: 9 * 60 + 30, who: 'all', token: '09:30', title: '09:30 10시 폐기 예정 상품 폐기', body: '샌드위치, 햄버거 등' },
   { id: '1330', min: 13 * 60 + 30, who: 'all', token: '13:30', title: '13:30 14시 폐기 예정 상품 폐기', body: '도시락, 김밥, 주먹밥 등' },
   { id: '2130', min: 21 * 60 + 30, who: 'all', token: '21:30', title: '21:30 22시 폐기 예정 상품 폐기', body: '샌드위치, 햄버거 등' },
-  { id: '2330', min: 23 * 60 + 30, who: 'all', token: '23:30', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)', also: ['02시 폐기 예정 상품 폐기', '06시 폐기 예정 상품 폐기'] },
+  { id: '2330', min: 23 * 60 + 30, who: 'all', token: '23:30', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)', noteWho: '19', also: ['02시 폐기 예정 상품 폐기', '06시 폐기 예정 상품 폐기'] },
   { id: '0020', min: 20, who: '19', token: '00:20', title: '00:20 19시간 점포는 02시 폐기 예정 상품 폐기', body: '(06시 폐기 예정 상품까지 폐기)', also: ['02시 폐기 예정 상품 폐기', '06시 폐기 예정 상품 폐기'] },
   { id: '0130', min: 1 * 60 + 30, who: '24', token: '01:30', title: '01:30 02시 폐기 예정 상품 폐기', body: '도시락, 김밥, 주먹밥 등' }
 ];
+let popupRows = [];
+function activeSlots() {
+  return popupRows.length ? popupRows : DISCARD_SLOTS;
+}
+function slotNote(slot, hours) {
+  if (!slot || !slot.note19) return '';
+  if (slot.noteWho === '19' && hours !== '19') return '';
+  if (slot.noteWho === '24' && hours !== '24') return '';
+  return slot.note19;
+}
+async function loadPopups() {
+  popupRows = [];
+  const { data, error } = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'alarm').order('item_order');
+  if (error) { console.error(error); return; }
+  popupRows = (data || []).map(it => {
+    let o = {};
+    try { o = JSON.parse(it.description || '{}'); } catch (e) { o = {}; }
+    const time = String(o.time || '09:30');
+    const bits = time.split(':');
+    const hh = Number(bits[0]);
+    const mm = Number(bits[1] || 0);
+    return {
+      dbId: it.id,
+      id: String(o.id || it.id),
+      min: (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0),
+      who: o.who === '19' || o.who === '24' ? o.who : 'all',
+      token: time.slice(0, 5),
+      title: o.title || it.title || '',
+      body: o.body || '',
+      note19: o.note || '',
+      noteWho: o.noteWho || '',
+      also: Array.isArray(o.also) ? o.also : []
+    };
+  }).filter(s => s.title);
+  inboundSaved = null;
+  const inbound = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'inbound').order('item_order').limit(1);
+  if (!inbound.error && inbound.data && inbound.data[0]) {
+    try { inboundSaved = JSON.parse(inbound.data[0].description || '{}'); } catch (e) { inboundSaved = null; }
+  }
+  weatherSaved = null;
+  const weather = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'weather').order('item_order').limit(1);
+  if (!weather.error && weather.data && weather.data[0]) {
+    try { weatherSaved = JSON.parse(weather.data[0].description || '{}'); } catch (e) { weatherSaved = null; }
+  }
+  await loadDateRules();
+}
+const INBOUND_DEFAULT = {
+  title: '입고·진열 확인',
+  body: [
+    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.',
+    '보관 방법을 모르면 상품 표기를 확인하세요.',
+    '냉동은 냉동고에 보관합니다.',
+    '냉장은 워크인 냉장고에 보관합니다.',
+    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.',
+    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.'
+  ].join('\n'),
+  phrase: '확인했습니다. 이해했습니다.'
+};
+const WEATHER_DEFAULT = {
+  title: '눈·비 점검',
+  body: [
+    '외부 집기: 아이스크림 냉동고, 냉장고, 매대',
+    '일반 상품',
+    '어닝, 파라솔, 테라스, 간판, 점내 발판, 제설'
+  ].join('\n'),
+  phrase: '이해했습니다!'
+};
+let inboundSaved = null;
+let weatherSaved = null;
+function currentInbound() {
+  const saved = inboundSaved || {};
+  return {
+    title: (saved.title || INBOUND_DEFAULT.title).trim(),
+    body: (saved.body || INBOUND_DEFAULT.body).trim(),
+    phrase: (saved.phrase || INBOUND_DEFAULT.phrase).trim()
+  };
+}
+function currentWeather() {
+  const saved = weatherSaved || {};
+  return {
+    title: (saved.title || WEATHER_DEFAULT.title).trim(),
+    body: (saved.body || WEATHER_DEFAULT.body).trim(),
+    phrase: (saved.phrase || WEATHER_DEFAULT.phrase).trim()
+  };
+}
 function koreaNow() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
@@ -995,7 +1179,7 @@ function dueDiscards() {
   const hours = effectiveHours();
   const now = koreaNow();
   const anchor = shiftAnchorDate(now, range);
-  return DISCARD_SLOTS.filter(s => {
+  return activeSlots().filter(s => {
     if (!slotAlreadyDue(s.min, range, now.minutes)) return false;
     if (s.who === '19' && hours !== '19') return false;
     if (s.who === '24' && hours !== '24') return false;
@@ -1022,7 +1206,7 @@ function checkDiscards() {
   const hours = effectiveHours();
   document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
     <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
-      <p style="margin:0 0 8px;"><strong>${s.title}</strong>${s.note19 && hours === '19' ? '<br>' + s.note19 : ''}<br>${s.body}</p>
+      <p style="margin:0 0 8px;"><strong>${escHtml(s.title)}</strong>${slotNote(s, hours) ? '<br>' + escHtml(slotNote(s, hours)) : ''}<br>${escHtml(s.body || '')}</p>
       <div class="btn-row">
         <button type="button" class="btn-photo" data-discard="${s.id}" data-act="photo">📷 사진찍기</button>
         <button type="button" class="btn-kakao" data-discard="${s.id}" data-act="kakao">카톡</button>
@@ -1045,7 +1229,7 @@ document.getElementById('discardBody').onclick = e => {
   if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareDiscard(id);
 };
 async function shareDiscard(id) {
-  const slot = DISCARD_SLOTS.find(s => s.id === id);
+  const slot = activeSlots().find(s => s.id === id);
   const photos = (currentPhotos['discard-' + id] || []).slice();
   if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
   const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
@@ -1672,7 +1856,7 @@ function renderChecklist() {
   refreshAllMiss();
   restoreSavedPhotos(items);
   fillMissingTranslations();
-  maybeInboundPopup();
+  maybeConditionPopups();
   applyPendingShare();
 }
 
@@ -1689,14 +1873,117 @@ function isSelectedSunday() {
   const { y, m, d } = selectedYmd();
   return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date(Date.UTC(y, m - 1, d, 12))) === 'Sun';
 }
-function showcardKinds() {
+const REMOVE_WHEN = ['sun', 'chuseok', 'seollal'];
+const ADD_WHEN = [
+  { id: 'sun', label: '일요일' },
+  { id: 'before-last', label: '말일 전날' },
+  { id: 'last', label: '말일' },
+  { id: 'd1', label: '1일' },
+  { id: 'd2', label: '2일' },
+  { id: 'd16', label: '16일' }
+];
+let dateRules = null;
+let dateDraft = null;
+function defaultDateRules() {
+  return {
+    chuseok: [],
+    seollal: [],
+    removeWhen: ['sun', 'chuseok', 'seollal'],
+    removeTitles: ['__ambient__'],
+    adds: [
+      { title: 'PDA 유통기한 체크', when: ['sun'] },
+      { title: '지정 특정 업무', when: ['sun'] },
+      { title: '새 달 쇼카드 모으기', when: ['before-last'] },
+      { title: '월 행사 쇼카드 교체', when: ['last', 'd1', 'd2'] },
+      { title: '기간행사 쇼카드 교체', when: ['d16'] }
+    ]
+  };
+}
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || '');
+}
+function normalizeDateRules(src) {
+  const base = defaultDateRules();
+  const o = src || {};
+  const removeWhen = REMOVE_WHEN.filter(id => (Array.isArray(o.removeWhen) ? o.removeWhen : base.removeWhen).includes(id));
+  const removeTitles = (Array.isArray(o.removeTitles) ? o.removeTitles : base.removeTitles).map(t => String(t || '').trim()).filter(t => t === '__ambient__' || t);
+  const adds = (Array.isArray(o.adds) ? o.adds : base.adds).map(row => ({
+    title: String((row && row.title) || '').trim(),
+    when: ADD_WHEN.map(w => w.id).filter(id => ((row && row.when) || []).includes(id))
+  })).filter(row => row.title && row.when.length);
+  return {
+    chuseok: [...new Set((o.chuseok || []).filter(isYmd))].sort(),
+    seollal: [...new Set((o.seollal || []).filter(isYmd))].sort(),
+    removeWhen,
+    removeTitles: [...new Set(removeTitles)],
+    adds
+  };
+}
+function currentDateRules() {
+  return dateRules || defaultDateRules();
+}
+async function loadDateRules() {
+  dateRules = null;
+  const { data, error } = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'date-rules').order('item_order').limit(1);
+  if (error || !data || !data[0]) return;
+  try { dateRules = normalizeDateRules(JSON.parse(data[0].description || '{}')); } catch (e) { dateRules = null; }
+}
+function selectedYmdText() {
+  const { y, m, d } = selectedYmd();
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function dateFlags() {
   const { y, m, d } = selectedYmd();
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const kinds = [];
-  if (d === last || d === 1 || d === 2) kinds.push('month');
-  if (d === last - 1) kinds.push('prep');
-  if (d === 16) kinds.push('period');
-  return kinds;
+  const rules = currentDateRules();
+  const ymd = selectedYmdText();
+  const flags = new Set();
+  if (isSelectedSunday()) flags.add('sun');
+  if (d === last - 1) flags.add('before-last');
+  if (d === last) flags.add('last');
+  if (d === 1) flags.add('d1');
+  if (d === 2) flags.add('d2');
+  if (d === 16) flags.add('d16');
+  if ((rules.chuseok || []).includes(ymd)) flags.add('chuseok');
+  if ((rules.seollal || []).includes(ymd)) flags.add('seollal');
+  return flags;
+}
+function shouldRemoveItem(title) {
+  const rules = currentDateRules();
+  const flags = dateFlags();
+  if (!rules.removeWhen.some(id => flags.has(id))) return false;
+  const compact = (title || '').replace(/\s/g, '');
+  return rules.removeTitles.some(name => {
+    if (name === '__ambient__') return isAmbientLogistics(title);
+    return compact && compact === name.replace(/\s/g, '');
+  });
+}
+function dateItemId(title) {
+  const known = {
+    'PDA 유통기한 체크': 'sunday-pda',
+    '지정 특정 업무': 'sunday-task',
+    '새 달 쇼카드 모으기': 'showcard-prep',
+    '월 행사 쇼카드 교체': 'showcard-month',
+    '기간행사 쇼카드 교체': 'showcard-period'
+  };
+  return known[title] || ('date-' + encodeURIComponent(title));
+}
+function dateExtras() {
+  const flags = dateFlags();
+  const extra = [];
+  currentDateRules().adds.forEach(row => {
+    const matched = row.when.filter(id => flags.has(id));
+    if (!matched.length) return;
+    if (matched.every(id => id === 'sun') && skipSundayTasks()) return;
+    if (extra.some(it => it.title === row.title)) return;
+    extra.push({
+      id: dateItemId(row.title),
+      title: row.title,
+      desc: (commonDesc[row.title] || COMMON_DESC[row.title] || ''),
+      photo_required: true
+    });
+  });
+  return extra;
 }
 function shiftMinutes(range) {
   return range.start < range.end ? range.end - range.start : (24 * 60 - range.start) + range.end;
@@ -1747,8 +2034,8 @@ function visibleItems(shift) {
     if (next.length !== items.length) removed = true;
     items = next;
   }
-  if (isSelectedSunday()) {
-    const next = items.filter(it => !isAmbientLogistics(it.title));
+  {
+    const next = items.filter(it => !shouldRemoveItem(it.title));
     if (next.length !== items.length) removed = true;
     items = next;
   }
@@ -1775,15 +2062,7 @@ function visibleItems(shift) {
   });
   const body = endAt < 0 ? items : items.slice(0, endAt);
   const tail = endAt < 0 ? [] : items.slice(endAt);
-  const extra = [];
-  if (isSelectedSunday() && !skipSundayTasks()) {
-    extra.push({ id: 'sunday-pda', title: 'PDA 유통기한 체크', desc: 'PDA로 유통기한을 확인합니다.\n확인한 PDA 화면을 사진으로 보고합니다.', photo_required: true });
-    extra.push({ id: 'sunday-task', title: '지정 특정 업무', desc: '점장이 지정한 특정 업무를 진행하고 사진으로 보고합니다.', photo_required: true });
-  }
-  const kinds = showcardKinds();
-  if (kinds.includes('prep')) extra.push({ id: 'showcard-prep', title: '새 달 쇼카드 모으기', desc: '새로운 달의 쇼카드를 뜯어서 구분해서 모읍니다.', photo_required: true });
-  if (kinds.includes('month')) extra.push({ id: 'showcard-month', title: '월 행사 쇼카드 교체', desc: '이전 달의 쇼카드를 제거하고, 새로운 달의 쇼카드를 꽂습니다.', photo_required: true });
-  if (kinds.includes('period')) extra.push({ id: 'showcard-period', title: '기간행사 쇼카드 교체', desc: '기간행사가 끝나는 쇼카드를 제거하고, 기간행사가 시작되는 쇼카드를 꽂습니다.', photo_required: true });
+  const extra = dateExtras();
   const added = [];
   extra.forEach(it => {
     if (!body.some(x => (x.title || '').trim() === it.title)) added.push(it);
@@ -1907,7 +2186,7 @@ function onItemEdited(e) {
   saveProgress();
   refreshAllMiss();
   syncDoneBorders();
-  maybeInboundPopup();
+  maybeConditionPopups();
 }
 checklistContainer.addEventListener('click', (e) => {
   const scanBtn = e.target.closest && e.target.closest('[data-clock-scan]');
@@ -1985,23 +2264,19 @@ function maybeInboundPopup() {
     return;
   }
   if (!modal.classList.contains('hidden')) return;
-  document.getElementById('inboundTitle').innerHTML = biHtml('입고·진열 확인');
-  document.getElementById('inboundBody').innerHTML = [
-    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.',
-    '보관 방법을 모르면 상품 표기를 확인하세요.',
-    '냉동은 냉동고에 보관합니다.',
-    '냉장은 워크인 냉장고에 보관합니다.',
-    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.',
-    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.'
-  ].map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
+  const cfg = currentInbound();
+  document.getElementById('inboundTitle').innerHTML = biHtml(cfg.title);
+  document.getElementById('inboundBody').innerHTML = cfg.body.split('\n').map(line => line.trim()).filter(Boolean).map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
   document.getElementById('inboundHint').innerHTML = biHtml('아래 문장을 그대로 입력하세요.');
   document.getElementById('inboundMemo').value = '';
+  document.getElementById('inboundMemo').placeholder = cfg.phrase;
   document.getElementById('inboundMsg').textContent = '';
   modal.classList.remove('hidden');
 }
 document.getElementById('inboundConfirm').onclick = () => {
   const typed = document.getElementById('inboundMemo').value.trim();
-  if (typed !== '확인했습니다. 이해했습니다.') {
+  const phrase = currentInbound().phrase;
+  if (typed !== phrase) {
     const msg = '문장이 다릅니다.';
     document.getElementById('inboundMsg').innerHTML = biHtml(msg);
     return;
@@ -2009,6 +2284,101 @@ document.getElementById('inboundConfirm').onclick = () => {
   const key = inboundAckKey();
   if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
   document.getElementById('inboundModal').classList.add('hidden');
+  maybeConditionPopups();
+};
+
+const WET_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]);
+let weatherPayload = null;
+let weatherFetchedAt = 0;
+let weatherWhere = '';
+function weatherAckKey() {
+  if (!currentStore || !reportDate || !reportDate.value) return '';
+  return 'weatherAck_' + currentStore + '_' + reportDate.value;
+}
+function addDateDays(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return dt.getUTCFullYear() + '-' + mm + '-' + dd;
+}
+function shiftHourKeys(dateStr, range) {
+  const keys = [];
+  let m = range.start;
+  const target = range.end <= range.start ? range.end + 1440 : range.end;
+  while (m < target) {
+    const day = Math.floor(m / 1440);
+    const hour = Math.floor((m % 1440) / 60);
+    keys.push(addDateDays(dateStr, day) + 'T' + String(hour).padStart(2, '0'));
+    m += 60;
+  }
+  return keys;
+}
+function codeIsWet(code, precip, snow) {
+  return WET_CODES.has(Number(code)) || Number(precip) > 0 || Number(snow) > 0;
+}
+function wetInShift(data, dateStr, range) {
+  const keys = new Set(shiftHourKeys(dateStr, range));
+  const now = koreaNow();
+  const nowKey = now.date + 'T' + String(Math.floor(now.minutes / 60)).padStart(2, '0');
+  const cur = data.current || {};
+  if (keys.has(nowKey) && codeIsWet(cur.weather_code, cur.precipitation, cur.snowfall)) return true;
+  const hourly = data.hourly || {};
+  const times = hourly.time || [];
+  for (let i = 0; i < times.length; i++) {
+    if (!keys.has(String(times[i]).slice(0, 13))) continue;
+    if (codeIsWet(hourly.weather_code && hourly.weather_code[i], hourly.precipitation && hourly.precipitation[i], hourly.snowfall && hourly.snowfall[i])) return true;
+  }
+  return false;
+}
+function loadWeatherPayload(lat, lon) {
+  const where = Number(lat).toFixed(3) + ',' + Number(lon).toFixed(3);
+  if (weatherPayload && weatherWhere === where && Date.now() - weatherFetchedAt < 30 * 60 * 1000) return Promise.resolve(weatherPayload);
+  weatherWhere = where;
+  weatherFetchedAt = Date.now();
+  return fetch('https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&current=weather_code,precipitation,snowfall&hourly=weather_code,precipitation,snowfall&timezone=Asia%2FSeoul&forecast_days=2')
+    .then(r => r.json())
+    .then(data => { weatherPayload = data; return data; })
+    .catch(err => { weatherPayload = null; weatherFetchedAt = 0; weatherWhere = ''; throw err; });
+}
+function showTextPopup(prefix, cfg) {
+  document.getElementById(prefix + 'Title').innerHTML = biHtml(cfg.title);
+  document.getElementById(prefix + 'Body').innerHTML = cfg.body.split('\n').map(line => line.trim()).filter(Boolean).map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
+  document.getElementById(prefix + 'Hint').innerHTML = biHtml('아래 문장을 그대로 입력하세요.');
+  document.getElementById(prefix + 'Memo').value = '';
+  document.getElementById(prefix + 'Memo').placeholder = cfg.phrase;
+  document.getElementById(prefix + 'Msg').textContent = '';
+  document.getElementById(prefix + 'Modal').classList.remove('hidden');
+}
+function maybeConditionPopups() {
+  const weatherModal = document.getElementById('weatherModal');
+  const inboundModal = document.getElementById('inboundModal');
+  if (weatherModal && !weatherModal.classList.contains('hidden')) return;
+  if (inboundModal && !inboundModal.classList.contains('hidden')) return;
+  const key = weatherAckKey();
+  const range = parseWorkRange(workPeriod && workPeriod.value);
+  const place = allData[currentStore] || {};
+  const lat = Number(place.latitude);
+  const lon = Number(place.longitude);
+  if (!key || !range || !lat || !lon || localStorage.getItem(key)) { maybeInboundPopup(); return; }
+  loadWeatherPayload(lat, lon).then(data => {
+    if (!weatherModal.classList.contains('hidden') || (inboundModal && !inboundModal.classList.contains('hidden'))) return;
+    if (localStorage.getItem(key)) { maybeInboundPopup(); return; }
+    if (!wetInShift(data, reportDate.value, range)) { maybeInboundPopup(); return; }
+    showTextPopup('weather', currentWeather());
+  }).catch(() => maybeInboundPopup());
+}
+document.getElementById('weatherConfirm').onclick = () => {
+  const typed = document.getElementById('weatherMemo').value.trim();
+  const phrase = currentWeather().phrase;
+  if (typed !== phrase) {
+    document.getElementById('weatherMsg').innerHTML = biHtml('문장이 다릅니다.');
+    return;
+  }
+  const key = weatherAckKey();
+  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  document.getElementById('weatherModal').classList.add('hidden');
+  maybeInboundPopup();
 };
 
 function checkAllDone() {
@@ -2036,7 +2406,7 @@ function checkAllDone() {
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
   syncDoneBorders();
-  maybeInboundPopup();
+  maybeConditionPopups();
 }
 
 function syncDoneBorders() {
@@ -2958,6 +3328,65 @@ function refreshAdminStoreSelect() {
   sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('storeDetail').classList.add('hidden');
 }
+const SIDO_ORDER = ['서울특별시','부산광역시','대구광역시','인천광역시','광주광역시','대전광역시','울산광역시','세종특별자치시','경기도','강원도','충청북도','충청남도','전라북도','전라남도','경상북도','경상남도','제주특별자치도'];
+function areaSidos() {
+  const names = Object.keys(AREAS || {});
+  const ordered = SIDO_ORDER.filter(name => names.includes(name));
+  const rest = names.filter(name => !ordered.includes(name)).sort((a, b) => a.localeCompare(b, 'ko'));
+  return ordered.concat(rest);
+}
+function areaSigungu(sido) {
+  return Object.keys((AREAS[sido] || {})).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function areaDongs(sido, sigungu) {
+  const node = AREAS[sido] && AREAS[sido][sigungu];
+  return Object.keys(node || {}).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function areaPoint(sido, sigungu, dong) {
+  const node = AREAS[sido] && AREAS[sido][sigungu];
+  return node && node[dong] ? node[dong] : null;
+}
+function fillAreaSelect(id, names, selected) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
+  if (selected && names.includes(selected)) sel.value = selected;
+}
+function splitSavedArea(district) {
+  const raw = String(district || '');
+  const cut = raw.indexOf('|');
+  const findSigungu = (name) => {
+    if (!name) return null;
+    const hits = [];
+    for (const sido of Object.keys(AREAS || {})) {
+      if (AREAS[sido][name]) return { sido, sigungu: name };
+      Object.keys(AREAS[sido]).forEach(sigungu => {
+        if (sigungu.endsWith(' ' + name)) hits.push({ sido, sigungu });
+      });
+    }
+    return hits.length === 1 ? hits[0] : null;
+  };
+  if (cut >= 0) {
+    const left = raw.slice(0, cut);
+    const right = raw.slice(cut + 1);
+    if (AREAS[left] && AREAS[left][right]) return { sido: left, sigungu: right };
+    const combined = findSigungu((left + ' ' + right).trim()) || findSigungu(left) || findSigungu(right);
+    if (combined) return combined;
+  }
+  return findSigungu(raw) || { sido: '', sigungu: '' };
+}
+function showStoreArea(district, dong) {
+  const area = splitSavedArea(district);
+  fillAreaSelect('detailSido', areaSidos(), area.sido);
+  fillAreaSelect('detailDistrict', areaSigungu(area.sido), area.sigungu);
+  fillAreaSelect('detailDong', areaDongs(area.sido, area.sigungu), dong || '');
+}
+document.getElementById('detailSido').onchange = function() {
+  fillAreaSelect('detailDistrict', areaSigungu(this.value), '');
+  fillAreaSelect('detailDong', [], '');
+};
+document.getElementById('detailDistrict').onchange = function() {
+  fillAreaSelect('detailDong', areaDongs(document.getElementById('detailSido').value, this.value), '');
+};
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
   const detail = document.getElementById('storeDetail');
@@ -2972,6 +3401,7 @@ document.getElementById('adminStoreSelect').onchange = function() {
   document.getElementById('detailManager').value = d.manager || '';
   document.getElementById('detailPhone').value = d.phone || '';
   document.getElementById('detailHours').value = d.hours || '19';
+  showStoreArea(d.district || '', d.dong || '');
   renderShiftButtons(name);
   detail.classList.remove('hidden');
   if (!restoringAdmin) saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
@@ -2984,6 +3414,18 @@ document.getElementById('saveDetailBtn').onclick = async () => {
   allData[name].manager = document.getElementById('detailManager').value.trim();
   allData[name].phone = document.getElementById('detailPhone').value.trim();
   allData[name].hours = document.getElementById('detailHours').value;
+  const sido = document.getElementById('detailSido').value;
+  const sigungu = document.getElementById('detailDistrict').value;
+  const dong = document.getElementById('detailDong').value;
+  const point = areaPoint(sido, sigungu, dong);
+  if (!point) {
+    alert('시/도, 시/군/구, 동/리를 선택하세요.');
+    return;
+  }
+  allData[name].district = sido + '|' + sigungu;
+  allData[name].dong = dong;
+  allData[name].latitude = point[0];
+  allData[name].longitude = point[1];
   try {
     await saveStoreToDb(name);
     await saveAccessCode(name, allData[name].code || '');
@@ -3293,6 +3735,357 @@ document.getElementById('commonEditBtn').onclick = () => {
   panel.classList.toggle('hidden');
   if (!panel.classList.contains('hidden')) renderCommonList();
 };
+let popupDraft = [];
+let openPopupId = '';
+function popupDraftFromRows(rows) {
+  return rows.map(s => ({
+    id: s.id,
+    time: s.token || '09:30',
+    who: s.who || 'all',
+    title: s.title || '',
+    body: s.body || '',
+    note: s.note19 || '',
+    noteWho: s.noteWho || '',
+    alsoText: (s.also || []).join('\n')
+  }));
+}
+function defaultPopupDraft() {
+  return popupDraftFromRows(DISCARD_SLOTS);
+}
+function readPopupDraft() {
+  const list = [];
+  document.querySelectorAll('#popupList .popup-row').forEach(row => {
+    list.push({
+      id: row.dataset.id,
+      time: row.querySelector('.p-time').value || '09:00',
+      who: row.querySelector('.p-who').value,
+      title: row.querySelector('.p-title').value.trim(),
+      body: row.querySelector('.p-body').value.trim(),
+      note: row.querySelector('.p-note').value.trim(),
+      noteWho: row.querySelector('.p-notewho').value,
+      alsoText: row.querySelector('.p-also').value
+    });
+  });
+  return list;
+}
+function popupLineLabel(s) {
+  const title = (s.title || '').trim();
+  const time = s.time || '';
+  if (!title) return (time ? time + ' ' : '') + '새 알림';
+  if (time && title.startsWith(time)) return title;
+  return (time ? time + ' ' : '') + title;
+}
+function renderPopupEditor() {
+  const panel = document.getElementById('popupList');
+  panel.innerHTML = popupDraft.map(s => `
+    <div class="popup-row" data-id="${escAttr(s.id)}">
+      <button type="button" class="common-line popup-line">${escHtml(popupLineLabel(s))}</button>
+      <div class="popup-edit ${s.id === openPopupId ? '' : 'hidden'}" style="padding:8px 0 12px;">
+      <label>시각</label>
+      <input class="p-time" type="time" value="${escAttr(s.time || '09:30')}">
+      <label style="margin-top:8px;">어느 점포</label>
+      <select class="p-who">
+        <option value="all" ${s.who === 'all' ? 'selected' : ''}>모든 점포</option>
+        <option value="19" ${s.who === '19' ? 'selected' : ''}>19시간 점포만</option>
+        <option value="24" ${s.who === '24' ? 'selected' : ''}>24시간 점포만</option>
+      </select>
+      <label style="margin-top:8px;">제목</label>
+      <input class="p-title" value="${escAttr(s.title || '')}">
+      <label style="margin-top:8px;">내용</label>
+      <textarea class="p-body" style="min-height:64px;">${escHtml(s.body || '')}</textarea>
+      <label style="margin-top:8px;">추가 안내</label>
+      <input class="p-note" value="${escAttr(s.note || '')}">
+      <select class="p-notewho" style="margin-top:6px;">
+        <option value="" ${s.noteWho ? '' : 'selected'}>추가 안내를 항상 보여 줌</option>
+        <option value="19" ${s.noteWho === '19' ? 'selected' : ''}>추가 안내는 19시간 점포만</option>
+        <option value="24" ${s.noteWho === '24' ? 'selected' : ''}>추가 안내는 24시간 점포만</option>
+      </select>
+      <label style="margin-top:8px;">19시간 점포에서 같이 완료할 항목. 한 줄에 하나</label>
+      <textarea class="p-also" style="min-height:64px;">${escHtml(s.alsoText || '')}</textarea>
+      <button type="button" class="btn popup-del" style="width:100%; margin-top:8px; background:#d92b2b; color:white;">삭제</button>
+      </div>
+    </div>
+  `).join('') || '<div style="color:#888; font-size:13px;">시각 알림이 없습니다.</div>';
+  panel.querySelectorAll('.popup-row').forEach((row, index) => {
+    row.querySelector('.popup-line').onclick = () => {
+      const edit = row.querySelector('.popup-edit');
+      const willOpen = edit.classList.contains('hidden');
+      panel.querySelectorAll('.popup-edit').forEach(el => el.classList.add('hidden'));
+      if (willOpen) edit.classList.remove('hidden');
+    };
+    row.querySelector('.popup-del').onclick = () => deletePopup(index);
+  });
+  openPopupId = '';
+}
+async function persistPopups(list) {
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'alarm');
+  if (delErr) throw delErr;
+  const rows = list.filter(s => s.title).map((s, i) => ({
+    store_name: '__i18n__',
+    shift_key: 'alarm',
+    shift_name: '알림',
+    item_order: i + 1,
+    title: s.title.slice(0, 120),
+    description: JSON.stringify({
+      id: s.id,
+      time: s.time,
+      who: s.who,
+      title: s.title,
+      body: s.body,
+      note: s.note,
+      noteWho: s.noteWho,
+      also: String(s.alsoText || '').split('\n').map(line => line.trim()).filter(Boolean)
+    }),
+    photo_required: true
+  }));
+  if (rows.length) {
+    const { error } = await supabase.from('checklist_items').insert(rows);
+    if (error) throw error;
+  }
+  await loadPopups();
+}
+function fillInboundEditor() {
+  const cfg = currentInbound();
+  document.getElementById('inboundEditTitle').value = cfg.title;
+  document.getElementById('inboundEditBody').value = cfg.body;
+  document.getElementById('inboundEditPhrase').value = cfg.phrase;
+  document.getElementById('inboundLineBtn').textContent = cfg.title || '입고·진열 확인';
+}
+function fillWeatherEditor() {
+  const cfg = currentWeather();
+  document.getElementById('weatherEditTitle').value = cfg.title;
+  document.getElementById('weatherEditBody').value = cfg.body;
+  document.getElementById('weatherEditPhrase').value = cfg.phrase;
+  document.getElementById('weatherLineBtn').textContent = cfg.title || '눈·비 점검';
+}
+async function saveNamedPopup(shiftKey, shiftName, title, body, phrase, emptyMessage) {
+  if (!title || !body || !phrase) {
+    alert(emptyMessage);
+    return false;
+  }
+  const description = JSON.stringify({ title, body, phrase });
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', shiftKey);
+  if (delErr) throw delErr;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__i18n__',
+    shift_key: shiftKey,
+    shift_name: shiftName,
+    item_order: 1,
+    title,
+    description,
+    photo_required: false
+  });
+  if (error) throw error;
+  body.split('\n').concat([title, phrase]).forEach(line => { ensureTranslation(line.trim()); });
+  return true;
+}
+async function saveInboundFromForm() {
+  const title = document.getElementById('inboundEditTitle').value.trim();
+  const body = document.getElementById('inboundEditBody').value.trim();
+  const phrase = document.getElementById('inboundEditPhrase').value.trim();
+  const ok = await saveNamedPopup('inbound', '입고', title, body, phrase, '입고·진열 확인의 제목, 내용, 확인 문장을 적으세요.');
+  if (ok) inboundSaved = { title, body, phrase };
+  return ok;
+}
+async function saveWeatherFromForm() {
+  const title = document.getElementById('weatherEditTitle').value.trim();
+  const body = document.getElementById('weatherEditBody').value.trim();
+  const phrase = document.getElementById('weatherEditPhrase').value.trim();
+  const ok = await saveNamedPopup('weather', '날씨', title, body, phrase, '눈·비 점검의 제목, 내용, 확인 문장을 적으세요.');
+  if (ok) weatherSaved = { title, body, phrase };
+  return ok;
+}
+async function savePopupDraft() {
+  try {
+    const inboundOk = await saveInboundFromForm();
+    if (!inboundOk) return;
+    const weatherOk = await saveWeatherFromForm();
+    if (!weatherOk) return;
+    const list = readPopupDraft();
+    const titled = list.filter(s => s.title);
+    if (list.length && titled.length !== list.length) { alert('시각 알림의 제목을 적으세요.'); return; }
+    if (titled.some(s => !s.time)) { alert('시각을 적으세요.'); return; }
+    await persistPopups(titled);
+    popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
+    renderPopupEditor();
+    fillInboundEditor();
+    fillWeatherEditor();
+    alert('팝업 알림을 저장했습니다.');
+  } catch (e) {
+    alert('저장하지 못했습니다.\n' + (e && e.message ? e.message : e));
+  }
+}
+async function deletePopup(index) {
+  const list = readPopupDraft();
+  const row = list[index];
+  if (!row) return;
+  if (!confirm((row.title || '이 알림') + '\n지울까요?')) return;
+  list.splice(index, 1);
+  try {
+    await persistPopups(list.filter(s => s.title));
+    popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : list.filter(s => s.title);
+    if (!popupDraft.length) popupDraft = defaultPopupDraft();
+    renderPopupEditor();
+  } catch (e) {
+    alert('지우지 못했습니다.');
+  }
+}
+document.getElementById('popupEditBtn').onclick = () => {
+  const panel = document.getElementById('popupPanel');
+  panel.classList.toggle('hidden');
+  if (panel.classList.contains('hidden')) return;
+  popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
+  fillInboundEditor();
+  fillWeatherEditor();
+  renderPopupEditor();
+};
+document.getElementById('addPopupBtn').onclick = () => {
+  popupDraft = readPopupDraft();
+  const id = 'p' + Date.now();
+  openPopupId = id;
+  popupDraft.push({ id, time: '12:00', who: 'all', title: '', body: '', note: '', noteWho: '', alsoText: '' });
+  document.getElementById('timePopupBox').classList.remove('hidden');
+  renderPopupEditor();
+};
+document.getElementById('condPopupBtn').onclick = () => document.getElementById('condPopupBox').classList.toggle('hidden');
+document.getElementById('timePopupBtn').onclick = () => document.getElementById('timePopupBox').classList.toggle('hidden');
+document.getElementById('inboundLineBtn').onclick = () => document.getElementById('inboundEdit').classList.toggle('hidden');
+document.getElementById('weatherLineBtn').onclick = () => document.getElementById('weatherEdit').classList.toggle('hidden');
+document.getElementById('savePopupBtn').onclick = savePopupDraft;
+function commonTitleOptions() {
+  const names = (commonTitles.length ? commonTitles : COMMON_SEED).slice();
+  return names.filter(Boolean).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function renderHolidayDates(kind) {
+  const box = document.getElementById(kind + 'Dates');
+  const list = dateDraft[kind] || [];
+  box.innerHTML = list.length ? list.map((day, i) => '<div style="display:flex; gap:8px; align-items:center; margin:4px 0;"><span>' + escHtml(day) + '</span><button type="button" class="btn-secondary" data-i="' + i + '">빼기</button></div>').join('') : '<p style="font-size:13px; color:#777; margin:4px 0;">아직 없습니다.</p>';
+  box.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => {
+      dateDraft[kind].splice(Number(btn.dataset.i), 1);
+      renderHolidayDates(kind);
+    };
+  });
+}
+function renderRemoveTitles() {
+  const box = document.getElementById('removeTitleList');
+  const titles = dateDraft.removeTitles.filter(name => name !== '__ambient__');
+  box.innerHTML = titles.map((name, i) => '<div style="display:flex; gap:8px; align-items:center; margin-top:6px;"><span style="flex:1;">' + escHtml(name) + '</span><button type="button" class="btn-secondary" data-i="' + i + '">빼기</button></div>').join('');
+  box.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => {
+      const titlesNow = dateDraft.removeTitles.filter(name => name !== '__ambient__');
+      titlesNow.splice(Number(btn.dataset.i), 1);
+      dateDraft.removeTitles = (dateDraft.removeTitles.includes('__ambient__') ? ['__ambient__'] : []).concat(titlesNow);
+      renderRemoveTitles();
+      fillRemovePicker();
+    };
+  });
+  document.getElementById('ambientRemove').checked = dateDraft.removeTitles.includes('__ambient__');
+}
+function fillRemovePicker() {
+  const sel = document.getElementById('removeTitlePick');
+  const used = new Set(dateDraft.removeTitles);
+  const names = commonTitleOptions().filter(name => !used.has(name));
+  sel.innerHTML = '<option value="">항목 선택</option>' + names.map(name => '<option value="' + escAttr(name) + '">' + escHtml(name) + '</option>').join('');
+}
+function renderDateAdds() {
+  const box = document.getElementById('dateAddList');
+  const names = commonTitleOptions();
+  box.innerHTML = dateDraft.adds.map((row, i) => {
+    const opts = names.map(name => '<option value="' + escAttr(name) + '"' + (name === row.title ? ' selected' : '') + '>' + escHtml(name) + '</option>').join('');
+    const checks = ADD_WHEN.map(when => '<label style="display:inline-flex; margin:4px 8px 0 0;"><input type="checkbox" data-i="' + i + '" data-when="' + when.id + '"' + (row.when.includes(when.id) ? ' checked' : '') + '> ' + when.label + '</label>').join('');
+    return '<div style="border-top:1px solid #eee; padding:8px 0;"><select data-add-title="' + i + '">' + opts + '</select><div>' + checks + '</div><button type="button" class="btn-secondary" data-del-add="' + i + '" style="margin-top:6px;">삭제</button></div>';
+  }).join('');
+  box.querySelectorAll('[data-add-title]').forEach(sel => {
+    sel.onchange = () => { dateDraft.adds[Number(sel.dataset.addTitle)].title = sel.value; };
+  });
+  box.querySelectorAll('[data-when]').forEach(boxInput => {
+    boxInput.onchange = () => {
+      const row = dateDraft.adds[Number(boxInput.dataset.i)];
+      const when = boxInput.dataset.when;
+      row.when = boxInput.checked ? [...new Set(row.when.concat(when))] : row.when.filter(id => id !== when);
+    };
+  });
+  box.querySelectorAll('[data-del-add]').forEach(btn => {
+    btn.onclick = () => {
+      dateDraft.adds.splice(Number(btn.dataset.delAdd), 1);
+      renderDateAdds();
+    };
+  });
+}
+function openDateRules() {
+  dateDraft = normalizeDateRules(dateRules || defaultDateRules());
+  renderHolidayDates('chuseok');
+  renderHolidayDates('seollal');
+  document.querySelectorAll('[data-remove-when]').forEach(box => {
+    box.checked = dateDraft.removeWhen.includes(box.dataset.removeWhen);
+  });
+  renderRemoveTitles();
+  fillRemovePicker();
+  renderDateAdds();
+}
+function addHoliday(kind) {
+  const input = document.getElementById(kind + 'Input');
+  const value = input.value;
+  if (!isYmd(value)) { alert('날짜를 고르세요.'); return; }
+  if (!dateDraft[kind].includes(value)) dateDraft[kind].push(value);
+  dateDraft[kind].sort();
+  input.value = '';
+  renderHolidayDates(kind);
+}
+document.getElementById('dateRuleBtn').onclick = () => {
+  const panel = document.getElementById('dateRulePanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) openDateRules();
+};
+document.getElementById('chuseokAddBtn').onclick = () => addHoliday('chuseok');
+document.getElementById('seollalAddBtn').onclick = () => addHoliday('seollal');
+document.getElementById('ambientRemove').onchange = function() {
+  dateDraft.removeTitles = dateDraft.removeTitles.filter(name => name !== '__ambient__');
+  if (this.checked) dateDraft.removeTitles.unshift('__ambient__');
+};
+document.querySelectorAll('[data-remove-when]').forEach(box => {
+  box.onchange = () => {
+    dateDraft.removeWhen = [...document.querySelectorAll('[data-remove-when]:checked')].map(el => el.dataset.removeWhen);
+  };
+});
+document.getElementById('removeTitleAddBtn').onclick = () => {
+  const name = document.getElementById('removeTitlePick').value;
+  if (!name || dateDraft.removeTitles.includes(name)) return;
+  dateDraft.removeTitles.push(name);
+  renderRemoveTitles();
+  fillRemovePicker();
+};
+document.getElementById('dateAddBtn').onclick = () => {
+  const names = commonTitleOptions();
+  dateDraft.adds.push({ title: names[0] || '', when: ['sun'] });
+  renderDateAdds();
+};
+document.getElementById('dateRuleSave').onclick = async () => {
+  dateDraft.removeWhen = [...document.querySelectorAll('[data-remove-when]:checked')].map(el => el.dataset.removeWhen);
+  if (dateDraft.adds.some(row => row.title && !(row.when || []).length)) { alert('넣는 항목의 날짜를 하나 이상 체크하세요.'); return; }
+  const rules = normalizeDateRules(dateDraft);
+  if (!rules.removeWhen.length) { alert('빼는 날을 하나 이상 고르세요.'); return; }
+  try {
+    const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'date-rules');
+    if (delErr) throw delErr;
+    const { error } = await supabase.from('checklist_items').insert({
+      store_name: '__i18n__',
+      shift_key: 'date-rules',
+      shift_name: '날짜',
+      item_order: 1,
+      title: 'rules',
+      description: JSON.stringify(rules),
+      photo_required: false
+    });
+    if (error) throw error;
+    dateRules = rules;
+    dateDraft = normalizeDateRules(rules);
+    alert('날짜 항목이 저장되었습니다.');
+  } catch (e) {
+    alert('저장 실패: ' + (e.message || e));
+  }
+};
 document.getElementById('addCommonBtn').onclick = addNewCommon;
 document.getElementById('commonSearch').oninput = renderCommonList;
 window.pickCommon = pickCommon;
@@ -3393,6 +4186,10 @@ document.getElementById('saveStoreBtn').onclick = async () => {
     manager: document.getElementById('editManager').value.trim(),
     phone: document.getElementById('editPhone').value.trim(),
     hours: prev.hours || '19',
+    district: prev.district || '',
+    dong: prev.dong || '',
+    latitude: prev.latitude || null,
+    longitude: prev.longitude || null,
     shifts: Object.assign({}, prev.shifts, shifts)
   };
   try {
