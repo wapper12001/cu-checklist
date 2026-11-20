@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v157</h1>
+  <h1>CU 점포 체크리스트 v158</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -915,6 +915,7 @@ function showLockedStore(name) {
   storeSelect.value = name;
   onStoreChange();
   resumeWork();
+  restoreRemoteProgress(name);
 }
 async function enterStoreCode(code, silent) {
   code = String(code || '').trim();
@@ -1717,8 +1718,90 @@ function saveProgress() {
     }
   } catch (e) {}
   saveResume();
+  scheduleRemoteProgress();
   checkAllDone();
 }
+function progressLiveTitle() {
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  if (!currentStore || !shiftSelect.value || !reportDate.value || !name || !period) return '';
+  return [reportDate.value, shiftSelect.value, name, period].join('|');
+}
+let remoteTimer = null;
+function scheduleRemoteProgress() {
+  clearTimeout(remoteTimer);
+  remoteTimer = setTimeout(() => { saveProgressRemote(); }, 600);
+}
+async function saveProgressRemote() {
+  const title = progressLiveTitle();
+  const raw = title ? localStorage.getItem(getKey()) : '';
+  if (!title || !raw) return;
+  try {
+    const found = await supabase.from('checklist_items').select('id').eq('store_name', currentStore).eq('shift_key', 'live').eq('title', title).limit(1);
+    if (found.error) return;
+    if (found.data && found.data[0]) {
+      await supabase.from('checklist_items').update({ description: raw, shift_name: '진행' }).eq('id', found.data[0].id);
+      return;
+    }
+    await supabase.from('checklist_items').insert({
+      store_name: currentStore,
+      shift_key: 'live',
+      shift_name: '진행',
+      item_order: 1,
+      title,
+      description: raw,
+      photo_required: false
+    });
+  } catch (e) {}
+}
+async function restoreRemoteProgress(storeName) {
+  if (!storeName) return;
+  let rows = [];
+  try {
+    const found = await supabase.from('checklist_items').select('title,description').eq('store_name', storeName).eq('shift_key', 'live');
+    if (found.error || !found.data) return;
+    rows = found.data;
+  } catch (e) { return; }
+  const today = koreaNow().date;
+  let best = null;
+  rows.forEach(row => {
+    let obj = null;
+    try { obj = JSON.parse(row.description || 'null'); } catch (e) { obj = null; }
+    if (!obj || obj.sent) return;
+    const parts = String(row.title || '').split('|');
+    const saved = {
+      store: storeName,
+      date: parts[0] || '',
+      shift: parts[1] || obj.shift || '',
+      staff: parts[2] || obj.staff || '',
+      period: parts.slice(3).join('|') || obj.period || ''
+    };
+    if (!saved.date || !saved.shift || !saved.staff || !saved.period) return;
+    if (saved.date < today && !shiftStillOpen(saved)) return;
+    if (!best || (obj.savedAt || 0) > (best.obj.savedAt || 0)) best = { obj, saved };
+  });
+  if (!best) return;
+  const local = findShiftRecord(best.saved);
+  if (local && (local.savedAt || 0) >= (best.obj.savedAt || 0)) return;
+  const prefix = 'prog_' + storeName + '_' + best.saved.shift + '_' + best.saved.date;
+  const named = prefix + '_' + encodeURIComponent(best.saved.staff) + '_' + encodeURIComponent(best.saved.period);
+  try {
+    localStorage.setItem(named, JSON.stringify(best.obj));
+    localStorage.setItem(prefix, JSON.stringify(best.obj));
+    localStorage.setItem('cu-resume', JSON.stringify(best.saved));
+  } catch (e) { return; }
+  resumeWork();
+}
+window.addEventListener('pagehide', () => {
+  saveProgress();
+  saveProgressRemote();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    saveProgress();
+    saveProgressRemote();
+  }
+});
 function loadProgress() {
   fullReportSent = false;
   try {
@@ -2966,6 +3049,14 @@ async function savePayRecord() {
   return !inserted.error;
 }
 async function finishFullReport(sum) {
+  const title = progressLiveTitle();
+  const storeName = currentStore;
+  fullReportSent = true;
+  saveProgress();
+  await saveProgressRemote();
+  if (title && storeName) {
+    try { await supabase.from('checklist_items').delete().eq('store_name', storeName).eq('shift_key', 'live').eq('title', title); } catch (e) {}
+  }
   const saved = await savePayRecord();
   alert(notice('수고하셨습니다. 즐퇴하세요') + (saved ? '' : '\n서버에는 저장되지 않았습니다.'));
   const store = allData[currentStore] || {};
