@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v143</h1>
+  <h1>CU 점포 체크리스트 v144</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2565,8 +2565,26 @@ async function savePayRecord() {
     shift: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
     reported_at: new Date().toISOString()
   };
-  const title = [record.store, record.pay_date, record.worker, record.period].join('|');
   const row = {
+    pay_date: record.pay_date,
+    store_name: record.store,
+    store_code: record.code || '',
+    worker_name: record.worker,
+    work_type: record.type,
+    start_time: record.start,
+    end_time: record.end,
+    period: record.period,
+    late_hours: record.late,
+    short_hours: record.short,
+    extra_hours: record.extra,
+    shift_name: record.shift,
+    reported_at: record.reported_at
+  };
+  const saved = await supabase.from('pay_records').upsert(row, { onConflict: 'store_name,pay_date,worker_name,period' });
+  if (!saved.error) return true;
+  if (saved.error.code !== 'PGRST205') return false;
+  const title = [record.store, record.pay_date, record.worker, record.period].join('|');
+  const oldRow = {
     store_name: '__i18n__',
     shift_key: 'pay',
     shift_name: record.pay_date,
@@ -2576,7 +2594,7 @@ async function savePayRecord() {
     photo_required: false
   };
   await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'pay').eq('title', title);
-  const { error } = await supabase.from('checklist_items').insert(row);
+  const { error } = await supabase.from('checklist_items').insert(oldRow);
   return !error;
 }
 async function finishFullReport(sum) {
