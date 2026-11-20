@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v150</h1>
+  <h1>CU 점포 체크리스트 v151</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -198,6 +198,16 @@ if (document.documentElement.classList.contains('inapp')) {
             <textarea id="inboundEditBody" style="min-height:140px;"></textarea>
             <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
             <input id="inboundEditPhrase">
+          </div>
+          <button type="button" class="common-line" id="weatherLineBtn">눈·비 점검</button>
+          <div id="weatherEdit" class="hidden" style="padding:8px 0 12px;">
+            <p style="font-size:13px; color:#555; margin:0 0 8px;">눈이나 비가 오거나, 그 근무시간 안에 내릴 때 뜹니다.</p>
+            <label>제목</label>
+            <input id="weatherEditTitle">
+            <label style="margin-top:8px;">내용. 한 줄에 하나</label>
+            <textarea id="weatherEditBody" style="min-height:120px;"></textarea>
+            <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
+            <input id="weatherEditPhrase">
           </div>
         </div>
         <button type="button" class="btn-secondary" id="timePopupBtn" style="width:100%; margin-top:8px;">시각 팝업 알람</button>
@@ -333,6 +343,16 @@ if (document.documentElement.classList.contains('inapp')) {
     <textarea id="inboundMemo" placeholder="확인했습니다. 이해했습니다." style="min-height:64px;"></textarea>
     <p id="inboundMsg" style="color:#6B2C91; min-height:1.2em; margin:6px 0;"></p>
     <button type="button" class="btn-primary" id="inboundConfirm" style="width:100%;">확인</button>
+  </div>
+</div>
+<div id="weatherModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="weatherTitle" style="margin-top:0; color:#6B2C91;">눈·비 점검</h3>
+    <div id="weatherBody" style="font-size:15px; line-height:1.55;"></div>
+    <label id="weatherHint" style="margin-top:12px;">아래 문장을 그대로 입력하세요.</label>
+    <textarea id="weatherMemo" placeholder="이해했습니다!" style="min-height:64px;"></textarea>
+    <p id="weatherMsg" style="color:#6B2C91; min-height:1.2em; margin:6px 0;"></p>
+    <button type="button" class="btn-primary" id="weatherConfirm" style="width:100%;">확인</button>
   </div>
 </div>
 
@@ -1008,6 +1028,11 @@ async function loadPopups() {
   if (!inbound.error && inbound.data && inbound.data[0]) {
     try { inboundSaved = JSON.parse(inbound.data[0].description || '{}'); } catch (e) { inboundSaved = null; }
   }
+  weatherSaved = null;
+  const weather = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'weather').order('item_order').limit(1);
+  if (!weather.error && weather.data && weather.data[0]) {
+    try { weatherSaved = JSON.parse(weather.data[0].description || '{}'); } catch (e) { weatherSaved = null; }
+  }
 }
 const INBOUND_DEFAULT = {
   title: '입고·진열 확인',
@@ -1021,13 +1046,31 @@ const INBOUND_DEFAULT = {
   ].join('\n'),
   phrase: '확인했습니다. 이해했습니다.'
 };
+const WEATHER_DEFAULT = {
+  title: '눈·비 점검',
+  body: [
+    '외부 집기: 아이스크림 냉동고, 냉장고, 매대',
+    '일반 상품',
+    '어닝, 파라솔, 테라스, 간판, 점내 발판, 제설'
+  ].join('\n'),
+  phrase: '이해했습니다!'
+};
 let inboundSaved = null;
+let weatherSaved = null;
 function currentInbound() {
   const saved = inboundSaved || {};
   return {
     title: (saved.title || INBOUND_DEFAULT.title).trim(),
     body: (saved.body || INBOUND_DEFAULT.body).trim(),
     phrase: (saved.phrase || INBOUND_DEFAULT.phrase).trim()
+  };
+}
+function currentWeather() {
+  const saved = weatherSaved || {};
+  return {
+    title: (saved.title || WEATHER_DEFAULT.title).trim(),
+    body: (saved.body || WEATHER_DEFAULT.body).trim(),
+    phrase: (saved.phrase || WEATHER_DEFAULT.phrase).trim()
   };
 }
 function koreaNow() {
@@ -1757,7 +1800,7 @@ function renderChecklist() {
   refreshAllMiss();
   restoreSavedPhotos(items);
   fillMissingTranslations();
-  maybeInboundPopup();
+  maybeConditionPopups();
   applyPendingShare();
 }
 
@@ -1992,7 +2035,7 @@ function onItemEdited(e) {
   saveProgress();
   refreshAllMiss();
   syncDoneBorders();
-  maybeInboundPopup();
+  maybeConditionPopups();
 }
 checklistContainer.addEventListener('click', (e) => {
   const scanBtn = e.target.closest && e.target.closest('[data-clock-scan]');
@@ -2090,6 +2133,95 @@ document.getElementById('inboundConfirm').onclick = () => {
   const key = inboundAckKey();
   if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
   document.getElementById('inboundModal').classList.add('hidden');
+  maybeConditionPopups();
+};
+
+const WET_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]);
+let weatherPayload = null;
+let weatherFetchedAt = 0;
+function weatherAckKey() {
+  if (!currentStore || !reportDate || !reportDate.value) return '';
+  return 'weatherAck_' + currentStore + '_' + reportDate.value;
+}
+function addDateDays(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return dt.getUTCFullYear() + '-' + mm + '-' + dd;
+}
+function shiftHourKeys(dateStr, range) {
+  const keys = [];
+  let m = range.start;
+  const target = range.end <= range.start ? range.end + 1440 : range.end;
+  while (m < target) {
+    const day = Math.floor(m / 1440);
+    const hour = Math.floor((m % 1440) / 60);
+    keys.push(addDateDays(dateStr, day) + 'T' + String(hour).padStart(2, '0'));
+    m += 60;
+  }
+  return keys;
+}
+function codeIsWet(code, precip, snow) {
+  return WET_CODES.has(Number(code)) || Number(precip) > 0 || Number(snow) > 0;
+}
+function wetInShift(data, dateStr, range) {
+  const keys = new Set(shiftHourKeys(dateStr, range));
+  const now = koreaNow();
+  const nowKey = now.date + 'T' + String(Math.floor(now.minutes / 60)).padStart(2, '0');
+  const cur = data.current || {};
+  if (keys.has(nowKey) && codeIsWet(cur.weather_code, cur.precipitation, cur.snowfall)) return true;
+  const hourly = data.hourly || {};
+  const times = hourly.time || [];
+  for (let i = 0; i < times.length; i++) {
+    if (!keys.has(String(times[i]).slice(0, 13))) continue;
+    if (codeIsWet(hourly.weather_code && hourly.weather_code[i], hourly.precipitation && hourly.precipitation[i], hourly.snowfall && hourly.snowfall[i])) return true;
+  }
+  return false;
+}
+function loadWeatherPayload() {
+  if (weatherPayload && Date.now() - weatherFetchedAt < 30 * 60 * 1000) return Promise.resolve(weatherPayload);
+  weatherFetchedAt = Date.now();
+  return fetch('https://api.open-meteo.com/v1/forecast?latitude=37.503&longitude=126.766&current=weather_code,precipitation,snowfall&hourly=weather_code,precipitation,snowfall&timezone=Asia%2FSeoul&forecast_days=2')
+    .then(r => r.json())
+    .then(data => { weatherPayload = data; return data; })
+    .catch(err => { weatherPayload = null; weatherFetchedAt = 0; throw err; });
+}
+function showTextPopup(prefix, cfg) {
+  document.getElementById(prefix + 'Title').innerHTML = biHtml(cfg.title);
+  document.getElementById(prefix + 'Body').innerHTML = cfg.body.split('\n').map(line => line.trim()).filter(Boolean).map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
+  document.getElementById(prefix + 'Hint').innerHTML = biHtml('아래 문장을 그대로 입력하세요.');
+  document.getElementById(prefix + 'Memo').value = '';
+  document.getElementById(prefix + 'Memo').placeholder = cfg.phrase;
+  document.getElementById(prefix + 'Msg').textContent = '';
+  document.getElementById(prefix + 'Modal').classList.remove('hidden');
+}
+function maybeConditionPopups() {
+  const weatherModal = document.getElementById('weatherModal');
+  const inboundModal = document.getElementById('inboundModal');
+  if (weatherModal && !weatherModal.classList.contains('hidden')) return;
+  if (inboundModal && !inboundModal.classList.contains('hidden')) return;
+  const key = weatherAckKey();
+  const range = parseWorkRange(workPeriod && workPeriod.value);
+  if (!key || !range || localStorage.getItem(key)) { maybeInboundPopup(); return; }
+  loadWeatherPayload().then(data => {
+    if (!weatherModal.classList.contains('hidden') || (inboundModal && !inboundModal.classList.contains('hidden'))) return;
+    if (localStorage.getItem(key)) { maybeInboundPopup(); return; }
+    if (!wetInShift(data, reportDate.value, range)) { maybeInboundPopup(); return; }
+    showTextPopup('weather', currentWeather());
+  }).catch(() => maybeInboundPopup());
+}
+document.getElementById('weatherConfirm').onclick = () => {
+  const typed = document.getElementById('weatherMemo').value.trim();
+  const phrase = currentWeather().phrase;
+  if (typed !== phrase) {
+    document.getElementById('weatherMsg').innerHTML = biHtml('문장이 다릅니다.');
+    return;
+  }
+  const key = weatherAckKey();
+  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  document.getElementById('weatherModal').classList.add('hidden');
+  maybeInboundPopup();
 };
 
 function checkAllDone() {
@@ -2117,7 +2249,7 @@ function checkAllDone() {
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
   syncDoneBorders();
-  maybeInboundPopup();
+  maybeConditionPopups();
 }
 
 function syncDoneBorders() {
@@ -3490,35 +3622,56 @@ function fillInboundEditor() {
   document.getElementById('inboundEditPhrase').value = cfg.phrase;
   document.getElementById('inboundLineBtn').textContent = cfg.title || '입고·진열 확인';
 }
-async function saveInboundFromForm() {
-  const title = document.getElementById('inboundEditTitle').value.trim();
-  const body = document.getElementById('inboundEditBody').value.trim();
-  const phrase = document.getElementById('inboundEditPhrase').value.trim();
+function fillWeatherEditor() {
+  const cfg = currentWeather();
+  document.getElementById('weatherEditTitle').value = cfg.title;
+  document.getElementById('weatherEditBody').value = cfg.body;
+  document.getElementById('weatherEditPhrase').value = cfg.phrase;
+  document.getElementById('weatherLineBtn').textContent = cfg.title || '눈·비 점검';
+}
+async function saveNamedPopup(shiftKey, shiftName, title, body, phrase, emptyMessage) {
   if (!title || !body || !phrase) {
-    alert('입고·진열 확인의 제목, 내용, 확인 문장을 적으세요.');
+    alert(emptyMessage);
     return false;
   }
   const description = JSON.stringify({ title, body, phrase });
-  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'inbound');
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', shiftKey);
   if (delErr) throw delErr;
   const { error } = await supabase.from('checklist_items').insert({
     store_name: '__i18n__',
-    shift_key: 'inbound',
-    shift_name: '입고',
+    shift_key: shiftKey,
+    shift_name: shiftName,
     item_order: 1,
     title,
     description,
     photo_required: false
   });
   if (error) throw error;
-  inboundSaved = { title, body, phrase };
   body.split('\n').concat([title, phrase]).forEach(line => { ensureTranslation(line.trim()); });
   return true;
+}
+async function saveInboundFromForm() {
+  const title = document.getElementById('inboundEditTitle').value.trim();
+  const body = document.getElementById('inboundEditBody').value.trim();
+  const phrase = document.getElementById('inboundEditPhrase').value.trim();
+  const ok = await saveNamedPopup('inbound', '입고', title, body, phrase, '입고·진열 확인의 제목, 내용, 확인 문장을 적으세요.');
+  if (ok) inboundSaved = { title, body, phrase };
+  return ok;
+}
+async function saveWeatherFromForm() {
+  const title = document.getElementById('weatherEditTitle').value.trim();
+  const body = document.getElementById('weatherEditBody').value.trim();
+  const phrase = document.getElementById('weatherEditPhrase').value.trim();
+  const ok = await saveNamedPopup('weather', '날씨', title, body, phrase, '눈·비 점검의 제목, 내용, 확인 문장을 적으세요.');
+  if (ok) weatherSaved = { title, body, phrase };
+  return ok;
 }
 async function savePopupDraft() {
   try {
     const inboundOk = await saveInboundFromForm();
     if (!inboundOk) return;
+    const weatherOk = await saveWeatherFromForm();
+    if (!weatherOk) return;
     const list = readPopupDraft();
     const titled = list.filter(s => s.title);
     if (list.length && titled.length !== list.length) { alert('시각 알림의 제목을 적으세요.'); return; }
@@ -3527,6 +3680,7 @@ async function savePopupDraft() {
     popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
     renderPopupEditor();
     fillInboundEditor();
+    fillWeatherEditor();
     alert('팝업 알림을 저장했습니다.');
   } catch (e) {
     alert('저장하지 못했습니다.\n' + (e && e.message ? e.message : e));
@@ -3553,6 +3707,7 @@ document.getElementById('popupEditBtn').onclick = () => {
   if (panel.classList.contains('hidden')) return;
   popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
   fillInboundEditor();
+  fillWeatherEditor();
   renderPopupEditor();
 };
 document.getElementById('addPopupBtn').onclick = () => {
@@ -3566,6 +3721,7 @@ document.getElementById('addPopupBtn').onclick = () => {
 document.getElementById('condPopupBtn').onclick = () => document.getElementById('condPopupBox').classList.toggle('hidden');
 document.getElementById('timePopupBtn').onclick = () => document.getElementById('timePopupBox').classList.toggle('hidden');
 document.getElementById('inboundLineBtn').onclick = () => document.getElementById('inboundEdit').classList.toggle('hidden');
+document.getElementById('weatherLineBtn').onclick = () => document.getElementById('weatherEdit').classList.toggle('hidden');
 document.getElementById('savePopupBtn').onclick = savePopupDraft;
 document.getElementById('addCommonBtn').onclick = addNewCommon;
 document.getElementById('commonSearch').oninput = renderCommonList;
