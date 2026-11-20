@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v148</h1>
+  <h1>CU 점포 체크리스트 v149</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -187,18 +187,24 @@ if (document.documentElement.classList.contains('inapp')) {
       </div>
       <button class="btn-secondary" id="popupEditBtn" type="button" style="width:100%; margin-top:8px;">팝업 알림 수정</button>
       <div id="popupPanel" class="hidden" style="margin-top:12px;">
-        <p style="font-size:13px; color:#555; margin:0 0 8px;">위는 입고·진열 때 뜨는 알림입니다. 아래는 시각이 되면 뜨는 알림입니다. 내용을 고친 뒤 저장을 누르세요. 삭제는 바로 지워집니다.</p>
-        <div style="padding-bottom:12px;">
-          <h4 style="margin:0 0 8px;">입고·진열 확인</h4>
-          <label>제목</label>
-          <input id="inboundEditTitle">
-          <label style="margin-top:8px;">내용. 한 줄에 하나</label>
-          <textarea id="inboundEditBody" style="min-height:140px;"></textarea>
-          <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
-          <input id="inboundEditPhrase">
+        <p style="font-size:13px; color:#555; margin:0 0 8px;">종류를 누르면 그 알림만 열립니다. 내용을 고친 뒤 저장을 누르세요. 삭제는 바로 지워집니다.</p>
+        <button type="button" class="btn-secondary" id="condPopupBtn" style="width:100%;">특정 조건 팝업 알람</button>
+        <div id="condPopupBox" class="hidden">
+          <button type="button" class="common-line" id="inboundLineBtn">입고·진열 확인</button>
+          <div id="inboundEdit" class="hidden" style="padding:8px 0 12px;">
+            <label>제목</label>
+            <input id="inboundEditTitle">
+            <label style="margin-top:8px;">내용. 한 줄에 하나</label>
+            <textarea id="inboundEditBody" style="min-height:140px;"></textarea>
+            <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
+            <input id="inboundEditPhrase">
+          </div>
         </div>
-        <div id="popupList"></div>
-        <button type="button" class="btn-secondary" id="addPopupBtn" style="width:100%; margin-top:8px;">팝업 추가</button>
+        <button type="button" class="btn-secondary" id="timePopupBtn" style="width:100%; margin-top:8px;">시각 팝업 알람</button>
+        <div id="timePopupBox" class="hidden">
+          <div id="popupList"></div>
+          <button type="button" class="btn-secondary" id="addPopupBtn" style="width:100%; margin-top:8px;">팝업 추가</button>
+        </div>
         <button type="button" class="btn-primary" id="savePopupBtn" style="width:100%; margin-top:8px;">팝업 저장</button>
       </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
@@ -3369,6 +3375,7 @@ document.getElementById('commonEditBtn').onclick = () => {
   if (!panel.classList.contains('hidden')) renderCommonList();
 };
 let popupDraft = [];
+let openPopupId = '';
 function popupDraftFromRows(rows) {
   return rows.map(s => ({
     id: s.id,
@@ -3403,7 +3410,9 @@ function readPopupDraft() {
 function renderPopupEditor() {
   const panel = document.getElementById('popupList');
   panel.innerHTML = popupDraft.map(s => `
-    <div class="popup-row" data-id="${escAttr(s.id)}" style="border-top:8px solid #f6f1fa; padding:12px 0;">
+    <div class="popup-row" data-id="${escAttr(s.id)}">
+      <button type="button" class="common-line popup-line">${escHtml((s.time || '') + ' ' + (s.title || '새 알림'))}</button>
+      <div class="popup-edit ${s.id === openPopupId ? '' : 'hidden'}" style="padding:8px 0 12px;">
       <label>시각</label>
       <input class="p-time" type="time" value="${escAttr(s.time || '09:30')}">
       <label style="margin-top:8px;">어느 점포</label>
@@ -3426,11 +3435,19 @@ function renderPopupEditor() {
       <label style="margin-top:8px;">19시간 점포에서 같이 완료할 항목. 한 줄에 하나</label>
       <textarea class="p-also" style="min-height:64px;">${escHtml(s.alsoText || '')}</textarea>
       <button type="button" class="btn popup-del" style="width:100%; margin-top:8px; background:#d92b2b; color:white;">삭제</button>
+      </div>
     </div>
-  `).join('') || '<div style="color:#888; font-size:13px;">팝업 알림이 없습니다.</div>';
-  panel.querySelectorAll('.popup-del').forEach((btn, index) => {
-    btn.onclick = () => deletePopup(index);
+  `).join('') || '<div style="color:#888; font-size:13px;">시각 알림이 없습니다.</div>';
+  panel.querySelectorAll('.popup-row').forEach((row, index) => {
+    row.querySelector('.popup-line').onclick = () => {
+      const edit = row.querySelector('.popup-edit');
+      const willOpen = edit.classList.contains('hidden');
+      panel.querySelectorAll('.popup-edit').forEach(el => el.classList.add('hidden'));
+      if (willOpen) edit.classList.remove('hidden');
+    };
+    row.querySelector('.popup-del').onclick = () => deletePopup(index);
   });
+  openPopupId = '';
 }
 async function persistPopups(list) {
   const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__popup__').eq('shift_key', 'alarm');
@@ -3464,6 +3481,7 @@ function fillInboundEditor() {
   document.getElementById('inboundEditTitle').value = cfg.title;
   document.getElementById('inboundEditBody').value = cfg.body;
   document.getElementById('inboundEditPhrase').value = cfg.phrase;
+  document.getElementById('inboundLineBtn').textContent = cfg.title || '입고·진열 확인';
 }
 async function saveInboundFromForm() {
   const title = document.getElementById('inboundEditTitle').value.trim();
@@ -3532,9 +3550,15 @@ document.getElementById('popupEditBtn').onclick = () => {
 };
 document.getElementById('addPopupBtn').onclick = () => {
   popupDraft = readPopupDraft();
-  popupDraft.push({ id: 'p' + Date.now(), time: '12:00', who: 'all', title: '', body: '', note: '', noteWho: '', alsoText: '' });
+  const id = 'p' + Date.now();
+  openPopupId = id;
+  popupDraft.push({ id, time: '12:00', who: 'all', title: '', body: '', note: '', noteWho: '', alsoText: '' });
+  document.getElementById('timePopupBox').classList.remove('hidden');
   renderPopupEditor();
 };
+document.getElementById('condPopupBtn').onclick = () => document.getElementById('condPopupBox').classList.toggle('hidden');
+document.getElementById('timePopupBtn').onclick = () => document.getElementById('timePopupBox').classList.toggle('hidden');
+document.getElementById('inboundLineBtn').onclick = () => document.getElementById('inboundEdit').classList.toggle('hidden');
 document.getElementById('savePopupBtn').onclick = savePopupDraft;
 document.getElementById('addCommonBtn').onclick = addNewCommon;
 document.getElementById('commonSearch').oninput = renderCommonList;
