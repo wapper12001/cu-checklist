@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v145</h1>
+  <h1>CU 점포 체크리스트 v146</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2012,8 +2012,14 @@ document.getElementById('inboundConfirm').onclick = () => {
 };
 
 function checkAllDone() {
-  const items = checklistContainer.querySelectorAll('.item');
   const box = document.querySelector('.container');
+  if ((adminScreen && !adminScreen.classList.contains('hidden')) || (editScreen && !editScreen.classList.contains('hidden'))) {
+    bottomBar.classList.add('hidden');
+    if (reportFields()) reportFields().classList.add('hidden');
+    if (box) box.style.paddingBottom = '';
+    return;
+  }
+  const items = checklistContainer.querySelectorAll('.item');
   if (!items.length) {
     bottomBar.classList.add('hidden');
     if (reportFields()) reportFields().classList.add('hidden');
@@ -2850,6 +2856,7 @@ document.getElementById('backFromAdmin').onclick = () => {
   adminScreen.classList.add('hidden');
   editScreen.classList.add('hidden');
   reportScreen.classList.remove('hidden');
+  checkAllDone();
 };
 
 const ADMIN_VIEW_KEY = 'cu_admin_view';
@@ -2866,6 +2873,10 @@ function clearAdminView() {
 }
 async function enterAdmin() {
   reportScreen.classList.add('hidden');
+  bottomBar.classList.add('hidden');
+  if (reportFields()) reportFields().classList.add('hidden');
+  const box = document.querySelector('.container');
+  if (box) box.style.paddingBottom = '';
   try { await loadData(true); }
   catch (e) { alert('데이터를 불러오지 못했습니다.'); return; }
   if (!editScreen.classList.contains('hidden')) return;
@@ -2902,6 +2913,7 @@ function restoreAdmin() {
   const v = readAdminView();
   if (!v || !v.on) return;
   reportScreen.classList.add('hidden');
+  bottomBar.classList.add('hidden');
   if (v.screen === 'edit' && v.store && allData[v.store] && v.shift) {
     restoringAdmin = true;
     openShiftEdit(v.store, v.shift);
@@ -3010,6 +3022,7 @@ function openShiftEdit(storeName, shiftKey) {
   adminScreen.classList.add('hidden');
   editScreen.classList.remove('hidden');
   reportScreen.classList.add('hidden');
+  bottomBar.classList.add('hidden');
   if (!restoringAdmin) saveAdminView({ on: true, screen: 'edit', store: storeName, shift: shiftKey, draft: null, manager: d.manager || '', phone: d.phone || '' });
 }
 
