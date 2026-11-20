@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v142</h1>
+  <h1>CU 점포 체크리스트 v145</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -688,6 +688,7 @@ async function loadData(forAdmin) {
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
       if (it.store_name === '__i18n__') {
+        if (it.shift_key === 'pay') return;
         if (it.shift_key === 'access') {
           const storeName = (it.title || '').trim();
           if (storeName && allData[storeName]) allData[storeName].code = it.description || '';
@@ -2518,14 +2519,11 @@ sendReportBtn.onclick = async () => {
     return;
   }
   const sum = makeSummary();
-  const store = allData[currentStore] || {};
-  const phone = (store.phone || '').replace(/-/g,'');
   markReportSent();
   if (navigator.share) {
     try {
       await navigator.share({ text: sum });
-      alert(notice('수고하셨습니다. 즐퇴하세요'));
-      backToStart();
+      await finishFullReport(sum);
       return;
     } catch (e) {
       if (e && e.name === 'AbortError') {
@@ -2536,14 +2534,68 @@ sendReportBtn.onclick = async () => {
       }
     }
   }
-  alert(notice('수고하셨습니다. 즐퇴하세요'));
-  backToStart();
-  location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
+  const done = await finishFullReport(sum);
+  location.href = done.phone ? `sms:${done.phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 function markReportSent() {
   fullReportSent = true;
   saveWorkCalendar();
   saveProgress();
+}
+async function savePayRecord() {
+  const range = parseWorkRange(workPeriod.value);
+  const workDate = payDateFor(range, reportDate.value) || reportDate.value;
+  if (!workDate || !currentStore || !staffName.value.trim()) return false;
+  const pay = readPay();
+  const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
+  const names = { edu: '교육', prob: '수습', full: '정식' };
+  const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
+  const opt = shiftSelect.options[shiftSelect.selectedIndex];
+  const minutes = range ? shiftMinutes(range) : 0;
+  const workHours = Math.round(minutes / 60 * 10) / 10;
+  const late = num(pay.lateYn, pay.lateTime);
+  const short = num(pay.deductYn, pay.deductTime);
+  const extra = num(pay.extraYn, pay.extraTime);
+  const breakHours = picked === 'edu' ? Math.round(Math.floor(minutes / 60) * 10 / 6) / 10 : 0;
+  const total = Math.round((workHours + extra - breakHours - late - short) * 10) / 10;
+  const row = {
+    work_date: workDate,
+    store_code: myStoreCode() || '',
+    store_name: currentStore || '',
+    worker_name: staffName.value.trim(),
+    shift_type: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
+    start_time: workStart.value || '',
+    end_time: workEnd.value || '',
+    work_hours: workHours,
+    late_hours: late,
+    short_hours: short,
+    extra_hours: extra,
+    break_hours: breakHours,
+    pay_type: names[picked] || picked,
+    total_hours: total
+  };
+  const found = await supabase.from('pay_records').select('id')
+    .eq('store_name', row.store_name)
+    .eq('work_date', row.work_date)
+    .eq('worker_name', row.worker_name)
+    .eq('start_time', row.start_time)
+    .eq('end_time', row.end_time)
+    .limit(1);
+  if (found.error) return false;
+  if (found.data && found.data[0]) {
+    const updated = await supabase.from('pay_records').update(row).eq('id', found.data[0].id);
+    return !updated.error;
+  }
+  const inserted = await supabase.from('pay_records').insert(row);
+  return !inserted.error;
+}
+async function finishFullReport(sum) {
+  const saved = await savePayRecord();
+  alert(notice('수고하셨습니다. 즐퇴하세요') + (saved ? '' : '\n서버에는 저장되지 않았습니다.'));
+  const store = allData[currentStore] || {};
+  const phone = (store.phone || '').replace(/-/g, '');
+  backToStart();
+  return { saved, phone, sum };
 }
 
 // ===== 출근 QR =====
