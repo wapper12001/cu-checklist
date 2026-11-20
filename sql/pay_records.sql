@@ -1,51 +1,32 @@
--- 급여 기록 표. 체크리스트 표는 지우지 않습니다.
+-- 이미 만든 pay_records 표와 같은 모양입니다.
+-- 체크리스트 표는 건드리지 않습니다.
+-- 같은 점포, 날짜, 근무자, 시작, 종료면 앱이 그 줄을 덮어씁니다.
+
 create table if not exists public.pay_records (
-  id uuid primary key default gen_random_uuid(),
-  pay_date date not null,
-  store_name text not null,
-  store_code text not null default '',
-  worker_name text not null default '',
-  work_type text not null default '',
-  start_time text not null default '',
-  end_time text not null default '',
-  period text not null default '',
-  late_hours numeric not null default 0,
-  short_hours numeric not null default 0,
-  extra_hours numeric not null default 0,
-  shift_name text not null default '',
-  reported_at timestamptz not null default now()
+  id bigint generated always as identity primary key,
+  work_date date not null,
+  store_code text,
+  store_name text,
+  worker_name text not null,
+  shift_type text,
+  start_time text,
+  end_time text,
+  work_hours numeric,
+  late_hours numeric default 0,
+  short_hours numeric default 0,
+  extra_hours numeric default 0,
+  break_hours numeric default 0,
+  pay_type text,
+  total_hours numeric,
+  created_at timestamptz default now()
 );
-
-create unique index if not exists pay_records_one_shift
-  on public.pay_records (store_name, pay_date, worker_name, period);
-
-create index if not exists pay_records_date
-  on public.pay_records (pay_date, store_name);
-
-create index if not exists checklist_items_store_shift_order
-  on public.checklist_items (store_name, shift_key, item_order);
-
-create index if not exists stores_name
-  on public.stores (name);
-
-alter table public.stores add column if not exists code text not null default '';
-
-update public.stores s
-set code = c.description
-from public.checklist_items c
-where c.store_name = '__i18n__'
-  and c.shift_key = 'access'
-  and c.title = s.name
-  and coalesce(s.code, '') = '';
 
 alter table public.pay_records enable row level security;
 
-drop policy if exists pay_records_anon_all on public.pay_records;
-create policy pay_records_anon_all
-  on public.pay_records
-  for all
-  to anon, authenticated
-  using (true)
-  with check (true);
+drop policy if exists "pay_records_anon_select" on public.pay_records;
+drop policy if exists "pay_records_anon_insert" on public.pay_records;
+drop policy if exists "pay_records_anon_update" on public.pay_records;
 
-grant select, insert, update, delete on public.pay_records to anon, authenticated;
+create policy "pay_records_anon_select" on public.pay_records for select to anon using (true);
+create policy "pay_records_anon_insert" on public.pay_records for insert to anon with check (true);
+create policy "pay_records_anon_update" on public.pay_records for update to anon using (true) with check (true);

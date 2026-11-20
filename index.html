@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v144</h1>
+  <h1>CU 점포 체크리스트 v145</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2544,58 +2544,50 @@ function markReportSent() {
 }
 async function savePayRecord() {
   const range = parseWorkRange(workPeriod.value);
-  const payDate = payDateFor(range, reportDate.value) || reportDate.value;
+  const workDate = payDateFor(range, reportDate.value) || reportDate.value;
+  if (!workDate || !currentStore || !staffName.value.trim()) return false;
   const pay = readPay();
   const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
   const names = { edu: '교육', prob: '수습', full: '정식' };
   const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
   const opt = shiftSelect.options[shiftSelect.selectedIndex];
-  const record = {
-    pay_date: payDate,
-    store: currentStore || '',
-    code: myStoreCode(),
-    worker: staffName.value.trim(),
-    type: names[picked] || picked,
-    start: workStart.value || '',
-    end: workEnd.value || '',
-    period: workPeriod.value.trim(),
-    late: num(pay.lateYn, pay.lateTime),
-    short: num(pay.deductYn, pay.deductTime),
-    extra: num(pay.extraYn, pay.extraTime),
-    shift: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
-    reported_at: new Date().toISOString()
-  };
+  const minutes = range ? shiftMinutes(range) : 0;
+  const workHours = Math.round(minutes / 60 * 10) / 10;
+  const late = num(pay.lateYn, pay.lateTime);
+  const short = num(pay.deductYn, pay.deductTime);
+  const extra = num(pay.extraYn, pay.extraTime);
+  const breakHours = picked === 'edu' ? Math.round(Math.floor(minutes / 60) * 10 / 6) / 10 : 0;
+  const total = Math.round((workHours + extra - breakHours - late - short) * 10) / 10;
   const row = {
-    pay_date: record.pay_date,
-    store_name: record.store,
-    store_code: record.code || '',
-    worker_name: record.worker,
-    work_type: record.type,
-    start_time: record.start,
-    end_time: record.end,
-    period: record.period,
-    late_hours: record.late,
-    short_hours: record.short,
-    extra_hours: record.extra,
-    shift_name: record.shift,
-    reported_at: record.reported_at
+    work_date: workDate,
+    store_code: myStoreCode() || '',
+    store_name: currentStore || '',
+    worker_name: staffName.value.trim(),
+    shift_type: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
+    start_time: workStart.value || '',
+    end_time: workEnd.value || '',
+    work_hours: workHours,
+    late_hours: late,
+    short_hours: short,
+    extra_hours: extra,
+    break_hours: breakHours,
+    pay_type: names[picked] || picked,
+    total_hours: total
   };
-  const saved = await supabase.from('pay_records').upsert(row, { onConflict: 'store_name,pay_date,worker_name,period' });
-  if (!saved.error) return true;
-  if (saved.error.code !== 'PGRST205') return false;
-  const title = [record.store, record.pay_date, record.worker, record.period].join('|');
-  const oldRow = {
-    store_name: '__i18n__',
-    shift_key: 'pay',
-    shift_name: record.pay_date,
-    item_order: 0,
-    title,
-    description: JSON.stringify(record),
-    photo_required: false
-  };
-  await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'pay').eq('title', title);
-  const { error } = await supabase.from('checklist_items').insert(oldRow);
-  return !error;
+  const found = await supabase.from('pay_records').select('id')
+    .eq('store_name', row.store_name)
+    .eq('work_date', row.work_date)
+    .eq('worker_name', row.worker_name)
+    .eq('start_time', row.start_time)
+    .eq('end_time', row.end_time)
+    .limit(1);
+  if (found.error) return false;
+  if (found.data && found.data[0]) {
+    const updated = await supabase.from('pay_records').update(row).eq('id', found.data[0].id);
+    return !updated.error;
+  }
+  const inserted = await supabase.from('pay_records').insert(row);
+  return !inserted.error;
 }
 async function finishFullReport(sum) {
   const saved = await savePayRecord();
