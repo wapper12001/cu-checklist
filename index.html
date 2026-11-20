@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v147</h1>
+  <h1>CU 점포 체크리스트 v148</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -187,7 +187,16 @@ if (document.documentElement.classList.contains('inapp')) {
       </div>
       <button class="btn-secondary" id="popupEditBtn" type="button" style="width:100%; margin-top:8px;">팝업 알림 수정</button>
       <div id="popupPanel" class="hidden" style="margin-top:12px;">
-        <p style="font-size:13px; color:#555; margin:0 0 8px;">시각이 되면 근무 화면에 뜹니다. 내용을 고친 뒤 저장을 누르세요. 삭제는 바로 지워집니다.</p>
+        <p style="font-size:13px; color:#555; margin:0 0 8px;">위는 입고·진열 때 뜨는 알림입니다. 아래는 시각이 되면 뜨는 알림입니다. 내용을 고친 뒤 저장을 누르세요. 삭제는 바로 지워집니다.</p>
+        <div style="padding-bottom:12px;">
+          <h4 style="margin:0 0 8px;">입고·진열 확인</h4>
+          <label>제목</label>
+          <input id="inboundEditTitle">
+          <label style="margin-top:8px;">내용. 한 줄에 하나</label>
+          <textarea id="inboundEditBody" style="min-height:140px;"></textarea>
+          <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
+          <input id="inboundEditPhrase">
+        </div>
         <div id="popupList"></div>
         <button type="button" class="btn-secondary" id="addPopupBtn" style="width:100%; margin-top:8px;">팝업 추가</button>
         <button type="button" class="btn-primary" id="savePopupBtn" style="width:100%; margin-top:8px;">팝업 저장</button>
@@ -988,6 +997,32 @@ async function loadPopups() {
       also: Array.isArray(o.also) ? o.also : []
     };
   }).filter(s => s.title);
+  inboundSaved = null;
+  const inbound = await supabase.from('checklist_items').select('*').eq('store_name', '__popup__').eq('shift_key', 'inbound').order('item_order').limit(1);
+  if (!inbound.error && inbound.data && inbound.data[0]) {
+    try { inboundSaved = JSON.parse(inbound.data[0].description || '{}'); } catch (e) { inboundSaved = null; }
+  }
+}
+const INBOUND_DEFAULT = {
+  title: '입고·진열 확인',
+  body: [
+    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.',
+    '보관 방법을 모르면 상품 표기를 확인하세요.',
+    '냉동은 냉동고에 보관합니다.',
+    '냉장은 워크인 냉장고에 보관합니다.',
+    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.',
+    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.'
+  ].join('\n'),
+  phrase: '확인했습니다. 이해했습니다.'
+};
+let inboundSaved = null;
+function currentInbound() {
+  const saved = inboundSaved || {};
+  return {
+    title: (saved.title || INBOUND_DEFAULT.title).trim(),
+    body: (saved.body || INBOUND_DEFAULT.body).trim(),
+    phrase: (saved.phrase || INBOUND_DEFAULT.phrase).trim()
+  };
 }
 function koreaNow() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
@@ -2029,23 +2064,19 @@ function maybeInboundPopup() {
     return;
   }
   if (!modal.classList.contains('hidden')) return;
-  document.getElementById('inboundTitle').innerHTML = biHtml('입고·진열 확인');
-  document.getElementById('inboundBody').innerHTML = [
-    '진열 위치를 모르면 점장님에게 전화하세요. 아무 데나 진열하지 마세요.',
-    '보관 방법을 모르면 상품 표기를 확인하세요.',
-    '냉동은 냉동고에 보관합니다.',
-    '냉장은 워크인 냉장고에 보관합니다.',
-    '실온, 상온, 서늘한 곳, 직사광선을 피해서는 상온 보관입니다.',
-    '잘못 보관하면 상품 손실이고 근무자 책임입니다. 주의하세요.'
-  ].map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
+  const cfg = currentInbound();
+  document.getElementById('inboundTitle').innerHTML = biHtml(cfg.title);
+  document.getElementById('inboundBody').innerHTML = cfg.body.split('\n').map(line => line.trim()).filter(Boolean).map(line => '<p style="margin:0 0 8px;">' + biHtml(line) + '</p>').join('');
   document.getElementById('inboundHint').innerHTML = biHtml('아래 문장을 그대로 입력하세요.');
   document.getElementById('inboundMemo').value = '';
+  document.getElementById('inboundMemo').placeholder = cfg.phrase;
   document.getElementById('inboundMsg').textContent = '';
   modal.classList.remove('hidden');
 }
 document.getElementById('inboundConfirm').onclick = () => {
   const typed = document.getElementById('inboundMemo').value.trim();
-  if (typed !== '확인했습니다. 이해했습니다.') {
+  const phrase = currentInbound().phrase;
+  if (typed !== phrase) {
     const msg = '문장이 다릅니다.';
     document.getElementById('inboundMsg').innerHTML = biHtml(msg);
     return;
@@ -3428,14 +3459,49 @@ async function persistPopups(list) {
   }
   await loadPopups();
 }
+function fillInboundEditor() {
+  const cfg = currentInbound();
+  document.getElementById('inboundEditTitle').value = cfg.title;
+  document.getElementById('inboundEditBody').value = cfg.body;
+  document.getElementById('inboundEditPhrase').value = cfg.phrase;
+}
+async function saveInboundFromForm() {
+  const title = document.getElementById('inboundEditTitle').value.trim();
+  const body = document.getElementById('inboundEditBody').value.trim();
+  const phrase = document.getElementById('inboundEditPhrase').value.trim();
+  if (!title || !body || !phrase) {
+    alert('입고·진열 확인의 제목, 내용, 확인 문장을 적으세요.');
+    return false;
+  }
+  const description = JSON.stringify({ title, body, phrase });
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__popup__').eq('shift_key', 'inbound');
+  if (delErr) throw delErr;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__popup__',
+    shift_key: 'inbound',
+    shift_name: '입고',
+    item_order: 1,
+    title,
+    description,
+    photo_required: false
+  });
+  if (error) throw error;
+  inboundSaved = { title, body, phrase };
+  body.split('\n').concat([title, phrase]).forEach(line => { ensureTranslation(line.trim()); });
+  return true;
+}
 async function savePopupDraft() {
-  const list = readPopupDraft().filter(s => s.title);
-  if (!list.length) { alert('제목을 적으세요.'); return; }
-  if (list.some(s => !s.time)) { alert('시각을 적으세요.'); return; }
   try {
-    await persistPopups(list);
-    popupDraft = popupDraftFromRows(popupRows);
+    const inboundOk = await saveInboundFromForm();
+    if (!inboundOk) return;
+    const list = readPopupDraft();
+    const titled = list.filter(s => s.title);
+    if (list.length && titled.length !== list.length) { alert('시각 알림의 제목을 적으세요.'); return; }
+    if (titled.some(s => !s.time)) { alert('시각을 적으세요.'); return; }
+    await persistPopups(titled);
+    popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
     renderPopupEditor();
+    fillInboundEditor();
     alert('팝업 알림을 저장했습니다.');
   } catch (e) {
     alert('저장하지 못했습니다.');
@@ -3461,6 +3527,7 @@ document.getElementById('popupEditBtn').onclick = () => {
   panel.classList.toggle('hidden');
   if (panel.classList.contains('hidden')) return;
   popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
+  fillInboundEditor();
   renderPopupEditor();
 };
 document.getElementById('addPopupBtn').onclick = () => {
