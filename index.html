@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v146</h1>
+  <h1>CU 점포 체크리스트 v147</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -184,6 +184,13 @@ if (document.documentElement.classList.contains('inapp')) {
         <button type="button" class="btn-primary" id="addCommonBtn" style="width:100%; margin-top:8px;">공통 항목 추가</button>
         <input id="commonSearch" placeholder="공통 항목 검색" style="margin-top:12px;">
         <div id="commonList"></div>
+      </div>
+      <button class="btn-secondary" id="popupEditBtn" type="button" style="width:100%; margin-top:8px;">팝업 알림 수정</button>
+      <div id="popupPanel" class="hidden" style="margin-top:12px;">
+        <p style="font-size:13px; color:#555; margin:0 0 8px;">시각이 되면 근무 화면에 뜹니다. 내용을 고친 뒤 저장을 누르세요. 삭제는 바로 지워집니다.</p>
+        <div id="popupList"></div>
+        <button type="button" class="btn-secondary" id="addPopupBtn" style="width:100%; margin-top:8px;">팝업 추가</button>
+        <button type="button" class="btn-primary" id="savePopupBtn" style="width:100%; margin-top:8px;">팝업 저장</button>
       </div>
       <button class="btn-secondary" id="backFromAdmin" style="width:100%; margin-top:8px;">보고 화면으로</button>
     </div>
@@ -724,6 +731,7 @@ async function loadData(forAdmin) {
       });
     });
     if (forAdmin) {
+      await loadPopups();
       restoreAdmin();
       ensureCommonSeed();
     } else {
@@ -806,6 +814,7 @@ async function loadOneStore(name) {
     if (!allData[name].shifts[it.shift_key]) allData[name].shifts[it.shift_key] = { name: it.shift_name || it.shift_key, items: [] };
     allData[name].shifts[it.shift_key].items.push({ id: it.id, title: it.title, desc: it.description || '', photo_required: it.photo_required });
   });
+  await loadPopups();
 }
 function showLockedStore(name) {
   lockedStore = name;
@@ -941,10 +950,45 @@ const DISCARD_SLOTS = [
   { id: '0930', min: 9 * 60 + 30, who: 'all', token: '09:30', title: '09:30 10시 폐기 예정 상품 폐기', body: '샌드위치, 햄버거 등' },
   { id: '1330', min: 13 * 60 + 30, who: 'all', token: '13:30', title: '13:30 14시 폐기 예정 상품 폐기', body: '도시락, 김밥, 주먹밥 등' },
   { id: '2130', min: 21 * 60 + 30, who: 'all', token: '21:30', title: '21:30 22시 폐기 예정 상품 폐기', body: '샌드위치, 햄버거 등' },
-  { id: '2330', min: 23 * 60 + 30, who: 'all', token: '23:30', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)', also: ['02시 폐기 예정 상품 폐기', '06시 폐기 예정 상품 폐기'] },
+  { id: '2330', min: 23 * 60 + 30, who: 'all', token: '23:30', title: '23:30 24시 폐기 예정 상품 폐기', body: '빵, 디저트 등', note19: '(19시간 점포는 마감 30분전에 02시와 06시 폐기 예정 상품까지 폐기)', noteWho: '19', also: ['02시 폐기 예정 상품 폐기', '06시 폐기 예정 상품 폐기'] },
   { id: '0020', min: 20, who: '19', token: '00:20', title: '00:20 19시간 점포는 02시 폐기 예정 상품 폐기', body: '(06시 폐기 예정 상품까지 폐기)', also: ['02시 폐기 예정 상품 폐기', '06시 폐기 예정 상품 폐기'] },
   { id: '0130', min: 1 * 60 + 30, who: '24', token: '01:30', title: '01:30 02시 폐기 예정 상품 폐기', body: '도시락, 김밥, 주먹밥 등' }
 ];
+let popupRows = [];
+function activeSlots() {
+  return popupRows.length ? popupRows : DISCARD_SLOTS;
+}
+function slotNote(slot, hours) {
+  if (!slot || !slot.note19) return '';
+  if (slot.noteWho === '19' && hours !== '19') return '';
+  if (slot.noteWho === '24' && hours !== '24') return '';
+  return slot.note19;
+}
+async function loadPopups() {
+  popupRows = [];
+  const { data, error } = await supabase.from('checklist_items').select('*').eq('store_name', '__popup__').eq('shift_key', 'alarm').order('item_order');
+  if (error) { console.error(error); return; }
+  popupRows = (data || []).map(it => {
+    let o = {};
+    try { o = JSON.parse(it.description || '{}'); } catch (e) { o = {}; }
+    const time = String(o.time || '09:30');
+    const bits = time.split(':');
+    const hh = Number(bits[0]);
+    const mm = Number(bits[1] || 0);
+    return {
+      dbId: it.id,
+      id: String(o.id || it.id),
+      min: (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0),
+      who: o.who === '19' || o.who === '24' ? o.who : 'all',
+      token: time.slice(0, 5),
+      title: o.title || it.title || '',
+      body: o.body || '',
+      note19: o.note || '',
+      noteWho: o.noteWho || '',
+      also: Array.isArray(o.also) ? o.also : []
+    };
+  }).filter(s => s.title);
+}
 function koreaNow() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
@@ -995,7 +1039,7 @@ function dueDiscards() {
   const hours = effectiveHours();
   const now = koreaNow();
   const anchor = shiftAnchorDate(now, range);
-  return DISCARD_SLOTS.filter(s => {
+  return activeSlots().filter(s => {
     if (!slotAlreadyDue(s.min, range, now.minutes)) return false;
     if (s.who === '19' && hours !== '19') return false;
     if (s.who === '24' && hours !== '24') return false;
@@ -1022,7 +1066,7 @@ function checkDiscards() {
   const hours = effectiveHours();
   document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
     <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
-      <p style="margin:0 0 8px;"><strong>${s.title}</strong>${s.note19 && hours === '19' ? '<br>' + s.note19 : ''}<br>${s.body}</p>
+      <p style="margin:0 0 8px;"><strong>${escHtml(s.title)}</strong>${slotNote(s, hours) ? '<br>' + escHtml(slotNote(s, hours)) : ''}<br>${escHtml(s.body || '')}</p>
       <div class="btn-row">
         <button type="button" class="btn-photo" data-discard="${s.id}" data-act="photo">📷 사진찍기</button>
         <button type="button" class="btn-kakao" data-discard="${s.id}" data-act="kakao">카톡</button>
@@ -1045,7 +1089,7 @@ document.getElementById('discardBody').onclick = e => {
   if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareDiscard(id);
 };
 async function shareDiscard(id) {
-  const slot = DISCARD_SLOTS.find(s => s.id === id);
+  const slot = activeSlots().find(s => s.id === id);
   const photos = (currentPhotos['discard-' + id] || []).slice();
   if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
   const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
@@ -3293,6 +3337,138 @@ document.getElementById('commonEditBtn').onclick = () => {
   panel.classList.toggle('hidden');
   if (!panel.classList.contains('hidden')) renderCommonList();
 };
+let popupDraft = [];
+function popupDraftFromRows(rows) {
+  return rows.map(s => ({
+    id: s.id,
+    time: s.token || '09:30',
+    who: s.who || 'all',
+    title: s.title || '',
+    body: s.body || '',
+    note: s.note19 || '',
+    noteWho: s.noteWho || '',
+    alsoText: (s.also || []).join('\n')
+  }));
+}
+function defaultPopupDraft() {
+  return popupDraftFromRows(DISCARD_SLOTS);
+}
+function readPopupDraft() {
+  const list = [];
+  document.querySelectorAll('#popupList .popup-row').forEach(row => {
+    list.push({
+      id: row.dataset.id,
+      time: row.querySelector('.p-time').value || '09:00',
+      who: row.querySelector('.p-who').value,
+      title: row.querySelector('.p-title').value.trim(),
+      body: row.querySelector('.p-body').value.trim(),
+      note: row.querySelector('.p-note').value.trim(),
+      noteWho: row.querySelector('.p-notewho').value,
+      alsoText: row.querySelector('.p-also').value
+    });
+  });
+  return list;
+}
+function renderPopupEditor() {
+  const panel = document.getElementById('popupList');
+  panel.innerHTML = popupDraft.map(s => `
+    <div class="popup-row" data-id="${escAttr(s.id)}" style="border-top:8px solid #f6f1fa; padding:12px 0;">
+      <label>시각</label>
+      <input class="p-time" type="time" value="${escAttr(s.time || '09:30')}">
+      <label style="margin-top:8px;">어느 점포</label>
+      <select class="p-who">
+        <option value="all" ${s.who === 'all' ? 'selected' : ''}>모든 점포</option>
+        <option value="19" ${s.who === '19' ? 'selected' : ''}>19시간 점포만</option>
+        <option value="24" ${s.who === '24' ? 'selected' : ''}>24시간 점포만</option>
+      </select>
+      <label style="margin-top:8px;">제목</label>
+      <input class="p-title" value="${escAttr(s.title || '')}">
+      <label style="margin-top:8px;">내용</label>
+      <textarea class="p-body" style="min-height:64px;">${escHtml(s.body || '')}</textarea>
+      <label style="margin-top:8px;">추가 안내</label>
+      <input class="p-note" value="${escAttr(s.note || '')}">
+      <select class="p-notewho" style="margin-top:6px;">
+        <option value="" ${s.noteWho ? '' : 'selected'}>추가 안내를 항상 보여 줌</option>
+        <option value="19" ${s.noteWho === '19' ? 'selected' : ''}>추가 안내는 19시간 점포만</option>
+        <option value="24" ${s.noteWho === '24' ? 'selected' : ''}>추가 안내는 24시간 점포만</option>
+      </select>
+      <label style="margin-top:8px;">19시간 점포에서 같이 완료할 항목. 한 줄에 하나</label>
+      <textarea class="p-also" style="min-height:64px;">${escHtml(s.alsoText || '')}</textarea>
+      <button type="button" class="btn popup-del" style="width:100%; margin-top:8px; background:#d92b2b; color:white;">삭제</button>
+    </div>
+  `).join('') || '<div style="color:#888; font-size:13px;">팝업 알림이 없습니다.</div>';
+  panel.querySelectorAll('.popup-del').forEach((btn, index) => {
+    btn.onclick = () => deletePopup(index);
+  });
+}
+async function persistPopups(list) {
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__popup__').eq('shift_key', 'alarm');
+  if (delErr) throw delErr;
+  const rows = list.filter(s => s.title).map((s, i) => ({
+    store_name: '__popup__',
+    shift_key: 'alarm',
+    shift_name: '알림',
+    item_order: i + 1,
+    title: s.title.slice(0, 120),
+    description: JSON.stringify({
+      id: s.id,
+      time: s.time,
+      who: s.who,
+      title: s.title,
+      body: s.body,
+      note: s.note,
+      noteWho: s.noteWho,
+      also: String(s.alsoText || '').split('\n').map(line => line.trim()).filter(Boolean)
+    }),
+    photo_required: true
+  }));
+  if (rows.length) {
+    const { error } = await supabase.from('checklist_items').insert(rows);
+    if (error) throw error;
+  }
+  await loadPopups();
+}
+async function savePopupDraft() {
+  const list = readPopupDraft().filter(s => s.title);
+  if (!list.length) { alert('제목을 적으세요.'); return; }
+  if (list.some(s => !s.time)) { alert('시각을 적으세요.'); return; }
+  try {
+    await persistPopups(list);
+    popupDraft = popupDraftFromRows(popupRows);
+    renderPopupEditor();
+    alert('팝업 알림을 저장했습니다.');
+  } catch (e) {
+    alert('저장하지 못했습니다.');
+  }
+}
+async function deletePopup(index) {
+  const list = readPopupDraft();
+  const row = list[index];
+  if (!row) return;
+  if (!confirm((row.title || '이 알림') + '\n지울까요?')) return;
+  list.splice(index, 1);
+  try {
+    await persistPopups(list.filter(s => s.title));
+    popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : list.filter(s => s.title);
+    if (!popupDraft.length) popupDraft = defaultPopupDraft();
+    renderPopupEditor();
+  } catch (e) {
+    alert('지우지 못했습니다.');
+  }
+}
+document.getElementById('popupEditBtn').onclick = () => {
+  const panel = document.getElementById('popupPanel');
+  panel.classList.toggle('hidden');
+  if (panel.classList.contains('hidden')) return;
+  popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
+  renderPopupEditor();
+};
+document.getElementById('addPopupBtn').onclick = () => {
+  popupDraft = readPopupDraft();
+  popupDraft.push({ id: 'p' + Date.now(), time: '12:00', who: 'all', title: '', body: '', note: '', noteWho: '', alsoText: '' });
+  renderPopupEditor();
+};
+document.getElementById('savePopupBtn').onclick = savePopupDraft;
 document.getElementById('addCommonBtn').onclick = addNewCommon;
 document.getElementById('commonSearch').oninput = renderCommonList;
 window.pickCommon = pickCommon;
