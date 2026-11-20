@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v151</h1>
+  <h1>CU 점포 체크리스트 v152</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -235,6 +235,22 @@ if (document.documentElement.classList.contains('inapp')) {
           <option value="19">19시간</option>
           <option value="24">24시간</option>
         </select>
+        <label style="margin-top:8px;">시</label>
+        <select id="detailCity">
+          <option value="부천시">부천시</option>
+        </select>
+        <label style="margin-top:8px;">구</label>
+        <select id="detailDistrict">
+          <option value="">구 선택</option>
+          <option value="원미구">원미구</option>
+          <option value="소사구">소사구</option>
+          <option value="오정구">오정구</option>
+        </select>
+        <label style="margin-top:8px;">동</label>
+        <select id="detailDong">
+          <option value="">동 선택</option>
+        </select>
+        <p style="font-size:13px; color:#555; margin:6px 0 0;">상세 주소는 적지 않습니다. 동까지 고르면 됩니다.</p>
         <button class="btn-primary" id="saveDetailBtn" style="width:100%; margin-top:12px;">점포 정보 저장</button>
       </div>
 
@@ -723,6 +739,10 @@ async function loadData(forAdmin) {
         manager: s.manager || '',
         phone: s.phone || '',
         hours: s.hours || '19',
+        district: s.district || '',
+        dong: s.dong || '',
+        latitude: s.latitude || null,
+        longitude: s.longitude || null,
         shifts: {}
       };
     }
@@ -793,7 +813,11 @@ async function saveStoreToDb(name) {
   const { error } = await supabase.from('stores').update({
     manager: d.manager || '',
     phone: d.phone || '',
-    hours: d.hours || '19'
+    hours: d.hours || '19',
+    district: d.district || '',
+    dong: d.dong || '',
+    latitude: d.latitude || null,
+    longitude: d.longitude || null
   }).eq('name', name);
   if (error) throw error;
 }
@@ -2139,6 +2163,7 @@ document.getElementById('inboundConfirm').onclick = () => {
 const WET_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]);
 let weatherPayload = null;
 let weatherFetchedAt = 0;
+let weatherWhere = '';
 function weatherAckKey() {
   if (!currentStore || !reportDate || !reportDate.value) return '';
   return 'weatherAck_' + currentStore + '_' + reportDate.value;
@@ -2179,13 +2204,15 @@ function wetInShift(data, dateStr, range) {
   }
   return false;
 }
-function loadWeatherPayload() {
-  if (weatherPayload && Date.now() - weatherFetchedAt < 30 * 60 * 1000) return Promise.resolve(weatherPayload);
+function loadWeatherPayload(lat, lon) {
+  const where = Number(lat).toFixed(3) + ',' + Number(lon).toFixed(3);
+  if (weatherPayload && weatherWhere === where && Date.now() - weatherFetchedAt < 30 * 60 * 1000) return Promise.resolve(weatherPayload);
+  weatherWhere = where;
   weatherFetchedAt = Date.now();
-  return fetch('https://api.open-meteo.com/v1/forecast?latitude=37.503&longitude=126.766&current=weather_code,precipitation,snowfall&hourly=weather_code,precipitation,snowfall&timezone=Asia%2FSeoul&forecast_days=2')
+  return fetch('https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&current=weather_code,precipitation,snowfall&hourly=weather_code,precipitation,snowfall&timezone=Asia%2FSeoul&forecast_days=2')
     .then(r => r.json())
     .then(data => { weatherPayload = data; return data; })
-    .catch(err => { weatherPayload = null; weatherFetchedAt = 0; throw err; });
+    .catch(err => { weatherPayload = null; weatherFetchedAt = 0; weatherWhere = ''; throw err; });
 }
 function showTextPopup(prefix, cfg) {
   document.getElementById(prefix + 'Title').innerHTML = biHtml(cfg.title);
@@ -2203,8 +2230,11 @@ function maybeConditionPopups() {
   if (inboundModal && !inboundModal.classList.contains('hidden')) return;
   const key = weatherAckKey();
   const range = parseWorkRange(workPeriod && workPeriod.value);
-  if (!key || !range || localStorage.getItem(key)) { maybeInboundPopup(); return; }
-  loadWeatherPayload().then(data => {
+  const place = allData[currentStore] || {};
+  const lat = Number(place.latitude);
+  const lon = Number(place.longitude);
+  if (!key || !range || !lat || !lon || localStorage.getItem(key)) { maybeInboundPopup(); return; }
+  loadWeatherPayload(lat, lon).then(data => {
     if (!weatherModal.classList.contains('hidden') || (inboundModal && !inboundModal.classList.contains('hidden'))) return;
     if (localStorage.getItem(key)) { maybeInboundPopup(); return; }
     if (!wetInShift(data, reportDate.value, range)) { maybeInboundPopup(); return; }
@@ -3171,6 +3201,37 @@ function refreshAdminStoreSelect() {
   sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('storeDetail').classList.add('hidden');
 }
+const BUCHEON_DONGS = {
+  '원미구': {
+    '심곡1동': [37.49095, 126.78062], '심곡2동': [37.4878, 126.7874], '심곡3동': [37.4926, 126.7742],
+    '원미1동': [37.4968, 126.7908], '원미2동': [37.4896, 126.7922], '소사동': [37.4862, 126.79531],
+    '역곡1동': [37.4892, 126.8088], '역곡2동': [37.4846, 126.8042], '춘의동': [37.50193, 126.80196],
+    '도당동': [37.51392, 126.7827], '약대동': [37.51313, 126.76997], '중동': [37.49828, 126.7642],
+    '중1동': [37.49713, 126.75924], '중2동': [37.4948, 126.7668], '중3동': [37.50374, 126.77805],
+    '중4동': [37.50602, 126.76263], '상동': [37.50584, 126.75317], '상1동': [37.49151, 126.75228],
+    '상2동': [37.5008, 126.7516], '상3동': [37.5088, 126.7438]
+  },
+  '소사구': {
+    '심곡본동': [37.47846, 126.77978], '심곡본1동': [37.4756, 126.7728], '소사본동': [37.47341, 126.79478],
+    '소사본1동': [37.4706, 126.8038], '범박동': [37.46972, 126.81172], '옥길동': [37.46813, 126.82829],
+    '괴안동': [37.48216, 126.81148], '역곡3동': [37.48258, 126.81022], '송내1동': [37.4822, 126.7488],
+    '송내2동': [37.4838, 126.7606]
+  },
+  '오정구': {
+    '성곡동': [37.5148, 126.8062], '원종1동': [37.5258, 126.8052], '원종2동': [37.5204, 126.8064],
+    '고강본동': [37.5232, 126.8252], '고강1동': [37.5302, 126.8226], '오정동': [37.5286, 126.7902],
+    '신흥동': [37.51996, 126.7737]
+  }
+};
+function fillDongSelect(gu, selected) {
+  const sel = document.getElementById('detailDong');
+  const names = Object.keys(BUCHEON_DONGS[gu] || {});
+  sel.innerHTML = '<option value="">동 선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
+  if (selected && names.includes(selected)) sel.value = selected;
+}
+document.getElementById('detailDistrict').onchange = function() {
+  fillDongSelect(this.value, '');
+};
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
   const detail = document.getElementById('storeDetail');
@@ -3185,6 +3246,8 @@ document.getElementById('adminStoreSelect').onchange = function() {
   document.getElementById('detailManager').value = d.manager || '';
   document.getElementById('detailPhone').value = d.phone || '';
   document.getElementById('detailHours').value = d.hours || '19';
+  document.getElementById('detailDistrict').value = d.district || '';
+  fillDongSelect(d.district || '', d.dong || '');
   renderShiftButtons(name);
   detail.classList.remove('hidden');
   if (!restoringAdmin) saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
@@ -3197,6 +3260,17 @@ document.getElementById('saveDetailBtn').onclick = async () => {
   allData[name].manager = document.getElementById('detailManager').value.trim();
   allData[name].phone = document.getElementById('detailPhone').value.trim();
   allData[name].hours = document.getElementById('detailHours').value;
+  const gu = document.getElementById('detailDistrict').value;
+  const dong = document.getElementById('detailDong').value;
+  const point = BUCHEON_DONGS[gu] && BUCHEON_DONGS[gu][dong];
+  if (!point) {
+    alert('구와 동을 선택하세요.');
+    return;
+  }
+  allData[name].district = gu;
+  allData[name].dong = dong;
+  allData[name].latitude = point[0];
+  allData[name].longitude = point[1];
   try {
     await saveStoreToDb(name);
     await saveAccessCode(name, allData[name].code || '');
@@ -3823,6 +3897,10 @@ document.getElementById('saveStoreBtn').onclick = async () => {
     manager: document.getElementById('editManager').value.trim(),
     phone: document.getElementById('editPhone').value.trim(),
     hours: prev.hours || '19',
+    district: prev.district || '',
+    dong: prev.dong || '',
+    latitude: prev.latitude || null,
+    longitude: prev.longitude || null,
     shifts: Object.assign({}, prev.shifts, shifts)
   };
   try {
