@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v152</h1>
+  <h1>CU 점포 체크리스트 v153</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -237,20 +237,17 @@ if (document.documentElement.classList.contains('inapp')) {
         </select>
         <label style="margin-top:8px;">시</label>
         <select id="detailCity">
-          <option value="부천시">부천시</option>
+          <option value="">시 선택</option>
         </select>
         <label style="margin-top:8px;">구</label>
         <select id="detailDistrict">
           <option value="">구 선택</option>
-          <option value="원미구">원미구</option>
-          <option value="소사구">소사구</option>
-          <option value="오정구">오정구</option>
         </select>
         <label style="margin-top:8px;">동</label>
         <select id="detailDong">
           <option value="">동 선택</option>
         </select>
-        <p style="font-size:13px; color:#555; margin:6px 0 0;">상세 주소는 적지 않습니다. 동까지 고르면 됩니다.</p>
+        <p style="font-size:13px; color:#555; margin:6px 0 0;">상세 주소는 적지 않습니다. 시, 구, 동만 고르면 됩니다.</p>
         <button class="btn-primary" id="saveDetailBtn" style="width:100%; margin-top:12px;">점포 정보 저장</button>
       </div>
 
@@ -383,6 +380,7 @@ if (!document.documentElement.classList.contains('inapp')) {
   // 인앱에서는 안내만 표시하고 앱 초기화 안 함
 }
 </script>
+<script src="areas.js"></script>
 <script>
 function initApp() {
   console.log('initApp started');
@@ -3201,36 +3199,66 @@ function refreshAdminStoreSelect() {
   sel.innerHTML = '<option value="">-- 점포 선택 --</option>' + stores.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('storeDetail').classList.add('hidden');
 }
-const BUCHEON_DONGS = {
-  '원미구': {
-    '심곡1동': [37.49095, 126.78062], '심곡2동': [37.4878, 126.7874], '심곡3동': [37.4926, 126.7742],
-    '원미1동': [37.4968, 126.7908], '원미2동': [37.4896, 126.7922], '소사동': [37.4862, 126.79531],
-    '역곡1동': [37.4892, 126.8088], '역곡2동': [37.4846, 126.8042], '춘의동': [37.50193, 126.80196],
-    '도당동': [37.51392, 126.7827], '약대동': [37.51313, 126.76997], '중동': [37.49828, 126.7642],
-    '중1동': [37.49713, 126.75924], '중2동': [37.4948, 126.7668], '중3동': [37.50374, 126.77805],
-    '중4동': [37.50602, 126.76263], '상동': [37.50584, 126.75317], '상1동': [37.49151, 126.75228],
-    '상2동': [37.5008, 126.7516], '상3동': [37.5088, 126.7438]
-  },
-  '소사구': {
-    '심곡본동': [37.47846, 126.77978], '심곡본1동': [37.4756, 126.7728], '소사본동': [37.47341, 126.79478],
-    '소사본1동': [37.4706, 126.8038], '범박동': [37.46972, 126.81172], '옥길동': [37.46813, 126.82829],
-    '괴안동': [37.48216, 126.81148], '역곡3동': [37.48258, 126.81022], '송내1동': [37.4822, 126.7488],
-    '송내2동': [37.4838, 126.7606]
-  },
-  '오정구': {
-    '성곡동': [37.5148, 126.8062], '원종1동': [37.5258, 126.8052], '원종2동': [37.5204, 126.8064],
-    '고강본동': [37.5232, 126.8252], '고강1동': [37.5302, 126.8226], '오정동': [37.5286, 126.7902],
-    '신흥동': [37.51996, 126.7737]
+function areaCities() {
+  const names = Object.keys(AREAS || {}).sort((a, b) => a.localeCompare(b, 'ko'));
+  const rest = names.filter(name => name !== '부천시');
+  return names.includes('부천시') ? ['부천시'].concat(rest) : names;
+}
+function areaGus(city) {
+  return Object.keys((AREAS[city] || {})).filter(Boolean).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function areaDongs(city, gu) {
+  const node = AREAS[city] && AREAS[city][gu || ''];
+  return Object.keys(node || {}).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function areaPoint(city, gu, dong) {
+  const node = AREAS[city] && AREAS[city][gu || ''];
+  return node && node[dong] ? node[dong] : null;
+}
+function splitSavedArea(district) {
+  const raw = String(district || '');
+  const cut = raw.indexOf('|');
+  if (cut >= 0) return { city: raw.slice(0, cut), gu: raw.slice(cut + 1) };
+  if (AREAS['부천시'] && AREAS['부천시'][raw]) return { city: '부천시', gu: raw };
+  return { city: '', gu: '' };
+}
+function fillCitySelect(selected) {
+  const sel = document.getElementById('detailCity');
+  const names = areaCities();
+  sel.innerHTML = '<option value="">시 선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
+  if (selected && names.includes(selected)) sel.value = selected;
+}
+function fillGuSelect(city, selected) {
+  const sel = document.getElementById('detailDistrict');
+  const gus = areaGus(city);
+  if (!gus.length) {
+    sel.innerHTML = '<option value="">구 없음</option>';
+    sel.value = '';
+    sel.disabled = !!city;
+    return;
   }
-};
-function fillDongSelect(gu, selected) {
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">구 선택</option>' + gus.map(name => '<option value="' + name + '">' + name + '</option>').join('');
+  if (selected && gus.includes(selected)) sel.value = selected;
+}
+function fillDongSelect(city, gu, selected) {
   const sel = document.getElementById('detailDong');
-  const names = Object.keys(BUCHEON_DONGS[gu] || {});
+  const names = areaDongs(city, gu);
   sel.innerHTML = '<option value="">동 선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
   if (selected && names.includes(selected)) sel.value = selected;
 }
+function showStoreArea(district, dong) {
+  const area = splitSavedArea(district);
+  fillCitySelect(area.city);
+  fillGuSelect(area.city, area.gu);
+  fillDongSelect(area.city, area.gu, dong || '');
+}
+document.getElementById('detailCity').onchange = function() {
+  fillGuSelect(this.value, '');
+  fillDongSelect(this.value, document.getElementById('detailDistrict').value, '');
+};
 document.getElementById('detailDistrict').onchange = function() {
-  fillDongSelect(this.value, '');
+  fillDongSelect(document.getElementById('detailCity').value, this.value, '');
 };
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
@@ -3246,8 +3274,7 @@ document.getElementById('adminStoreSelect').onchange = function() {
   document.getElementById('detailManager').value = d.manager || '';
   document.getElementById('detailPhone').value = d.phone || '';
   document.getElementById('detailHours').value = d.hours || '19';
-  document.getElementById('detailDistrict').value = d.district || '';
-  fillDongSelect(d.district || '', d.dong || '');
+  showStoreArea(d.district || '', d.dong || '');
   renderShiftButtons(name);
   detail.classList.remove('hidden');
   if (!restoringAdmin) saveAdminView({ on: true, screen: 'admin', store: name, shift: '', draft: null });
@@ -3260,14 +3287,15 @@ document.getElementById('saveDetailBtn').onclick = async () => {
   allData[name].manager = document.getElementById('detailManager').value.trim();
   allData[name].phone = document.getElementById('detailPhone').value.trim();
   allData[name].hours = document.getElementById('detailHours').value;
+  const city = document.getElementById('detailCity').value;
   const gu = document.getElementById('detailDistrict').value;
   const dong = document.getElementById('detailDong').value;
-  const point = BUCHEON_DONGS[gu] && BUCHEON_DONGS[gu][dong];
+  const point = areaPoint(city, gu, dong);
   if (!point) {
-    alert('구와 동을 선택하세요.');
+    alert('시, 구, 동을 선택하세요.');
     return;
   }
-  allData[name].district = gu;
+  allData[name].district = city + '|' + (gu || '');
   allData[name].dong = dong;
   allData[name].latitude = point[0];
   allData[name].longitude = point[1];
