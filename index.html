@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v142</h1>
+  <h1>CU 점포 체크리스트 v143</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -688,6 +688,7 @@ async function loadData(forAdmin) {
     const { data: items } = await supabase.from('checklist_items').select('*').order('item_order');
     (items || []).forEach(it => {
       if (it.store_name === '__i18n__') {
+        if (it.shift_key === 'pay') return;
         if (it.shift_key === 'access') {
           const storeName = (it.title || '').trim();
           if (storeName && allData[storeName]) allData[storeName].code = it.description || '';
@@ -2518,14 +2519,11 @@ sendReportBtn.onclick = async () => {
     return;
   }
   const sum = makeSummary();
-  const store = allData[currentStore] || {};
-  const phone = (store.phone || '').replace(/-/g,'');
   markReportSent();
   if (navigator.share) {
     try {
       await navigator.share({ text: sum });
-      alert(notice('수고하셨습니다. 즐퇴하세요'));
-      backToStart();
+      await finishFullReport(sum);
       return;
     } catch (e) {
       if (e && e.name === 'AbortError') {
@@ -2536,14 +2534,58 @@ sendReportBtn.onclick = async () => {
       }
     }
   }
-  alert(notice('수고하셨습니다. 즐퇴하세요'));
-  backToStart();
-  location.href = phone ? `sms:${phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
+  const done = await finishFullReport(sum);
+  location.href = done.phone ? `sms:${done.phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 function markReportSent() {
   fullReportSent = true;
   saveWorkCalendar();
   saveProgress();
+}
+async function savePayRecord() {
+  const range = parseWorkRange(workPeriod.value);
+  const payDate = payDateFor(range, reportDate.value) || reportDate.value;
+  const pay = readPay();
+  const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
+  const names = { edu: '교육', prob: '수습', full: '정식' };
+  const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
+  const opt = shiftSelect.options[shiftSelect.selectedIndex];
+  const record = {
+    pay_date: payDate,
+    store: currentStore || '',
+    code: myStoreCode(),
+    worker: staffName.value.trim(),
+    type: names[picked] || picked,
+    start: workStart.value || '',
+    end: workEnd.value || '',
+    period: workPeriod.value.trim(),
+    late: num(pay.lateYn, pay.lateTime),
+    short: num(pay.deductYn, pay.deductTime),
+    extra: num(pay.extraYn, pay.extraTime),
+    shift: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
+    reported_at: new Date().toISOString()
+  };
+  const title = [record.store, record.pay_date, record.worker, record.period].join('|');
+  const row = {
+    store_name: '__i18n__',
+    shift_key: 'pay',
+    shift_name: record.pay_date,
+    item_order: 0,
+    title,
+    description: JSON.stringify(record),
+    photo_required: false
+  };
+  await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'pay').eq('title', title);
+  const { error } = await supabase.from('checklist_items').insert(row);
+  return !error;
+}
+async function finishFullReport(sum) {
+  const saved = await savePayRecord();
+  alert(notice('수고하셨습니다. 즐퇴하세요') + (saved ? '' : '\n서버에는 저장되지 않았습니다.'));
+  const store = allData[currentStore] || {};
+  const phone = (store.phone || '').replace(/-/g, '');
+  backToStart();
+  return { saved, phone, sum };
 }
 
 // ===== 출근 QR =====
