@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v161</h1>
+  <h1>CU 점포 체크리스트 v162</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3010,22 +3010,28 @@ sendReportBtn.onclick = async () => {
     return;
   }
   const sum = makeSummary();
+  const saved = await savePayRecord();
+  if (!saved) {
+    alert(notice('서버에는 저장되지 않았습니다.'));
+    return;
+  }
   markReportSent();
   if (navigator.share) {
     try {
       await navigator.share({ text: sum });
-      await finishFullReport(sum);
+      await finishFullReport(sum, true);
       return;
     } catch (e) {
       if (e && e.name === 'AbortError') {
         fullReportSent = false;
         saveProgress();
         checkAllDone();
+        await deletePayRecord();
         return;
       }
     }
   }
-  const done = await finishFullReport(sum);
+  const done = await finishFullReport(sum, true);
   location.href = done.phone ? `sms:${done.phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
 };
 function markReportSent() {
@@ -3077,10 +3083,21 @@ async function savePayRecord() {
     const updated = await supabase.from('pay_records').update(row).eq('id', found.data[0].id);
     return !updated.error;
   }
-  const inserted = await supabase.from('pay_records').insert(row);
-  return !inserted.error;
+  const inserted = await supabase.from('pay_records').insert(row).select('id');
+  return !(inserted.error || !inserted.data || !inserted.data[0]);
 }
-async function finishFullReport(sum) {
+async function deletePayRecord() {
+  const range = parseWorkRange(workPeriod.value);
+  const workDate = payDateFor(range, reportDate.value) || reportDate.value;
+  if (!workDate || !currentStore || !staffName.value.trim()) return;
+  await supabase.from('pay_records').delete()
+    .eq('store_name', currentStore)
+    .eq('work_date', workDate)
+    .eq('worker_name', staffName.value.trim())
+    .eq('start_time', workStart.value || '')
+    .eq('end_time', workEnd.value || '');
+}
+async function finishFullReport(sum, alreadySaved) {
   const title = progressLiveTitle();
   const storeName = currentStore;
   fullReportSent = true;
@@ -3089,7 +3106,7 @@ async function finishFullReport(sum) {
   if (title && storeName) {
     try { await supabase.from('checklist_items').delete().eq('store_name', storeName).eq('shift_key', 'live').eq('title', title); } catch (e) {}
   }
-  const saved = await savePayRecord();
+  const saved = alreadySaved || await savePayRecord();
   alert(notice('수고하셨습니다. 즐퇴하세요') + (saved ? '' : '\n서버에는 저장되지 않았습니다.'));
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g, '');
