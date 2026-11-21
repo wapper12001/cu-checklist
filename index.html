@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v165</h1>
+  <h1>CU 점포 체크리스트 v166</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -164,6 +164,7 @@ if (document.documentElement.classList.contains('inapp')) {
         <select id="workEnd" aria-label="종료"></select>
       </div>
       <input type="hidden" id="workPeriod">
+      <div id="periodHint" style="margin-top:6px; font-weight:700; color:#6B2C91;"></div>
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
@@ -997,6 +998,7 @@ function clockLabel(mins) {
 }
 function syncWorkPeriod() {
   workPeriod.value = workStart.value && workEnd.value ? workStart.value + '-' + workEnd.value : '';
+  showPeriodHint();
   if (nameLock) return;
   onIdentityInput();
   if (!shiftSelect.value) scheduleDiscardCheck();
@@ -1007,11 +1009,25 @@ function applyPeriodToSelects(text) {
     workStart.value = '';
     workEnd.value = '';
     workPeriod.value = '';
+    showPeriodHint();
     return;
   }
   workStart.value = clockLabel(range.start);
   workEnd.value = clockLabel(range.end);
   workPeriod.value = workStart.value + '-' + workEnd.value;
+  showPeriodHint();
+}
+function showPeriodHint() {
+  const el = document.getElementById('periodHint');
+  if (!el) return;
+  const range = parseWorkRange(workPeriod.value);
+  if (!range || !workStart.value || !workEnd.value) {
+    el.textContent = '';
+    return;
+  }
+  const hours = Math.round(shiftMinutes(range) / 60 * 10) / 10;
+  const text = Number.isInteger(hours) ? String(hours) : String(hours);
+  el.textContent = workStart.value + '–' + workEnd.value + ', ' + text + '시간. 맞는지 확인하세요.';
 }
 fillWorkTimes();
 workStart.onchange = syncWorkPeriod;
@@ -1593,6 +1609,7 @@ function resumeWork() {
     renderChecklist();
     checkAllDone();
   } else onIdentityInput();
+  showPeriodHint();
 }
 
 function legacyKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
@@ -1646,19 +1663,16 @@ function onIdentityInput() {
   if (nameLock) return false;
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
-  if (!currentStore || !reportDate.value || !name) {
-    if (shiftSelect.value) saveProgress();
-    return false;
-  }
-  const who = name + '|' + period;
-  if (!period) {
-    if (checklistContainer.dataset.who && checklistContainer.dataset.who !== who) {
+  if (!currentStore || !reportDate.value || !name || !period) {
+    const whoNow = name + '|' + period;
+    if (checklistContainer.dataset.who && checklistContainer.dataset.who !== whoNow && shiftSelect.value) {
       nameLock = true;
       renderChecklist();
       nameLock = false;
     }
     return false;
   }
+  const who = name + '|' + period;
   holdShiftDate();
   if (reportDate.value !== koreaNow().date) {
     if (shiftSelect.value) {
@@ -1700,9 +1714,7 @@ function progressForCurrent() {
   if (!name || !currentStore || !shiftSelect.value || !reportDate.value) return null;
   const rows = personRecords().filter(row => row.shift === shiftSelect.value);
   const exact = rows.find(row => (row.data.period || '').trim() === period);
-  if (exact) return exact.data;
-  rows.sort((a, b) => (b.data.savedAt || 0) - (a.data.savedAt || 0));
-  return rows[0] ? rows[0].data : null;
+  return exact ? exact.data : null;
 }
 function saveProgress() {
   if (!currentStore || !shiftSelect.value || !reportDate.value) return;
@@ -1814,7 +1826,6 @@ async function restoreRemoteProgress(storeName) {
     rows = found.data;
   } catch (e) { return; }
   const today = koreaNow().date;
-  let best = null;
   rows.forEach(row => {
     let obj = null;
     try { obj = JSON.parse(row.description || 'null'); } catch (e) { obj = null; }
@@ -1829,19 +1840,16 @@ async function restoreRemoteProgress(storeName) {
     };
     if (!saved.date || !saved.shift || !saved.staff || !saved.period) return;
     if (saved.date < today && !shiftStillOpen(saved)) return;
-    if (!best || (obj.savedAt || 0) > (best.obj.savedAt || 0)) best = { obj, saved };
+    const named = 'prog_' + storeName + '_' + saved.shift + '_' + saved.date + '_' + encodeURIComponent(saved.staff) + '_' + encodeURIComponent(saved.period);
+    const local = readStore(named);
+    if (local && (local.savedAt || 0) >= (obj.savedAt || 0)) return;
+    try { localStorage.setItem(named, JSON.stringify(obj)); } catch (e) {}
   });
-  if (!best) return;
-  const local = findShiftRecord(best.saved);
-  if (local && (local.savedAt || 0) >= (best.obj.savedAt || 0)) return;
-  const prefix = 'prog_' + storeName + '_' + best.saved.shift + '_' + best.saved.date;
-  const named = prefix + '_' + encodeURIComponent(best.saved.staff) + '_' + encodeURIComponent(best.saved.period);
-  try {
-    localStorage.setItem(named, JSON.stringify(best.obj));
-    localStorage.setItem(prefix, JSON.stringify(best.obj));
-    localStorage.setItem('cu-resume', JSON.stringify(best.saved));
-  } catch (e) { return; }
-  resumeWork();
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  if (!name || !period || !shiftSelect.value) return;
+  renderChecklist();
+  checkAllDone();
 }
 window.addEventListener('pagehide', () => {
   saveProgress();
@@ -1888,7 +1896,9 @@ function renderChecklist() {
   }
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
-  checklistContainer.dataset.who = staffName.value.trim() + '|' + workPeriod.value.trim();
+  const who = staffName.value.trim() + '|' + workPeriod.value.trim();
+  const switched = checklistContainer.dataset.who != null && checklistContainer.dataset.who !== who;
+  checklistContainer.dataset.who = who;
   if (!key) {
     checklistContainer.innerHTML = '';
     return;
@@ -1902,6 +1912,14 @@ function renderChecklist() {
     return;
   }
   const saved = loadProgress();
+  if (switched && !saved) {
+    clockInRecord = null;
+    sessionReported = {};
+    extraReported = {};
+    const memo = document.getElementById('dayMemo');
+    if (memo) memo.value = '';
+    showClockIn();
+  }
   currentPhotos = {};
   savedHasPhoto = {};
   checklistContainer.innerHTML = items.map((item, index) => {
