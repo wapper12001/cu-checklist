@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v162</h1>
+  <h1>CU 점포 체크리스트 v163</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -337,6 +337,16 @@ if (document.documentElement.classList.contains('inapp')) {
   </div>
   </div>
   <button class="btn-primary" id="sendReportBtn" data-ko="전체 보고서 전송">전체 보고서 전송</button>
+</div>
+
+<!-- 전체 보고 확인 -->
+<div id="reportAsk" class="modal hidden">
+  <div class="modal-content">
+    <h3 style="margin-top:0;">카톡 확인</h3>
+    <p style="font-size:15px; line-height:1.55; margin:0 0 12px;">서버에는 저장됐습니다. 카톡에 글이 보이면 보냈습니다. 안 보이면 다시 보내세요.</p>
+    <button class="btn-primary" id="reportAskOk" type="button" style="width:100%;">보냈습니다</button>
+    <button class="btn-secondary" id="reportAskRetry" type="button" style="width:100%; margin-top:8px;">다시 보내기</button>
+  </div>
 </div>
 
 <!-- 비밀번호 모달 -->
@@ -3016,29 +3026,60 @@ sendReportBtn.onclick = async () => {
     return;
   }
   markReportSent();
-  if (navigator.share) {
-    try {
-      await navigator.share({ text: sum });
-      await finishFullReport(sum, true);
-      return;
-    } catch (e) {
-      if (e && e.name === 'AbortError') {
-        fullReportSent = false;
-        saveProgress();
-        checkAllDone();
-        await deletePayRecord();
-        return;
-      }
-    }
-  }
-  const done = await finishFullReport(sum, true);
-  location.href = done.phone ? `sms:${done.phone}?body=${encodeURIComponent(sum)}` : `sms:?body=${encodeURIComponent(sum)}`;
+  rememberPending(sum);
+  showReportAsk();
+  await shareReportText(sum);
+  showReportAsk();
 };
 function markReportSent() {
   fullReportSent = true;
   saveWorkCalendar();
   saveProgress();
 }
+const REPORT_PENDING = 'cu-report-pending';
+function readPending() {
+  try { return JSON.parse(localStorage.getItem(REPORT_PENDING) || 'null'); } catch (e) { return null; }
+}
+function rememberPending(sum) {
+  const store = allData[currentStore] || {};
+  localStorage.setItem(REPORT_PENDING, JSON.stringify({
+    sum,
+    phone: String(store.phone || '').replace(/-/g, '')
+  }));
+}
+function clearPending() {
+  try { localStorage.removeItem(REPORT_PENDING); } catch (e) {}
+}
+function showReportAsk() {
+  const box = document.getElementById('reportAsk');
+  if (box) box.classList.remove('hidden');
+}
+function hideReportAsk() {
+  const box = document.getElementById('reportAsk');
+  if (box) box.classList.add('hidden');
+}
+async function shareReportText(sum) {
+  const pending = readPending();
+  const text = sum || (pending && pending.sum) || '';
+  const phone = (pending && pending.phone) || '';
+  if (!text) return;
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch (e) {}
+    return;
+  }
+  location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
+}
+document.getElementById('reportAskOk').onclick = async () => {
+  const pending = readPending();
+  hideReportAsk();
+  clearPending();
+  await finishFullReport((pending && pending.sum) || '', true);
+};
+document.getElementById('reportAskRetry').onclick = async () => {
+  await shareReportText();
+  showReportAsk();
+};
+if (readPending()) showReportAsk();
 async function savePayRecord() {
   const range = parseWorkRange(workPeriod.value);
   const workDate = payDateFor(range, reportDate.value) || reportDate.value;
