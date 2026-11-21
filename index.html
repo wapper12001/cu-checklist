@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v159</h1>
+  <h1>CU 점포 체크리스트 v160</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1234,10 +1234,16 @@ document.getElementById('discardBody').onclick = e => {
   if (btn.dataset.act === 'photo') takePhoto('discard-' + id);
   if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareDiscard(id);
 };
+function tooManyPhotos(count) {
+  if (count <= 10) return false;
+  alert('한 번에 10장까지만 보낼 수 있습니다. 꼭 보고할 사진만 남기고 다시 보내 주세요.');
+  return true;
+}
 async function shareDiscard(id) {
   const slot = activeSlots().find(s => s.id === id);
   const photos = (currentPhotos['discard-' + id] || []).slice();
   if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
+  if (tooManyPhotos(photos.length)) return;
   const text = `업무: ${slot ? slot.title : '폐기'}\n상태: 완료`;
   let files = photos;
   try {
@@ -1353,6 +1359,7 @@ document.getElementById('midTagBody').onclick = e => {
 async function shareMidTag() {
   const photos = (currentPhotos['mid-tag'] || []).slice();
   if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
+  if (tooManyPhotos(photos.length)) return;
   const text = '업무: 가격표, +1 쇼카드 없는 상품 보고\n상태: 완료';
   let files = photos;
   try {
@@ -2693,6 +2700,7 @@ async function shareItem(id, isSms) {
     alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.');
     return;
   }
+  if (tooManyPhotos(d.photos.length)) return;
   let files = d.photos;
   try {
     files = [];
