@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v163</h1>
+  <h1>CU 점포 체크리스트 v164</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -208,6 +208,14 @@ if (document.documentElement.classList.contains('inapp')) {
             <textarea id="weatherEditBody" style="min-height:120px;"></textarea>
             <label style="margin-top:8px;">근무자가 그대로 적어야 하는 문장</label>
             <input id="weatherEditPhrase">
+          </div>
+          <button type="button" class="common-line" id="midTagLineBtn">가격표·쇼카드</button>
+          <div id="midTagEdit" class="hidden" style="padding:8px 0 12px;">
+            <p style="font-size:13px; color:#555; margin:0 0 8px;">근무시간대의 중간이 지나면 뜹니다. 사진을 찍어 보내면 그날은 다시 안 뜹니다.</p>
+            <label>제목</label>
+            <input id="midTagEditTitle">
+            <label style="margin-top:8px;">내용. 한 줄에 하나</label>
+            <textarea id="midTagEditBody" style="min-height:120px;"></textarea>
           </div>
         </div>
         <button type="button" class="btn-secondary" id="timePopupBtn" style="width:100%; margin-top:8px;">시각 팝업 알람</button>
@@ -369,7 +377,7 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 <div id="midTagModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0; color:#6B2C91;">가격표·쇼카드</h3>
+    <h3 id="midTagTitle" style="margin-top:0; color:#6B2C91;">가격표·쇼카드</h3>
     <div id="midTagBody" style="font-size:15px; line-height:1.5;"></div>
   </div>
 </div>
@@ -1104,6 +1112,11 @@ async function loadPopups() {
   if (!weather.error && weather.data && weather.data[0]) {
     try { weatherSaved = JSON.parse(weather.data[0].description || '{}'); } catch (e) { weatherSaved = null; }
   }
+  midTagSaved = null;
+  const midTag = await supabase.from('checklist_items').select('*').eq('store_name', '__i18n__').eq('shift_key', 'midtag').order('item_order').limit(1);
+  if (!midTag.error && midTag.data && midTag.data[0]) {
+    try { midTagSaved = JSON.parse(midTag.data[0].description || '{}'); } catch (e) { midTagSaved = null; }
+  }
   await loadDateRules();
 }
 const INBOUND_DEFAULT = {
@@ -1129,6 +1142,18 @@ const WEATHER_DEFAULT = {
 };
 let inboundSaved = null;
 let weatherSaved = null;
+let midTagSaved = null;
+const MIDTAG_DEFAULT = {
+  title: '가격표·쇼카드',
+  body: '가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.'
+};
+function currentMidTag() {
+  const saved = midTagSaved || {};
+  return {
+    title: (saved.title || MIDTAG_DEFAULT.title).trim(),
+    body: (saved.body || MIDTAG_DEFAULT.body).trim()
+  };
+}
 function currentInbound() {
   const saved = inboundSaved || {};
   return {
@@ -1349,8 +1374,11 @@ function checkMidTag() {
     return;
   }
   if (!modal.classList.contains('hidden')) return;
+  const cfg = currentMidTag();
+  document.getElementById('midTagTitle').textContent = cfg.title;
+  const lines = cfg.body.split('\n').map(line => line.trim()).filter(Boolean);
   document.getElementById('midTagBody').innerHTML = `
-    <p style="margin:0 0 8px;">${biHtml('가격표, +1 쇼카드 없는 상품 5개 이상 찾아서 보고해 주세요.')}</p>
+    ${lines.map(line => `<p style="margin:0 0 8px;">${biHtml(line)}</p>`).join('')}
     <div class="btn-row">
       <button type="button" class="btn-photo" data-act="photo">📷 사진찍기</button>
       <button type="button" class="btn-kakao" data-act="kakao">카톡</button>
@@ -1370,7 +1398,8 @@ async function shareMidTag() {
   const photos = (currentPhotos['mid-tag'] || []).slice();
   if (!photos.length) { alert(trText('사진이 없습니다.') ? '사진이 없습니다.\n' + trText('사진이 없습니다.') : '사진이 없습니다.'); return; }
   if (tooManyPhotos(photos.length)) return;
-  const text = '업무: 가격표, +1 쇼카드 없는 상품 보고\n상태: 완료';
+  const cfg = currentMidTag();
+  const text = '업무: ' + cfg.title + '\n상태: 완료';
   let files = photos;
   try {
     files = [];
@@ -4082,12 +4111,44 @@ async function saveWeatherFromForm() {
   if (ok) weatherSaved = { title, body, phrase };
   return ok;
 }
+function fillMidTagEditor() {
+  const cfg = currentMidTag();
+  document.getElementById('midTagEditTitle').value = cfg.title;
+  document.getElementById('midTagEditBody').value = cfg.body;
+  document.getElementById('midTagLineBtn').textContent = cfg.title || '가격표·쇼카드';
+}
+async function saveMidTagFromForm() {
+  const title = document.getElementById('midTagEditTitle').value.trim();
+  const body = document.getElementById('midTagEditBody').value.trim();
+  if (!title || !body) {
+    alert('가격표·쇼카드의 제목과 내용을 적으세요.');
+    return false;
+  }
+  const description = JSON.stringify({ title, body });
+  const { error: delErr } = await supabase.from('checklist_items').delete().eq('store_name', '__i18n__').eq('shift_key', 'midtag');
+  if (delErr) throw delErr;
+  const { error } = await supabase.from('checklist_items').insert({
+    store_name: '__i18n__',
+    shift_key: 'midtag',
+    shift_name: '가격표',
+    item_order: 1,
+    title,
+    description,
+    photo_required: true
+  });
+  if (error) throw error;
+  body.split('\n').concat([title]).forEach(line => { ensureTranslation(line.trim()); });
+  midTagSaved = { title, body };
+  return true;
+}
 async function savePopupDraft() {
   try {
     const inboundOk = await saveInboundFromForm();
     if (!inboundOk) return;
     const weatherOk = await saveWeatherFromForm();
     if (!weatherOk) return;
+    const midTagOk = await saveMidTagFromForm();
+    if (!midTagOk) return;
     const list = readPopupDraft();
     const titled = list.filter(s => s.title);
     if (list.length && titled.length !== list.length) { alert('시각 알림의 제목을 적으세요.'); return; }
@@ -4097,6 +4158,7 @@ async function savePopupDraft() {
     renderPopupEditor();
     fillInboundEditor();
     fillWeatherEditor();
+    fillMidTagEditor();
     alert('팝업 알림을 저장했습니다.');
   } catch (e) {
     alert('저장하지 못했습니다.\n' + (e && e.message ? e.message : e));
@@ -4124,6 +4186,7 @@ document.getElementById('popupEditBtn').onclick = () => {
   popupDraft = popupRows.length ? popupDraftFromRows(popupRows) : defaultPopupDraft();
   fillInboundEditor();
   fillWeatherEditor();
+  fillMidTagEditor();
   renderPopupEditor();
 };
 document.getElementById('addPopupBtn').onclick = () => {
@@ -4138,6 +4201,7 @@ document.getElementById('condPopupBtn').onclick = () => document.getElementById(
 document.getElementById('timePopupBtn').onclick = () => document.getElementById('timePopupBox').classList.toggle('hidden');
 document.getElementById('inboundLineBtn').onclick = () => document.getElementById('inboundEdit').classList.toggle('hidden');
 document.getElementById('weatherLineBtn').onclick = () => document.getElementById('weatherEdit').classList.toggle('hidden');
+document.getElementById('midTagLineBtn').onclick = () => document.getElementById('midTagEdit').classList.toggle('hidden');
 document.getElementById('savePopupBtn').onclick = savePopupDraft;
 function commonTitleOptions() {
   const names = (commonTitles.length ? commonTitles : COMMON_SEED).slice();
