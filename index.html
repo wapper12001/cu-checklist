@@ -115,7 +115,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v160</h1>
+  <h1>CU 점포 체크리스트 v161</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3469,9 +3469,15 @@ function areaPoint(sido, sigungu, dong) {
   const node = AREAS[sido] && AREAS[sido][sigungu];
   return node && node[dong] ? node[dong] : null;
 }
-function fillAreaSelect(id, names, selected) {
+const DONG_LABELS = {
+  '경기도|부천시 오정구|신흥동': '신흥동 (내동, 삼정동)'
+};
+function dongLabel(sido, sigungu, name) {
+  return DONG_LABELS[sido + '|' + sigungu + '|' + name] || name;
+}
+function fillAreaSelect(id, names, selected, labelOf) {
   const sel = document.getElementById(id);
-  sel.innerHTML = '<option value="">선택</option>' + names.map(name => '<option value="' + name + '">' + name + '</option>').join('');
+  sel.innerHTML = '<option value="">선택</option>' + names.map(name => '<option value="' + name + '">' + (labelOf ? labelOf(name) : name) + '</option>').join('');
   if (selected && names.includes(selected)) sel.value = selected;
 }
 function splitSavedArea(district) {
@@ -3501,14 +3507,14 @@ function showStoreArea(district, dong) {
   const area = splitSavedArea(district);
   fillAreaSelect('detailSido', areaSidos(), area.sido);
   fillAreaSelect('detailDistrict', areaSigungu(area.sido), area.sigungu);
-  fillAreaSelect('detailDong', areaDongs(area.sido, area.sigungu), dong || '');
+  fillAreaSelect('detailDong', areaDongs(area.sido, area.sigungu), dong || '', name => dongLabel(area.sido, area.sigungu, name));
 }
 document.getElementById('detailSido').onchange = function() {
   fillAreaSelect('detailDistrict', areaSigungu(this.value), '');
   fillAreaSelect('detailDong', [], '');
 };
 document.getElementById('detailDistrict').onchange = function() {
-  fillAreaSelect('detailDong', areaDongs(document.getElementById('detailSido').value, this.value), '');
+  fillAreaSelect('detailDong', areaDongs(document.getElementById('detailSido').value, this.value), '', name => dongLabel(document.getElementById('detailSido').value, this.value, name));
 };
 document.getElementById('adminStoreSelect').onchange = function() {
   const name = this.value;
