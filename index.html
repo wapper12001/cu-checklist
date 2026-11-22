@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v168">
+<meta name="cu-version" content="v169">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v168</h1>
+  <h1>CU 점포 체크리스트 v169</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1874,6 +1874,7 @@ function loadProgress() {
     if (!d) return null;
     fullReportSent = !!d.sent || reportFormFilled(d);
     if (d.clockIn && d.clockIn.at) clockInRecord = d.clockIn;
+    adoptClock(d.clockIn);
     showClockIn();
     if (d.dayMemo && document.getElementById('dayMemo') && !/^퇴근(합니다)?\.?$/.test(d.dayMemo.trim())) {
       document.getElementById('dayMemo').value = d.dayMemo;
@@ -1915,8 +1916,11 @@ function renderChecklist() {
     return;
   }
   const saved = loadProgress();
+  adoptClock(saved && saved.clockIn);
   if (switched && !saved) {
-    clockInRecord = null;
+    const nameNow = staffName.value.trim();
+    const keepClock = clockInRecord && clockInRecord.at && (!clockInRecord.name || clockInRecord.name === nameNow);
+    if (!keepClock) clockInRecord = null;
     sessionReported = {};
     extraReported = {};
     const memo = document.getElementById('dayMemo');
@@ -3050,7 +3054,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v168';
+const APP_VERSION = 'v169';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
@@ -3224,12 +3228,40 @@ function paySpan() {
   const out = koreaParts(outMs);
   let workDate = inn.date;
   if (out.date !== inn.date && out.minutes >= 5 * 60 && out.minutes < 9 * 60) workDate = out.date;
+  const range = parseWorkRange(workPeriod.value);
+  const raw = Math.max(0, Math.round((outMs - inMs) / 60000));
   return {
-    minutes: Math.max(0, Math.round((outMs - inMs) / 60000)),
+    minutes: range ? onTimeMinutes(range, inMs, outMs) : raw,
     workDate,
     start: inn.hm,
     end: out.hm
   };
+}
+function scheduledBoundMs(dateStr, minuteOfDay) {
+  let day = dateStr;
+  let minute = minuteOfDay;
+  while (minute >= 24 * 60) {
+    day = addDays(day, 1);
+    minute -= 24 * 60;
+  }
+  const hh = String(Math.floor(minute / 60)).padStart(2, '0');
+  const mm = String(minute % 60).padStart(2, '0');
+  const ms = Date.parse(day + 'T' + hh + ':' + mm + ':00+09:00');
+  return Number.isFinite(ms) ? ms : null;
+}
+function onTimeMinutes(range, inMs, outMs) {
+  const anchor = (reportDate && reportDate.value) || koreaParts(inMs).date;
+  const startMs = scheduledBoundMs(anchor, range.start);
+  const endMs = range.end > range.start
+    ? scheduledBoundMs(anchor, range.end)
+    : scheduledBoundMs(addDays(anchor, 1), range.end);
+  if (startMs == null || endMs == null || endMs <= startMs) {
+    return Math.max(0, Math.round((outMs - inMs) / 60000));
+  }
+  const paidStart = Math.max(inMs, startMs);
+  const paidEnd = Math.min(outMs, endMs);
+  if (paidEnd <= paidStart) return 0;
+  return Math.max(0, Math.round((paidEnd - paidStart) / 60000));
 }
 function koreaParts(ms) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
@@ -3395,6 +3427,85 @@ function qrDateOk(ymd) {
   if (ymd.length === 6) return ymd === today.slice(2);
   return false;
 }
+function clockLockKey() {
+  const name = staffName.value.trim();
+  if (!currentStore || !shiftSelect.value || !reportDate.value || !name) return '';
+  return 'cuclock_' + currentStore + '_' + shiftSelect.value + '_' + reportDate.value + '_' + encodeURIComponent(name);
+}
+function earlierClock(a, b) {
+  if (!a || !a.at) return b && b.at ? b : null;
+  if (!b || !b.at) return a;
+  const am = parseKoStamp(a.at);
+  const bm = parseKoStamp(b.at);
+  if (am == null) return b;
+  if (bm == null) return a;
+  return am <= bm ? a : b;
+}
+function readClockLock() {
+  const key = clockLockKey();
+  if (!key) return null;
+  const row = readStore(key);
+  return row && row.at ? row : null;
+}
+function writeClockLock(record) {
+  const key = clockLockKey();
+  if (!key || !record || !record.at) return;
+  const prev = readClockLock();
+  let next = record;
+  if (prev && prev.at) {
+    const keep = earlierClock(prev, record);
+    if (!keep || keep === prev) return;
+    next = keep;
+  }
+  try { localStorage.setItem(key, JSON.stringify(next)); } catch (e) {}
+}
+function adoptClock(savedClock) {
+  const name = staffName.value.trim();
+  const locked = readClockLock();
+  const saved = savedClock && savedClock.at && clockFits(savedClock) ? savedClock : null;
+  const memory = clockInRecord && clockInRecord.at && clockFits(clockInRecord) ? clockInRecord : null;
+  let picked = earlierClock(locked, saved);
+  picked = earlierClock(picked, memory);
+  if (!picked) {
+    if (clockInRecord && clockInRecord.name && name && clockInRecord.name !== name) clockInRecord = null;
+    return null;
+  }
+  picked = Object.assign({}, picked, {
+    name: picked.name || name,
+    shift: picked.shift || shiftSelect.value,
+    store: picked.store || currentStore || '',
+    date: picked.date || (reportDate && reportDate.value) || ''
+  });
+  clockInRecord = picked;
+  writeClockLock(picked);
+  return picked;
+}
+function clockFits(row) {
+  if (!row || !row.at) return false;
+  const name = staffName.value.trim();
+  if (row.name && name && row.name !== name) return false;
+  if (row.date && reportDate.value && row.date !== reportDate.value) return false;
+  if (row.shift && shiftSelect.value && row.shift !== shiftSelect.value) return false;
+  if (row.store && currentStore && row.store !== currentStore) return false;
+  return true;
+}
+function paintClock(at) {
+  document.querySelectorAll('.item').forEach(el => {
+    if (!isClockItem(el.dataset.title)) return;
+    const id = el.dataset.id;
+    el.dataset.reported = '1';
+    el.dataset.reportedAt = at;
+    sessionReported[reportKey(id)] = at;
+    const cb = el.querySelector('.done-cb');
+    if (cb) cb.checked = true;
+    const timeEl = document.getElementById('done-time-' + id);
+    if (timeEl) timeEl.textContent = at;
+    const old = el.querySelector('.clock-detail');
+    if (old) old.remove();
+    const done = el.querySelector('.done-check');
+    if (done) done.insertAdjacentHTML('afterend', clockDetailHtml());
+  });
+}
 async function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
@@ -3405,23 +3516,26 @@ async function finishClockIn(code) {
     const ok = await enterStoreCode(parsed.storeCode, false);
     if (!ok) return;
   }
-  clockInRecord = { at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }), qr: String(code || ''), store: currentStore || '', date: (reportDate && reportDate.value) || koreaNow().date };
+  const existing = adoptClock(null);
+  if (existing && existing.at) {
+    paintClock(existing.at);
+    saveProgress();
+    syncDoneBorders();
+    checkAllDone();
+    alert('이미 ' + existing.at + '에 출근했습니다.');
+    return;
+  }
+  clockInRecord = {
+    at: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+    qr: String(code || ''),
+    store: currentStore || '',
+    date: (reportDate && reportDate.value) || koreaNow().date,
+    name: staffName.value.trim(),
+    shift: shiftSelect.value
+  };
+  writeClockLock(clockInRecord);
   showClockIn();
-  document.querySelectorAll('.item').forEach(el => {
-    if (!isClockItem(el.dataset.title)) return;
-    const id = el.dataset.id;
-    el.dataset.reported = '1';
-    el.dataset.reportedAt = clockInRecord.at;
-    sessionReported[reportKey(id)] = clockInRecord.at;
-    const cb = el.querySelector('.done-cb');
-    if (cb) cb.checked = true;
-    const timeEl = document.getElementById('done-time-' + id);
-    if (timeEl) timeEl.textContent = clockInRecord.at;
-    const old = el.querySelector('.clock-detail');
-    if (old) old.remove();
-    const done = el.querySelector('.done-check');
-    if (done) done.insertAdjacentHTML('afterend', clockDetailHtml());
-  });
+  paintClock(clockInRecord.at);
   saveProgress();
   syncDoneBorders();
   checkAllDone();
