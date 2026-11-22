@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v178">
+<meta name="cu-version" content="v179">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v178</h1>
+  <h1>CU 점포 체크리스트 v179</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1972,7 +1972,11 @@ function loadProgress() {
       document.getElementById('dayMemo').value = d.dayMemo;
     }
     if (d.pay) writePay(d.pay);
-    document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === (d.workType || ''); });
+    const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
+    const savedType = d.workType || '';
+    if (!picked && savedType) {
+      document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === savedType; });
+    }
     return d;
   } catch (e) {}
   return null;
@@ -3167,7 +3171,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v178';
+const APP_VERSION = 'v179';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
