@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v177">
+<meta name="cu-version" content="v178">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v177</h1>
+  <h1>CU 점포 체크리스트 v178</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2867,8 +2867,9 @@ async function finishShare(files) {
     await navigator.share({ files });
     return 'sent';
   } catch (e) {
+    const gone = leftPage || document.visibilityState === 'hidden';
+    if (gone || Date.now() - started > 1500) return 'left';
     if (!(e && e.name === 'AbortError')) return 'fail';
-    if (leftPage || document.visibilityState === 'hidden') return 'left';
     const waitFrom = Date.now();
     await new Promise(r => setTimeout(r, 800));
     if (leftPage || document.visibilityState === 'hidden') return 'left';
@@ -3166,7 +3167,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v177';
+const APP_VERSION = 'v178';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
