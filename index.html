@@ -7,6 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
+<meta name="cu-version" content="v167">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -115,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v166</h1>
+  <h1>CU 점포 체크리스트 v167</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -2916,10 +2917,13 @@ document.querySelectorAll('#bottomBar .pay-time').forEach(el => {
   el.addEventListener('change', saveProgress);
 });
 
+function koreaStamp() {
+  return new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+}
 function makeSummary() {
   const shiftKey = shiftSelect.value;
   const shift = allData[currentStore]?.shifts?.[shiftKey] || { items: [] };
-  const when = new Date().toLocaleString('ko-KR');
+  const when = koreaStamp();
   const names = { edu: '교육', prob: '수습', full: '정식' };
   const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
   const opt = shiftSelect.options[shiftSelect.selectedIndex];
@@ -2927,8 +2931,10 @@ function makeSummary() {
   let sum = `전체 보고\n시간 : ${when}\n구분: ${names[picked] || ''}\n점포명: ${currentStore || ''}\n근무자이름: ${staffName.value.trim()}\n근무타입: ${shiftLabel}\n근무시간대: ${workPeriod.value.trim()}`;
   if (clockInRecord && clockInRecord.at) {
     sum += `\n출근 시간: ${clockInRecord.at}`;
+    sum += `\n퇴근 시간: ${when}`;
     sum += `\n출근 점포: ${clockInRecord.store || currentStore || ''}`;
-    sum += `\n퇴근 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`;
+  } else {
+    sum += `\n퇴근 시간: ${when}`;
   }
   visibleItems(shift).forEach(it => {
     const d = getItemData(it.id);
@@ -3042,7 +3048,40 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
+const APP_VERSION = 'v167';
+let versionReload = false;
+function shareInProgress() {
+  try { return !!localStorage.getItem('cu-share-pending'); } catch (e) { return false; }
+}
+async function ensureLatestVersion() {
+  if (versionReload) return false;
+  try {
+    const fresh = new URL(location.href);
+    fresh.searchParams.set('cv', String(Date.now()));
+    const res = await fetch(fresh.pathname + '?' + fresh.searchParams.toString(), { cache: 'no-store' });
+    if (!res.ok) return true;
+    const text = await res.text();
+    const found = text.match(/name="cu-version" content="(v\d+)"/);
+    if (!found || found[1] === APP_VERSION) return true;
+    versionReload = true;
+    saveProgress();
+    try { await saveProgressRemote(); } catch (e) {}
+    alert('새 버전이 있습니다. 화면을 다시 엽니다.');
+    location.replace(fresh.pathname + '?v=' + encodeURIComponent(found[1]));
+    return false;
+  } catch (e) {
+    return true;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || shareInProgress()) return;
+  const scan = document.getElementById('barcodeModal');
+  if (scan && !scan.classList.contains('hidden')) return;
+  ensureLatestVersion();
+});
 sendReportBtn.onclick = async () => {
+  const latest = await ensureLatestVersion();
+  if (!latest) return;
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
