@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v175">
+<meta name="cu-version" content="v176">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v175</h1>
+  <h1>CU 점포 체크리스트 v176</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3119,7 +3119,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v175';
+const APP_VERSION = 'v176';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
@@ -3191,8 +3191,12 @@ sendReportBtn.onclick = async () => {
   const saved = await savePayRecord();
   markReportSent();
   rememberPending(sum);
-  showReportAsk();
-  await shareReportText(sum);
+  const sent = await shareReportText(sum);
+  if (sent) {
+    clearPending();
+    await finishFullReport(sum, saved);
+    return;
+  }
   showReportAsk();
   if (!saved) alert(notice('보고는 보냅니다. 근무 시간은 연결되면 서버에 넣습니다.'));
 };
@@ -3227,12 +3231,17 @@ async function shareReportText(sum) {
   const pending = readPending();
   const text = sum || (pending && pending.sum) || '';
   const phone = (pending && pending.phone) || '';
-  if (!text) return;
+  if (!text) return false;
   if (navigator.share) {
-    try { await navigator.share({ text }); } catch (e) {}
-    return;
+    try {
+      await navigator.share({ text });
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
   location.href = phone ? `sms:${phone}?body=${encodeURIComponent(text)}` : `sms:?body=${encodeURIComponent(text)}`;
+  return false;
 }
 document.getElementById('reportAskOk').onclick = async () => {
   const pending = readPending();
@@ -3241,7 +3250,14 @@ document.getElementById('reportAskOk').onclick = async () => {
   await finishFullReport((pending && pending.sum) || '', true);
 };
 document.getElementById('reportAskRetry').onclick = async () => {
-  await shareReportText();
+  hideReportAsk();
+  const sent = await shareReportText();
+  if (sent) {
+    const pending = readPending();
+    clearPending();
+    await finishFullReport((pending && pending.sum) || '', true);
+    return;
+  }
   showReportAsk();
 };
 if (readPending()) showReportAsk();
