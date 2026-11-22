@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v174">
+<meta name="cu-version" content="v175">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v174</h1>
+  <h1>CU 점포 체크리스트 v175</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1910,9 +1910,11 @@ document.addEventListener('visibilitychange', () => {
     saveProgressRemote();
   } else {
     applyPendingShare();
+    flushPayQueue();
   }
 });
-window.addEventListener('pageshow', () => applyPendingShare());
+window.addEventListener('pageshow', () => { applyPendingShare(); flushPayQueue(); });
+window.addEventListener('online', () => flushPayQueue());
 function loadProgress() {
   fullReportSent = false;
   try {
@@ -3117,7 +3119,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v174';
+const APP_VERSION = 'v175';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
@@ -3192,7 +3194,7 @@ sendReportBtn.onclick = async () => {
   showReportAsk();
   await shareReportText(sum);
   showReportAsk();
-  if (!saved) alert(notice('보고는 보냅니다. 근무 시간만 서버에 안 들어갔습니다.'));
+  if (!saved) alert(notice('보고는 보냅니다. 근무 시간은 연결되면 서버에 넣습니다.'));
 };
 function markReportSent() {
   fullReportSent = true;
@@ -3289,10 +3291,51 @@ async function savePayRecord() {
   };
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      if (await putPayRow(row)) return true;
+      if (await putPayRow(row)) {
+        dropPayRow(row);
+        return true;
+      }
     } catch (e) {}
   }
+  queuePayRow(row);
   return false;
+}
+const PAY_QUEUE = 'cu-pay-queue';
+function payQueueKey(row) {
+  return [row.store_name, row.work_date, row.worker_name, row.start_time].join('|');
+}
+function readPayQueue() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(PAY_QUEUE) || '[]');
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) { return []; }
+}
+function writePayQueue(rows) {
+  try { localStorage.setItem(PAY_QUEUE, JSON.stringify(rows)); } catch (e) {}
+}
+function queuePayRow(row) {
+  const rows = readPayQueue().filter(r => payQueueKey(r) !== payQueueKey(row));
+  rows.push(row);
+  writePayQueue(rows);
+}
+function dropPayRow(row) {
+  writePayQueue(readPayQueue().filter(r => payQueueKey(r) !== payQueueKey(row)));
+}
+let payFlushing = false;
+async function flushPayQueue() {
+  if (payFlushing) return;
+  const rows = readPayQueue();
+  if (!rows.length) return;
+  payFlushing = true;
+  try {
+    for (const row of rows) {
+      try {
+        if (await putPayRow(row)) dropPayRow(row);
+      } catch (e) {}
+    }
+  } finally {
+    payFlushing = false;
+  }
 }
 function paySpan() {
   const inMs = parseKoStamp(clockInRecord && clockInRecord.at);
@@ -3385,7 +3428,7 @@ async function finishFullReport(sum, alreadySaved) {
     try { await supabase.from('checklist_items').delete().eq('store_name', storeName).eq('shift_key', 'live').eq('title', title); } catch (e) {}
   }
   const saved = alreadySaved || await savePayRecord();
-  alert(notice('수고하셨습니다. 즐퇴하세요') + (saved ? '' : '\n근무 시간만 서버에 안 들어갔습니다.'));
+  alert(notice('수고하셨습니다. 즐퇴하세요') + (saved ? '' : '\n근무 시간은 연결되면 서버에 넣습니다.'));
   const store = allData[currentStore] || {};
   const phone = (store.phone || '').replace(/-/g, '');
   backToStart();
@@ -4763,6 +4806,7 @@ document.getElementById('cancelEdit').onclick = () => {
   adminScreen.classList.remove('hidden');
   saveAdminView({ on: true, screen: 'admin', store: editingStore || '', shift: '', draft: null });
 };
+  flushPayQueue();
   } catch(err) {
     console.error('initApp error', err);
     alert('초기화 오류: ' + err.message);
