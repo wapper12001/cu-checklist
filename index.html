@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v171">
+<meta name="cu-version" content="v172">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v171</h1>
+  <h1>CU 점포 체크리스트 v172</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3112,7 +3112,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v171';
+const APP_VERSION = 'v172';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
@@ -3174,15 +3174,12 @@ sendReportBtn.onclick = async () => {
   }
   const sum = makeSummary();
   const saved = await savePayRecord();
-  if (!saved) {
-    alert(notice('서버에는 저장되지 않았습니다.'));
-    return;
-  }
   markReportSent();
   rememberPending(sum);
   showReportAsk();
   await shareReportText(sum);
   showReportAsk();
+  if (!saved) alert(notice('근무 시간은 서버에 저장되지 않았습니다. 보고 창은 열렸습니다.'));
 };
 function markReportSent() {
   fullReportSent = true;
@@ -3234,48 +3231,51 @@ document.getElementById('reportAskRetry').onclick = async () => {
 };
 if (readPending()) showReportAsk();
 async function savePayRecord() {
-  const span = paySpan();
-  if (!span || !currentStore || !staffName.value.trim()) return false;
-  const pay = readPay();
-  const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
-  const names = { edu: '교육', prob: '수습', full: '정식' };
-  const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
-  const opt = shiftSelect.options[shiftSelect.selectedIndex];
-  const workHours = Math.round(span.minutes / 60 * 10) / 10;
-  const late = num(pay.lateYn, pay.lateTime);
-  const short = num(pay.deductYn, pay.deductTime);
-  const extra = num(pay.extraYn, pay.extraTime);
-  const breakHours = picked === 'edu' ? Math.round(Math.floor(span.minutes / 60) * 10 / 6) / 10 : 0;
-  const total = Math.round((workHours + extra - breakHours - late - short) * 10) / 10;
-  const row = {
-    work_date: span.workDate,
-    store_code: myStoreCode() || '',
-    store_name: currentStore || '',
-    worker_name: staffName.value.trim(),
-    shift_type: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
-    start_time: span.start,
-    end_time: span.end,
-    work_hours: workHours,
-    late_hours: late,
-    short_hours: short,
-    extra_hours: extra,
-    break_hours: breakHours,
-    pay_type: names[picked] || picked,
-    total_hours: total
-  };
-  const found = await supabase.from('pay_records').select('id')
-    .eq('store_name', row.store_name)
-    .eq('work_date', row.work_date)
-    .eq('worker_name', row.worker_name)
-    .eq('start_time', row.start_time)
-    .limit(1);
-  if (found.error) return false;
-  if (found.data && found.data[0]) {
-    const updated = await supabase.from('pay_records').update(row).eq('id', found.data[0].id);
-    return !updated.error;
+  try {
+    const span = paySpan();
+    if (!span || !currentStore || !staffName.value.trim()) return false;
+    const pay = readPay();
+    const num = (yn, time) => yn === 'yes' ? Number(time) || 0 : 0;
+    const names = { edu: '교육', prob: '수습', full: '정식' };
+    const picked = (document.querySelector('input[name="workType"]:checked') || {}).value || '';
+    const opt = shiftSelect.options[shiftSelect.selectedIndex];
+    const workHours = Math.round(span.minutes / 60 * 10) / 10;
+    const late = num(pay.lateYn, pay.lateTime);
+    const short = num(pay.deductYn, pay.deductTime);
+    const extra = num(pay.extraYn, pay.extraTime);
+    const breakHours = picked === 'edu' ? Math.round(Math.floor(span.minutes / 60) * 10 / 6) / 10 : 0;
+    const total = Math.round((workHours + extra - breakHours - late - short) * 10) / 10;
+    const row = {
+      work_date: span.workDate,
+      store_code: myStoreCode() || '',
+      store_name: currentStore || '',
+      worker_name: staffName.value.trim(),
+      shift_type: opt && opt.value ? opt.textContent.trim() : (shiftSelect.value || ''),
+      start_time: span.start,
+      end_time: span.end,
+      work_hours: workHours,
+      late_hours: late,
+      short_hours: short,
+      extra_hours: extra,
+      break_hours: breakHours,
+      pay_type: names[picked] || picked,
+      total_hours: total
+    };
+    const found = await supabase.from('pay_records').select('id')
+      .eq('store_name', row.store_name)
+      .eq('work_date', row.work_date)
+      .eq('worker_name', row.worker_name)
+      .eq('start_time', row.start_time)
+      .limit(1);
+    if (!found.error && found.data && found.data[0]) {
+      const updated = await supabase.from('pay_records').update(row).eq('id', found.data[0].id);
+      if (!updated.error) return true;
+    }
+    const inserted = await supabase.from('pay_records').insert(row).select('id');
+    return !(inserted.error || !inserted.data || !inserted.data.length);
+  } catch (e) {
+    return false;
   }
-  const inserted = await supabase.from('pay_records').insert(row).select('id');
-  return !(inserted.error || !inserted.data || !inserted.data[0]);
 }
 function paySpan() {
   const inMs = parseKoStamp(clockInRecord && clockInRecord.at);
