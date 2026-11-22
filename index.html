@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v169">
+<meta name="cu-version" content="v170">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v169</h1>
+  <h1>CU 점포 체크리스트 v170</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -165,7 +165,6 @@ if (document.documentElement.classList.contains('inapp')) {
         <select id="workEnd" aria-label="종료"></select>
       </div>
       <input type="hidden" id="workPeriod">
-      <div id="periodHint" style="margin-top:6px; font-weight:700; color:#6B2C91;"></div>
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
     <div id="checklistContainer"></div>
@@ -350,6 +349,13 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 
 <!-- 전체 보고 확인 -->
+<div id="periodAsk" class="modal hidden">
+  <div class="modal-content">
+    <p id="periodAskText" style="font-size:16px; font-weight:700; color:#6B2C91; line-height:1.5; margin:0 0 14px;"></p>
+    <button type="button" class="btn-secondary" id="periodAskNo" style="width:100%;">아니오</button>
+    <button type="button" class="btn-primary" id="periodAskYes" style="width:100%; margin-top:8px;">예</button>
+  </div>
+</div>
 <div id="reportAsk" class="modal hidden">
   <div class="modal-content">
     <h3 style="margin-top:0;">카톡 확인</h3>
@@ -998,11 +1004,53 @@ function clockLabel(mins) {
   return String(Math.floor(snapped / 60)).padStart(2, '0') + ':' + String(snapped % 60).padStart(2, '0');
 }
 function syncWorkPeriod() {
-  workPeriod.value = workStart.value && workEnd.value ? workStart.value + '-' + workEnd.value : '';
-  showPeriodHint();
+  const start = workStart.value;
+  const end = workEnd.value;
+  if (!start || !end) {
+    restorePeriodSelects();
+    return;
+  }
+  const next = start + '-' + end;
+  if (next === workPeriod.value) return;
+  askPeriodConfirm(next);
+}
+function restorePeriodSelects() {
+  const range = parseWorkRange(workPeriod.value);
+  if (!range) {
+    workStart.value = '';
+    workEnd.value = '';
+    return;
+  }
+  workStart.value = clockLabel(range.start);
+  workEnd.value = clockLabel(range.end);
+}
+let periodAsk = '';
+function askPeriodConfirm(next) {
+  periodAsk = next;
+  const range = parseWorkRange(next);
+  const hours = range ? Math.round(shiftMinutes(range) / 60 * 10) / 10 : 0;
+  const text = Number.isInteger(hours) ? String(hours) : String(hours);
+  const parts = next.split('-');
+  document.getElementById('periodAskText').textContent = parts[0] + '–' + parts[1] + ', ' + text + '시간. 맞는지 확인하세요.';
+  document.getElementById('periodAsk').classList.remove('hidden');
+}
+function acceptPeriodAsk() {
+  const next = periodAsk;
+  periodAsk = '';
+  document.getElementById('periodAsk').classList.add('hidden');
+  if (!next) return;
+  const parts = next.split('-');
+  workStart.value = parts[0];
+  workEnd.value = parts[1];
+  workPeriod.value = next;
   if (nameLock) return;
   onIdentityInput();
   if (!shiftSelect.value) scheduleDiscardCheck();
+}
+function rejectPeriodAsk() {
+  periodAsk = '';
+  document.getElementById('periodAsk').classList.add('hidden');
+  restorePeriodSelects();
 }
 function applyPeriodToSelects(text) {
   const range = parseWorkRange(text);
@@ -1010,29 +1058,19 @@ function applyPeriodToSelects(text) {
     workStart.value = '';
     workEnd.value = '';
     workPeriod.value = '';
-    showPeriodHint();
     return;
   }
   workStart.value = clockLabel(range.start);
   workEnd.value = clockLabel(range.end);
   workPeriod.value = workStart.value + '-' + workEnd.value;
-  showPeriodHint();
 }
-function showPeriodHint() {
-  const el = document.getElementById('periodHint');
-  if (!el) return;
-  const range = parseWorkRange(workPeriod.value);
-  if (!range || !workStart.value || !workEnd.value) {
-    el.textContent = '';
-    return;
-  }
-  const hours = Math.round(shiftMinutes(range) / 60 * 10) / 10;
-  const text = Number.isInteger(hours) ? String(hours) : String(hours);
-  el.textContent = workStart.value + '–' + workEnd.value + ', ' + text + '시간. 맞는지 확인하세요.';
-}
+function showPeriodHint() {}
 fillWorkTimes();
 workStart.onchange = syncWorkPeriod;
 workEnd.onchange = syncWorkPeriod;
+document.getElementById('periodAskYes').onclick = acceptPeriodAsk;
+document.getElementById('periodAskNo').onclick = rejectPeriodAsk;
+document.getElementById('periodAsk').onclick = (event) => { if (event.target.id === 'periodAsk') rejectPeriodAsk(); };
 document.getElementById('dayMemo').oninput = saveProgress;
 (function () {
   const memo = document.getElementById('dayMemo');
@@ -3054,7 +3092,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v169';
+const APP_VERSION = 'v170';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
