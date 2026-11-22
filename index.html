@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v170">
+<meta name="cu-version" content="v171">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v170</h1>
+  <h1>CU 점포 체크리스트 v171</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1003,66 +1003,84 @@ function clockLabel(mins) {
   const snapped = Math.round(m / 30) * 30 % (24 * 60);
   return String(Math.floor(snapped / 60)).padStart(2, '0') + ':' + String(snapped % 60).padStart(2, '0');
 }
+let periodSilent = false;
+let periodTimer = null;
+let periodAsk = '';
+let periodAskOpened = 0;
 function syncWorkPeriod() {
+  if (periodSilent) return;
   const start = workStart.value;
   const end = workEnd.value;
-  if (!start || !end) {
-    restorePeriodSelects();
-    return;
-  }
+  if (!start || !end) return;
   const next = start + '-' + end;
   if (next === workPeriod.value) return;
-  askPeriodConfirm(next);
+  clearTimeout(periodTimer);
+  periodTimer = setTimeout(() => askPeriodConfirm(next), 450);
 }
 function restorePeriodSelects() {
   const range = parseWorkRange(workPeriod.value);
+  periodSilent = true;
   if (!range) {
     workStart.value = '';
     workEnd.value = '';
-    return;
+  } else {
+    workStart.value = clockLabel(range.start);
+    workEnd.value = clockLabel(range.end);
   }
-  workStart.value = clockLabel(range.start);
-  workEnd.value = clockLabel(range.end);
+  periodSilent = false;
 }
-let periodAsk = '';
 function askPeriodConfirm(next) {
+  if (periodSilent || next === workPeriod.value) return;
   periodAsk = next;
   const range = parseWorkRange(next);
   const hours = range ? Math.round(shiftMinutes(range) / 60 * 10) / 10 : 0;
   const text = Number.isInteger(hours) ? String(hours) : String(hours);
   const parts = next.split('-');
   document.getElementById('periodAskText').textContent = parts[0] + '–' + parts[1] + ', ' + text + '시간. 맞는지 확인하세요.';
+  const yes = document.getElementById('periodAskYes');
+  const no = document.getElementById('periodAskNo');
+  yes.disabled = true;
+  no.disabled = true;
+  periodAskOpened = Date.now();
   document.getElementById('periodAsk').classList.remove('hidden');
+  setTimeout(() => { yes.disabled = false; no.disabled = false; }, 500);
 }
 function acceptPeriodAsk() {
+  if (Date.now() - periodAskOpened < 400) return;
   const next = periodAsk;
   periodAsk = '';
   document.getElementById('periodAsk').classList.add('hidden');
   if (!next) return;
   const parts = next.split('-');
+  periodSilent = true;
   workStart.value = parts[0];
   workEnd.value = parts[1];
   workPeriod.value = next;
+  periodSilent = false;
   if (nameLock) return;
   onIdentityInput();
   if (!shiftSelect.value) scheduleDiscardCheck();
 }
 function rejectPeriodAsk() {
+  if (Date.now() - periodAskOpened < 400) return;
   periodAsk = '';
   document.getElementById('periodAsk').classList.add('hidden');
   restorePeriodSelects();
 }
 function applyPeriodToSelects(text) {
   const range = parseWorkRange(text);
+  periodSilent = true;
   if (!range) {
     workStart.value = '';
     workEnd.value = '';
     workPeriod.value = '';
+    periodSilent = false;
     return;
   }
   workStart.value = clockLabel(range.start);
   workEnd.value = clockLabel(range.end);
   workPeriod.value = workStart.value + '-' + workEnd.value;
+  periodSilent = false;
 }
 function showPeriodHint() {}
 fillWorkTimes();
@@ -1755,7 +1773,9 @@ function progressForCurrent() {
   if (!name || !currentStore || !shiftSelect.value || !reportDate.value) return null;
   const rows = personRecords().filter(row => row.shift === shiftSelect.value);
   const exact = rows.find(row => (row.data.period || '').trim() === period);
-  return exact ? exact.data : null;
+  if (exact) return exact.data;
+  if (rows.length === 1) return rows[0].data;
+  return null;
 }
 function saveProgress() {
   if (!currentStore || !shiftSelect.value || !reportDate.value) return;
@@ -3092,7 +3112,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v170';
+const APP_VERSION = 'v171';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
