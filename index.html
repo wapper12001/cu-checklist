@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v167">
+<meta name="cu-version" content="v168">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v167</h1>
+  <h1>CU 점포 체크리스트 v168</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1477,6 +1477,7 @@ shiftSelect.onchange = () => {
   renderChecklist();
   checkAllDone();
   saveResume();
+  checkVersionAtStart();
 };
 
 function saveResume() {
@@ -1611,6 +1612,7 @@ function resumeWork() {
     checkAllDone();
   } else onIdentityInput();
   showPeriodHint();
+  checkVersionAtStart();
 }
 
 function legacyKey() { return `prog_${currentStore}_${shiftSelect.value}_${reportDate.value}`; }
@@ -3048,10 +3050,13 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v167';
+const APP_VERSION = 'v168';
 let versionReload = false;
-function shareInProgress() {
-  try { return !!localStorage.getItem('cu-share-pending'); } catch (e) { return false; }
+let versionCheckedAtStart = false;
+function checkVersionAtStart() {
+  if (versionCheckedAtStart || !currentStore || !shiftSelect.value) return;
+  versionCheckedAtStart = true;
+  ensureLatestVersion();
 }
 async function ensureLatestVersion() {
   if (versionReload) return false;
@@ -3073,12 +3078,6 @@ async function ensureLatestVersion() {
     return true;
   }
 }
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || shareInProgress()) return;
-  const scan = document.getElementById('barcodeModal');
-  if (scan && !scan.classList.contains('hidden')) return;
-  ensureLatestVersion();
-});
 sendReportBtn.onclick = async () => {
   const latest = await ensureLatestVersion();
   if (!latest) return;
