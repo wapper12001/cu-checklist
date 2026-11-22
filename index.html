@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v176">
+<meta name="cu-version" content="v177">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v176</h1>
+  <h1>CU 점포 체크리스트 v177</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -504,6 +504,9 @@ const I18N = {
     '교육': 'Đào tạo',
     '수습': 'Thử việc',
     '정식': 'Chính thức',
+    '필수 항목을 먼저 채워주세요.': 'Hãy điền mục bắt buộc trước.',
+    '교육/수습/정식': 'Đào tạo / Thử việc / Chính thức',
+    '이름': 'Tên',
     '수고하셨습니다. 즐퇴하세요': 'Cảm ơn bạn. Tan ca vui vẻ.',
     '전체 보고 전송을 해야합니다': 'Phải gửi báo cáo cả ca.',
     '퇴근 보고': 'Báo cáo tan ca',
@@ -597,6 +600,9 @@ const I18N = {
     '교육': 'သင်တန်း',
     '수습': 'အစမ်းခန့်',
     '정식': 'အတည်ပြု',
+    '필수 항목을 먼저 채워주세요.': 'လိုအပ်သော အချက်များကို အရင်ဖြည့်ပါ။',
+    '교육/수습/정식': 'သင်တန်း / အစမ်းခန့် / အတည်ပြု',
+    '이름': 'အမည်',
     '수고하셨습니다. 즐퇴하세요': 'ကျေးဇူးတင်ပါတယ်။ ပျော်ရွှင်စွာ အလုပ်ဆင်းပါ။',
     '전체 보고 전송을 해야합니다': 'တစ်နေ့လုံး အစီရင်ခံစာ ပို့ရပါမည်။',
     '퇴근 보고': 'ဆင်းချိန်အစီရင်ခံ',
@@ -1518,11 +1524,46 @@ shiftSelect.onchange = () => {
     checkAllDone();
     return;
   }
+  const gaps = entryGaps();
   renderChecklist();
+  if (gaps.length) {
+    if (!entryWarned) {
+      entryWarned = true;
+      alert(entryNotice(gaps));
+    }
+    return;
+  }
   checkAllDone();
   saveResume();
   checkVersionAtStart();
 };
+function entryGaps() {
+  const gaps = [];
+  if (!document.querySelector('input[name="workType"]:checked')) gaps.push('교육/수습/정식');
+  if (!shiftSelect.value) gaps.push('근무타입');
+  if (!staffName.value.trim()) gaps.push('이름');
+  if (!workPeriod.value.trim()) gaps.push('근무시간대');
+  return gaps;
+}
+let entryWarned = false;
+function entryNotice(gaps) {
+  return ['필수 항목을 먼저 채워주세요.', ''].concat(gaps.map(g => '- ' + g)).join('\n');
+}
+function showEntryHint(gaps) {
+  const body = ['필수 항목을 먼저 채워주세요.'].concat(gaps.map(g => '- ' + g)).map(line => biHtml(line)).join('<br>');
+  checklistContainer.innerHTML = '<div class="card" style="line-height:1.6; color:#3a2500;">' + body + '</div>';
+  checkAllDone();
+}
+document.querySelectorAll('input[name="workType"]').forEach(el => {
+  el.addEventListener('change', () => {
+    if (!currentStore) return;
+    renderChecklist();
+    if (!entryGaps().length) {
+      checkAllDone();
+      saveResume();
+    }
+  });
+});
 
 function saveResume() {
   if (!currentStore || !shiftSelect.value || !reportDate.value) return;
@@ -1949,6 +1990,12 @@ function renderChecklist() {
     checklistContainer.innerHTML = '<div class="card">점포를 먼저 선택하세요.</div>';
     return;
   }
+  const gaps = entryGaps();
+  if (gaps.length) {
+    showEntryHint(gaps);
+    return;
+  }
+  entryWarned = false;
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
   const who = staffName.value.trim() + '|' + workPeriod.value.trim();
@@ -3119,7 +3166,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v176';
+const APP_VERSION = 'v177';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
