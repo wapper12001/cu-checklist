@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v172">
+<meta name="cu-version" content="v173">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -116,7 +116,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v172</h1>
+  <h1>CU 점포 체크리스트 v173</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1359,15 +1359,9 @@ async function shareDiscard(id) {
     for (let i = 0; i < photos.length; i++) files.push(await stampCaption(photos[i], text, i + 1));
   } catch (e) {}
   if (!files.length) files = photos;
-  if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
-  let ok = false;
-  try {
-    await navigator.share({ files });
-    ok = true;
-  } catch (e) {
-    if (!(e && e.name === 'AbortError')) alert('사진을 보내지 못했습니다.');
-  }
-  if (!ok) return;
+  const sent = await finishShare(files);
+  if (sent === 'fail') { alert('사진을 보내지 못했습니다.'); return; }
+  if (sent !== 'sent' && sent !== 'left') return;
   const anchor = discardAnchor();
   if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, new Date().toLocaleString('ko-KR'));
   if (slot) applyDiscardToView(slot, photos);
@@ -1479,15 +1473,9 @@ async function shareMidTag() {
     for (let i = 0; i < photos.length; i++) files.push(await stampCaption(photos[i], text, i + 1));
   } catch (e) {}
   if (!files.length) files = photos;
-  if (!navigator.share) { alert('사진을 보내지 못했습니다.'); return; }
-  let ok = false;
-  try {
-    await navigator.share({ files });
-    ok = true;
-  } catch (e) {
-    if (!(e && e.name === 'AbortError')) alert('사진을 보내지 못했습니다.');
-  }
-  if (!ok) return;
+  const sent = await finishShare(files);
+  if (sent === 'fail') { alert('사진을 보내지 못했습니다.'); return; }
+  if (sent !== 'sent' && sent !== 'left') return;
   const key = midTagKey();
   if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
   document.getElementById('midTagModal').classList.add('hidden');
@@ -1920,8 +1908,11 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     saveProgress();
     saveProgressRemote();
+  } else {
+    applyPendingShare();
   }
 });
+window.addEventListener('pageshow', () => applyPendingShare());
 function loadProgress() {
   fullReportSent = false;
   try {
@@ -2815,6 +2806,30 @@ async function stampCaption(file, text, index) {
   if (img.close) img.close();
   return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
 }
+async function finishShare(files) {
+  if (!navigator.share) return 'fail';
+  let leftPage = false;
+  const noteLeave = () => { if (document.visibilityState === 'hidden') leftPage = true; };
+  const noteHide = () => { leftPage = true; };
+  document.addEventListener('visibilitychange', noteLeave);
+  window.addEventListener('pagehide', noteHide);
+  const started = Date.now();
+  try {
+    await navigator.share({ files });
+    return 'sent';
+  } catch (e) {
+    if (!(e && e.name === 'AbortError')) return 'fail';
+    if (leftPage || document.visibilityState === 'hidden') return 'left';
+    const waitFrom = Date.now();
+    await new Promise(r => setTimeout(r, 800));
+    if (leftPage || document.visibilityState === 'hidden') return 'left';
+    if (Date.now() - waitFrom > 1500 || Date.now() - started > 2500) return 'left';
+    return 'cancel';
+  } finally {
+    document.removeEventListener('visibilitychange', noteLeave);
+    window.removeEventListener('pagehide', noteHide);
+  }
+}
 async function shareItem(id, isSms) {
   const d = getItemData(id); if (!d) return;
   const text = `업무: ${d.title}\n상태: 완료`;
@@ -2828,35 +2843,22 @@ async function shareItem(id, isSms) {
     files = [];
     for (let i = 0; i < d.photos.length; i++) files.push(await stampCaption(d.photos[i], text, i + 1));
   } catch (e) {}
-  let leftPage = false;
-  const noteLeave = () => { if (document.visibilityState === 'hidden') leftPage = true; };
-  const noteHide = () => { leftPage = true; };
-  document.addEventListener('visibilitychange', noteLeave);
-  window.addEventListener('pagehide', noteHide);
-  rememberShare(id);
-  try {
-    await navigator.share({ files });
-    markReported(id);
-    clearSharePending(id);
-  } catch (e) {
-    if (leftPage) {
-      markReported(id);
-      clearSharePending(id);
-    } else if (e && e.name === 'AbortError') {
-      clearSharePending(id);
-    } else {
-      clearSharePending(id);
-      alert('사진을 보내지 못했습니다.');
-    }
-  } finally {
-    document.removeEventListener('visibilitychange', noteLeave);
-    window.removeEventListener('pagehide', noteHide);
+  const stamp = rememberShare(id);
+  const sent = await finishShare(files);
+  if (sent === 'sent' || sent === 'left') {
+    if (!sessionReported[reportKey(id)]) markReported(id, stamp);
+    if (sent === 'sent') clearSharePending(id);
+    return;
   }
+  clearSharePending(id);
+  if (sent === 'fail') alert('사진을 보내지 못했습니다.');
 }
 function rememberShare(id) {
+  const stamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   try {
-    localStorage.setItem('cu-share-pending', JSON.stringify({ key: getKey(), id: String(id), at: Date.now() }));
+    localStorage.setItem('cu-share-pending', JSON.stringify({ key: getKey(), id: String(id), at: Date.now(), stamp }));
   } catch (e) {}
+  return stamp;
 }
 function clearSharePending(id) {
   try {
@@ -2866,9 +2868,9 @@ function clearSharePending(id) {
     if (!id || String(p.id) === String(id)) localStorage.removeItem('cu-share-pending');
   } catch (e) {}
 }
-function markReported(id) {
+function markReported(id, stamp) {
   const itemEl = document.querySelector('.item[data-id="' + String(id).replace(/"/g, '') + '"]');
-  const t = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const t = stamp || new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   const key = reportKey(id);
   if (!sessionReported[key]) {
     sessionReported[key] = t;
@@ -2896,9 +2898,12 @@ function applyPendingShare() {
   if (Date.now() - p.at > 3 * 60 * 60 * 1000) { clearSharePending(p.id); return; }
   const el = document.querySelector('.item[data-id="' + String(p.id).replace(/"/g, '') + '"]');
   if (!el) return;
+  if (sessionReported[reportKey(p.id)] || el.dataset.reported === '1') {
+    clearSharePending(p.id);
+    return;
+  }
+  markReported(p.id, p.stamp);
   clearSharePending(p.id);
-  if (sessionReported[reportKey(p.id)] || el.dataset.reported === '1') return;
-  markReported(p.id);
 }
 window.shareItem = shareItem;
 
@@ -3112,7 +3117,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v172';
+const APP_VERSION = 'v173';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
