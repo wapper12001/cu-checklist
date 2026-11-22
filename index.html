@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v179">
+<meta name="cu-version" content="v180">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -78,9 +78,12 @@ button { padding: 10px 14px; border: none; border-radius: 8px; font-size: 14px; 
 .pay-time { margin-top: 4px; }
 .time-pair { display: flex; gap: 8px; }
 .time-pair select { flex: 1; min-width: 0; }
-.date-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; }
-.date-row input[type="date"] { flex: 0 0 116px; width: 116px; min-width: 0; max-width: 116px; padding: 8px 2px; font-size: 13px; }
-.date-row label { display: inline-flex; align-items: center; gap: 2px; margin: 0; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.date-row { display: flex; align-items: center; gap: 8px; }
+.date-row input[type="date"] { flex: 1; width: 100%; min-width: 0; max-width: none; padding: 8px; font-size: 16px; }
+.type-row { display: flex; gap: 8px; margin-top: 8px; }
+.type-row label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0; padding: 12px 4px; border: 1px solid #c9b0dc; border-radius: 8px; background: #fff; font-size: 15px; }
+.type-row input { width: 18px; height: 18px; margin: 0; }
+.type-row label:has(input:checked) { background: #6B2C91; color: #fff; border-color: #6B2C91; }
 .bottom-bar button { width: 100%; padding: 14px; font-size: 16px; }
 .hidden { display: none !important; }
 .secret-area { height: 48px; margin-top: 24px; text-align: center; color: #888; font-size: 14px; padding: 10px; cursor: pointer; user-select: none; -webkit-user-select: none; }
@@ -116,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v179</h1>
+  <h1>CU 점포 체크리스트 v180</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -141,6 +144,8 @@ if (document.documentElement.classList.contains('inapp')) {
       <label style="margin-top:12px;" data-ko="날짜">날짜</label>
       <div class="date-row">
         <input type="date" id="reportDate">
+      </div>
+      <div class="type-row">
         <label><input type="radio" name="workType" value="edu"> <span data-ko="교육">교육</span></label>
         <label><input type="radio" name="workType" value="prob"> <span data-ko="수습">수습</span></label>
         <label><input type="radio" name="workType" value="full"> <span data-ko="정식">정식</span></label>
@@ -1524,15 +1529,7 @@ shiftSelect.onchange = () => {
     checkAllDone();
     return;
   }
-  const gaps = entryGaps();
   renderChecklist();
-  if (gaps.length) {
-    if (!entryWarned) {
-      entryWarned = true;
-      alert(entryNotice(gaps));
-    }
-    return;
-  }
   checkAllDone();
   saveResume();
   checkVersionAtStart();
@@ -1540,28 +1537,28 @@ shiftSelect.onchange = () => {
 function entryGaps() {
   const gaps = [];
   if (!document.querySelector('input[name="workType"]:checked')) gaps.push('교육/수습/정식');
-  if (!shiftSelect.value) gaps.push('근무타입');
   if (!staffName.value.trim()) gaps.push('이름');
   if (!workPeriod.value.trim()) gaps.push('근무시간대');
   return gaps;
 }
-let entryWarned = false;
-function entryNotice(gaps) {
-  return ['필수 항목을 먼저 채워주세요.', ''].concat(gaps.map(g => '- ' + g)).join('\n');
-}
-function showEntryHint(gaps) {
-  const body = ['필수 항목을 먼저 채워주세요.'].concat(gaps.map(g => '- ' + g)).map(line => biHtml(line)).join('<br>');
-  checklistContainer.innerHTML = '<div class="card" style="line-height:1.6; color:#3a2500;">' + body + '</div>';
-  checkAllDone();
+function paintEntryHint() {
+  const old = document.getElementById('entryHint');
+  const gaps = entryGaps();
+  if (!gaps.length || !checklistContainer.querySelector('.item')) {
+    if (old) old.remove();
+    return;
+  }
+  const hint = old || document.createElement('div');
+  hint.id = 'entryHint';
+  hint.className = 'card';
+  hint.style.cssText = 'line-height:1.6; color:#3a2500;';
+  hint.innerHTML = ['필수 항목을 먼저 채워주세요.'].concat(gaps.map(g => '- ' + g)).map(line => biHtml(line)).join('<br>');
+  if (!old) checklistContainer.prepend(hint);
 }
 document.querySelectorAll('input[name="workType"]').forEach(el => {
   el.addEventListener('change', () => {
-    if (!currentStore) return;
-    renderChecklist();
-    if (!entryGaps().length) {
-      checkAllDone();
-      saveResume();
-    }
+    paintEntryHint();
+    saveProgress();
   });
 });
 
@@ -1573,7 +1570,8 @@ function saveResume() {
       shift: shiftSelect.value,
       date: reportDate.value,
       staff: staffName.value.trim(),
-      period: workPeriod.value.trim()
+      period: workPeriod.value.trim(),
+      workType: (document.querySelector('input[name="workType"]:checked') || {}).value || ''
     }));
   } catch (e) {}
 }
@@ -1690,6 +1688,9 @@ function resumeWork() {
   nameLock = true;
   if (saved.staff) staffName.value = saved.staff;
   if (saved.period) applyPeriodToSelects(saved.period);
+  if (saved.workType) {
+    document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = el.value === saved.workType; });
+  }
   nameLock = false;
   if (saved.shift && [...shiftSelect.options].some(opt => opt.value === saved.shift)) {
     shiftSelect.value = saved.shift;
@@ -1994,12 +1995,6 @@ function renderChecklist() {
     checklistContainer.innerHTML = '<div class="card">점포를 먼저 선택하세요.</div>';
     return;
   }
-  const gaps = entryGaps();
-  if (gaps.length) {
-    showEntryHint(gaps);
-    return;
-  }
-  entryWarned = false;
   if (!d.shifts) d.shifts = {};
   const key = shiftSelect.value;
   const who = staffName.value.trim() + '|' + workPeriod.value.trim();
@@ -2119,6 +2114,7 @@ function renderChecklist() {
   fillMissingTranslations();
   maybeConditionPopups();
   applyPendingShare();
+  paintEntryHint();
 }
 
 function selectedYmd() {
@@ -3171,7 +3167,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v179';
+const APP_VERSION = 'v180';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
@@ -3200,6 +3196,7 @@ async function ensureLatestVersion() {
   }
 }
 sendReportBtn.onclick = async () => {
+  try {
   const latest = await ensureLatestVersion();
   if (!latest) return;
   const missing = collectMissing();
@@ -3216,6 +3213,8 @@ sendReportBtn.onclick = async () => {
   }
   if (!document.querySelector('input[name="workType"]:checked')) {
     alert('교육, 수습, 정식 중 하나를 고르세요.');
+    const row = document.querySelector('.type-row');
+    if (row) row.scrollIntoView({ block: 'center' });
     return;
   }
   const payMiss = payMissing();
@@ -3251,6 +3250,9 @@ sendReportBtn.onclick = async () => {
   }
   showReportAsk();
   if (!saved) alert(notice('보고는 보냅니다. 근무 시간은 연결되면 서버에 넣습니다.'));
+  } catch (e) {
+    alert('전체 보고를 보내지 못했습니다. 한 번만 다시 눌러 주세요.');
+  }
 };
 function markReportSent() {
   fullReportSent = true;
