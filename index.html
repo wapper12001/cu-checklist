@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v180">
+<meta name="cu-version" content="v181">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v180</h1>
+  <h1>CU 점포 체크리스트 v181</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -169,6 +169,7 @@ if (document.documentElement.classList.contains('inapp')) {
         <select id="workStart" aria-label="시작"></select>
         <select id="workEnd" aria-label="종료"></select>
       </div>
+      <button type="button" class="btn-primary hidden" id="periodApply" style="width:100%; margin-top:8px;" data-ko="이 시간으로 바꾸기">이 시간으로 바꾸기</button>
       <input type="hidden" id="workPeriod">
       <div id="storeInfo" style="margin-top:8px; font-size:13px; color:#666;"></div>
     </div>
@@ -1015,18 +1016,21 @@ function clockLabel(mins) {
   return String(Math.floor(snapped / 60)).padStart(2, '0') + ':' + String(snapped % 60).padStart(2, '0');
 }
 let periodSilent = false;
-let periodTimer = null;
 let periodAsk = '';
 let periodAskOpened = 0;
-function syncWorkPeriod() {
-  if (periodSilent) return;
+function refreshPeriodButton() {
+  const btn = document.getElementById('periodApply');
+  if (!btn) return;
   const start = workStart.value;
   const end = workEnd.value;
-  if (!start || !end) return;
-  const next = start + '-' + end;
-  if (next === workPeriod.value) return;
-  clearTimeout(periodTimer);
-  periodTimer = setTimeout(() => askPeriodConfirm(next), 450);
+  const next = start && end ? start + '-' + end : '';
+  btn.classList.toggle('hidden', !(next && next !== workPeriod.value));
+}
+function syncWorkPeriod() {
+  if (periodSilent) return;
+  periodAsk = '';
+  document.getElementById('periodAsk').classList.add('hidden');
+  refreshPeriodButton();
 }
 function restorePeriodSelects() {
   const range = parseWorkRange(workPeriod.value);
@@ -1039,6 +1043,7 @@ function restorePeriodSelects() {
     workEnd.value = clockLabel(range.end);
   }
   periodSilent = false;
+  refreshPeriodButton();
 }
 function askPeriodConfirm(next) {
   if (periodSilent || next === workPeriod.value) return;
@@ -1068,9 +1073,11 @@ function acceptPeriodAsk() {
   workEnd.value = parts[1];
   workPeriod.value = next;
   periodSilent = false;
+  refreshPeriodButton();
   if (nameLock) return;
   onIdentityInput();
   if (!shiftSelect.value) scheduleDiscardCheck();
+  refreshPeriodButton();
 }
 function rejectPeriodAsk() {
   if (Date.now() - periodAskOpened < 400) return;
@@ -1086,17 +1093,30 @@ function applyPeriodToSelects(text) {
     workEnd.value = '';
     workPeriod.value = '';
     periodSilent = false;
+    refreshPeriodButton();
     return;
   }
   workStart.value = clockLabel(range.start);
   workEnd.value = clockLabel(range.end);
   workPeriod.value = workStart.value + '-' + workEnd.value;
   periodSilent = false;
+  refreshPeriodButton();
 }
 function showPeriodHint() {}
 fillWorkTimes();
 workStart.onchange = syncWorkPeriod;
 workEnd.onchange = syncWorkPeriod;
+document.getElementById('periodApply').onclick = () => {
+  const start = workStart.value;
+  const end = workEnd.value;
+  if (!start || !end) return;
+  const next = start + '-' + end;
+  if (next === workPeriod.value) {
+    refreshPeriodButton();
+    return;
+  }
+  askPeriodConfirm(next);
+};
 document.getElementById('periodAskYes').onclick = acceptPeriodAsk;
 document.getElementById('periodAskNo').onclick = rejectPeriodAsk;
 document.getElementById('periodAsk').onclick = (event) => { if (event.target.id === 'periodAsk') rejectPeriodAsk(); };
@@ -3147,6 +3167,7 @@ function backToStart() {
   workStart.value = '';
   workEnd.value = '';
   workPeriod.value = '';
+  refreshPeriodButton();
   document.querySelectorAll('input[name="workType"]').forEach(el => { el.checked = false; });
   const memo = document.getElementById('dayMemo');
   if (memo) memo.value = '';
@@ -3167,7 +3188,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v180';
+const APP_VERSION = 'v181';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
