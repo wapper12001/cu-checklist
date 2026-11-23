@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v181">
+<meta name="cu-version" content="v182">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v181</h1>
+  <h1>CU 점포 체크리스트 v182</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3188,7 +3188,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v181';
+const APP_VERSION = 'v182';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {
@@ -3537,13 +3537,14 @@ function clockDetailHtml() {
     </div>`;
   }
   const store = escHtml(clockInRecord.store || currentStore || '');
+  const sent = !!clockInRecord.sent;
   return `<div class="clock-detail" style="font-size:14px; line-height:1.5; margin:0 0 8px;">
     <div><strong>점포명:</strong> ${store}</div>
     <div><strong>출근 시간:</strong> ${escHtml(clockInRecord.at)}</div>
-    <div class="btn-row" style="margin-top:8px;">
+    ${sent ? '' : `<div class="btn-row" style="margin-top:8px;">
       <button type="button" class="btn-kakao" data-clock-send="kakao">카톡</button>
       <button type="button" class="btn-sms" data-clock-send="sms">문자</button>
-    </div>
+    </div>`}
   </div>`;
 }
 function clockShareText() {
@@ -3551,18 +3552,30 @@ function clockShareText() {
   const name = staffName.value.trim();
   return `출근 보고\n점포: ${clockInRecord.store || currentStore || ''}\n출근 시간: ${clockInRecord.at}${name ? '\n근무자: ' + name : ''}`;
 }
+let clockSharing = false;
 async function shareClockIn(isSms) {
   const text = clockShareText();
-  if (!text) return;
-  if (isSms) {
-    location.href = `sms:?body=${encodeURIComponent(text)}`;
-    return;
+  if (!text || !clockInRecord || clockInRecord.sent || clockSharing) return;
+  clockSharing = true;
+  let shared = false;
+  try {
+    if (isSms || !navigator.share) {
+      location.href = `sms:?body=${encodeURIComponent(text)}`;
+      shared = true;
+    } else {
+      await navigator.share({ text });
+      shared = true;
+    }
+  } catch (e) {
+    shared = false;
   }
-  if (!navigator.share) {
-    location.href = `sms:?body=${encodeURIComponent(text)}`;
-    return;
-  }
-  try { await navigator.share({ text }); } catch (e) {}
+  clockSharing = false;
+  if (!shared) return;
+  clockInRecord.sent = true;
+  if (!clockInRecord.name && staffName.value.trim()) clockInRecord.name = staffName.value.trim();
+  writeClockLock(clockInRecord);
+  paintClock(clockInRecord.at);
+  saveProgress();
 }
 function offerSendNow(id) {
   if (sessionReported[reportKey(id)]) return;
@@ -3574,6 +3587,7 @@ function offerSendNow(id) {
   modal.classList.remove('hidden');
 }
 function offerClockSend() {
+  if (!clockInRecord || !clockInRecord.at || clockInRecord.sent) return;
   const modal = document.getElementById('sendNowModal');
   modal.dataset.mode = 'clock';
   modal.dataset.id = '';
@@ -3636,11 +3650,6 @@ function qrDateOk(ymd) {
   if (ymd.length === 6) return ymd === today.slice(2);
   return false;
 }
-function clockLockKey() {
-  const name = staffName.value.trim();
-  if (!currentStore || !shiftSelect.value || !reportDate.value || !name) return '';
-  return 'cuclock_' + currentStore + '_' + shiftSelect.value + '_' + reportDate.value + '_' + encodeURIComponent(name);
-}
 function earlierClock(a, b) {
   if (!a || !a.at) return b && b.at ? b : null;
   if (!b || !b.at) return a;
@@ -3651,22 +3660,36 @@ function earlierClock(a, b) {
   return am <= bm ? a : b;
 }
 function readClockLock() {
-  const key = clockLockKey();
-  if (!key) return null;
-  const row = readStore(key);
-  return row && row.at ? row : null;
+  if (!currentStore || !reportDate.value) return null;
+  const prefix = 'cuclock_' + currentStore + '_';
+  const mark = '_' + reportDate.value;
+  let found = null;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(prefix) || k.indexOf(mark) < 0) continue;
+    const row = readStore(k);
+    if (!row || !row.at) continue;
+    if (row.shift && shiftSelect.value && row.shift !== shiftSelect.value) continue;
+    found = earlierClock(found, row);
+  }
+  return found;
 }
 function writeClockLock(record) {
-  const key = clockLockKey();
-  if (!key || !record || !record.at) return;
+  if (!currentStore || !reportDate.value || !record || !record.at) return;
   const prev = readClockLock();
-  let next = record;
-  if (prev && prev.at) {
-    const keep = earlierClock(prev, record);
-    if (!keep || keep === prev) return;
-    next = keep;
-  }
+  const keep = earlierClock(prev, record) || record;
+  const next = Object.assign({}, keep, {
+    sent: !!((prev && prev.sent) || record.sent),
+    name: keep.name || record.name || staffName.value.trim(),
+    store: keep.store || record.store || currentStore,
+    date: keep.date || record.date || reportDate.value,
+    shift: keep.shift || record.shift || shiftSelect.value || ''
+  });
+  const shift = next.shift || 'none';
+  const name = (next.name || '').trim();
+  const key = 'cuclock_' + currentStore + '_' + shift + '_' + next.date + (name ? '_' + encodeURIComponent(name) : '');
   try { localStorage.setItem(key, JSON.stringify(next)); } catch (e) {}
+  clockInRecord = next;
 }
 function adoptClock(savedClock) {
   const name = staffName.value.trim();
