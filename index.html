@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v187">
+<meta name="cu-version" content="v200">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v187</h1>
+  <h1>CU 점포 체크리스트 v200</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -150,16 +150,8 @@ if (document.documentElement.classList.contains('inapp')) {
         <label><input type="radio" name="workType" value="prob"> <span data-ko="수습">수습</span></label>
         <label><input type="radio" name="workType" value="full"> <span data-ko="정식">정식</span></label>
       </div>
-      <div id="storeCodeBox">
-        <label style="margin-top:12px;">점포 코드</label>
-        <input id="storeCodeInput" autocomplete="off" placeholder="점포 코드">
-        <button type="button" class="btn-primary" id="storeCodeBtn" style="width:100%; margin-top:8px;">들어가기</button>
-      </div>
-      <div id="storePick" class="hidden">
-        <label style="margin-top:12px;" data-ko="점포 선택">점포</label>
-        <select id="storeSelect"></select>
-        <button type="button" class="btn-secondary" id="storeCodeChange" style="width:100%; margin-top:8px;">점포 코드 변경</button>
-      </div>
+      <div id="storeNameLine" class="hidden" style="margin-top:12px; font-weight:700;">출근 점포: <span id="storeNameText"></span></div>
+      <select id="storeSelect" class="hidden"></select>
       <label style="margin-top:12px;" data-ko="근무타입">근무타입</label>
       <select id="shiftSelect"></select>
       <label style="margin-top:12px;" data-ko="근무자 이름">근무자 이름</label>
@@ -364,10 +356,9 @@ if (document.documentElement.classList.contains('inapp')) {
 </div>
 <div id="reportAsk" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0;">카톡 확인</h3>
-    <p style="font-size:15px; line-height:1.55; margin:0 0 12px;">서버에는 저장됐습니다. 카톡에 글이 보이면 보냈습니다. 안 보이면 다시 보내세요.</p>
-    <button class="btn-primary" id="reportAskOk" type="button" style="width:100%;">보냈습니다</button>
-    <button class="btn-secondary" id="reportAskRetry" type="button" style="width:100%; margin-top:8px;">다시 보내기</button>
+    <p style="font-size:16px; font-weight:700; line-height:1.5; margin:0 0 14px;">퇴근 보고를 보냈으면 보냈어요를 누르세요.</p>
+    <button class="btn-primary" id="reportAskOk" type="button" style="width:100%;">보냈어요</button>
+    <button class="btn-secondary" id="reportAskRetry" type="button" style="width:100%; margin-top:8px;">아직 안 보냈어요</button>
   </div>
 </div>
 
@@ -404,12 +395,29 @@ if (document.documentElement.classList.contains('inapp')) {
     <button type="button" class="btn-secondary" id="sendNowClose" style="width:100%; margin-top:8px;">닫기</button>
   </div>
 </div>
+<div id="sentAskModal" class="modal hidden">
+  <div class="modal-content">
+    <p id="sentAskText" style="font-size:16px; font-weight:700; line-height:1.5; margin:0 0 14px;">보냈으면 보냈어요를 누르세요.</p>
+    <button type="button" class="btn-primary" id="sentAskYes" style="width:100%;">보냈어요</button>
+    <button type="button" class="btn-secondary" id="sentAskNo" style="width:100%; margin-top:8px;">아직 안 보냈어요</button>
+  </div>
+</div>
+<div id="stepModal" class="modal hidden">
+  <div class="modal-content">
+    <p id="stepText" style="font-size:16px; font-weight:700; line-height:1.5; margin:0 0 14px;"></p>
+    <button type="button" class="btn-primary" id="stepOk" style="width:100%;">확인</button>
+    <button type="button" class="btn-secondary hidden" id="stepPhoto" style="width:100%; margin-top:8px;">사진으로 읽기</button>
+    <button type="button" class="btn-secondary" id="stepClose" style="width:100%; margin-top:8px;">닫기</button>
+  </div>
+</div>
 <div id="barcodeModal" class="modal hidden">
   <div class="modal-content">
     <h3 style="margin-top:0;">출근 QR 스캔</h3>
     <p id="qrMsg" style="font-size:14px;">포스 근무자 인증 QR을 비추세요.</p>
     <video id="qrVideo" playsinline autoplay muted style="width:100%; background:#111; border-radius:8px;"></video>
+    <button type="button" class="btn-secondary" id="qrPhotoBtn" style="width:100%; margin-top:8px;">사진으로 읽기</button>
     <button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button>
+    <input id="qrPhoto" type="file" accept="image/*" capture="environment" class="hidden">
   </div>
 </div>
 
@@ -942,25 +950,30 @@ async function loadOneStore(name) {
 }
 function showLockedStore(name) {
   lockedStore = name;
-  document.getElementById('storeCodeBox').classList.add('hidden');
-  document.getElementById('storePick').classList.remove('hidden');
+  const line = document.getElementById('storeNameLine');
+  const text = document.getElementById('storeNameText');
+  if (line) line.classList.remove('hidden');
+  if (text) text.textContent = name;
   storeSelect.disabled = true;
   storeSelect.innerHTML = `<option value="${escAttr(name)}">${escHtml(name)}</option>`;
   storeSelect.value = name;
   onStoreChange();
   resumeWork();
-  restoreRemoteProgress(name);
+  recallClock();
+  renderChecklist();
+  restoreRemoteProgress(name).then(() => { recallClock(); renderChecklist(); promptFirstStep(); });
+  promptFirstStep();
 }
 async function enterStoreCode(code, silent) {
   code = String(code || '').trim();
   if (!code) { if (!silent) alert('점포 코드를 입력하세요.'); return false; }
   const { data, error } = await supabase.from('checklist_items').select('title').eq('store_name', '__i18n__').eq('shift_key', 'access').eq('description', code);
-  if (error) { if (!silent) alert('코드를 확인하지 못했습니다.'); return false; }
+  if (error) { if (!silent) alert('코드를 확인하지 못했습니다.'); return 'error'; }
   const names = [...new Set((data || []).map(row => (row.title || '').trim()).filter(Boolean))];
-  if (!names.length) { if (!silent) alert('점포 코드가 맞지 않습니다.'); return false; }
-  if (names.length > 1) { if (!silent) alert('같은 코드를 쓰는 점포가 있습니다. 코드를 다르게 정해 주세요.'); return false; }
+  if (!names.length) { if (!silent) alert('점포 코드가 맞지 않습니다.'); return 'missing'; }
+  if (names.length > 1) { if (!silent) alert('같은 코드를 쓰는 점포가 있습니다. 코드를 다르게 정해 주세요.'); return 'missing'; }
   try { await loadOneStore(names[0]); }
-  catch (e) { if (!silent) alert('점포를 불러오지 못했습니다.'); return false; }
+  catch (e) { if (!silent) alert('점포를 불러오지 못했습니다.'); return 'error'; }
   localStorage.setItem('cu-access-code', code);
   showLockedStore(names[0]);
   return true;
@@ -975,14 +988,11 @@ function resetStoreCode() {
   shiftSelect.innerHTML = '<option value="">-- 근무타입 선택 --</option>';
   checklistContainer.innerHTML = '';
   storeInfo.innerHTML = '';
-  document.getElementById('storePick').classList.add('hidden');
-  document.getElementById('storeCodeBox').classList.remove('hidden');
-  document.getElementById('storeCodeInput').value = '';
+  const line = document.getElementById('storeNameLine');
+  if (line) line.classList.add('hidden');
 }
-document.getElementById('storeCodeBtn').onclick = () => enterStoreCode(document.getElementById('storeCodeInput').value, false);
-document.getElementById('storeCodeChange').onclick = resetStoreCode;
 const savedAccessCode = localStorage.getItem('cu-access-code') || '';
-if (savedAccessCode) enterStoreCode(savedAccessCode, true);
+if (savedAccessCode) enterStoreCode(savedAccessCode, true).then(ok => { if (ok !== true) promptFirstStep(); });
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 reportDate.dataset.prev = reportDate.value;
 
@@ -1305,7 +1315,11 @@ function slotAlreadyDue(slotMin, range, nowMin) {
 }
 function shiftAnchorDate(now, range) {
   if (!now || !range) return now ? now.date : '';
-  if (range.start > range.end && now.minutes <= range.end + 60) return addDays(now.date, -1);
+  if (range.start > range.end) {
+    const picked = reportDate && reportDate.value;
+    if (picked === now.date || picked === addDays(now.date, -1)) return picked;
+    if (now.minutes <= range.end + 60) return addDays(now.date, -1);
+  }
   return now.date;
 }
 function discardPopupId(id) {
@@ -1320,7 +1334,7 @@ function discardDoneOnList(slot) {
   for (const el of nodes) {
     const id = String(el.dataset.id || '');
     if (id.startsWith('alarm-')) continue;
-    if (!discardTitleMatches(el.dataset.title || '', slot)) continue;
+    if (!discardOwnTitle(el.dataset.title || '', slot)) continue;
     if (el.dataset.reported === '1' || sessionReported[reportKey(id)]) return el.dataset.reportedAt || koreaStamp();
   }
   const saved = progressForCurrent();
@@ -1328,7 +1342,7 @@ function discardDoneOnList(slot) {
   const items = (shift && shift.items) || [];
   for (const it of items) {
     if (String(it.id || '').startsWith('alarm-')) continue;
-    if (!discardTitleMatches(it.title || '', slot)) continue;
+    if (!discardOwnTitle(it.title || '', slot)) continue;
     const sv = saved && saved.items && (saved.items[it.id] || saved.items[String(it.id)]);
     if (sv && (sv.reported || sv.reportedAt)) return sv.reportedAt || koreaStamp();
   }
@@ -1358,6 +1372,10 @@ function scheduleDiscardCheck() {
   discardTimer = setTimeout(checkDiscards, 400);
 }
 function checkDiscards() {
+  if (firstGap()) {
+    document.getElementById('discardModal').classList.add('hidden');
+    return;
+  }
   const due = dueDiscards();
   const modal = document.getElementById('discardModal');
   if (!due.length) {
@@ -1408,8 +1426,9 @@ document.getElementById('discardBody').onclick = e => {
 };
 function ackDiscard(id) {
   const slot = activeSlots().find(s => s.id === id);
+  const when = slot && discardDoneOnList(slot);
+  if (!when) return;
   const anchor = discardAnchor();
-  const when = (slot && discardDoneOnList(slot)) || koreaStamp();
   if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, when);
   const modal = document.getElementById('discardModal');
   if (modal) modal.dataset.ids = '';
@@ -1446,10 +1465,13 @@ function discardAnchor() {
   if (!currentStore || !range) return '';
   return currentStore + '_' + shiftAnchorDate(koreaNow(), range);
 }
-function discardTitleMatches(title, slot) {
+function discardOwnTitle(title, slot) {
   const t = title || '';
-  if (t.includes(slot.token) && t.includes('폐기')) return true;
-  return effectiveHours() === '19' && (slot.also || []).includes(t.trim());
+  return !!(slot && slot.token && t.includes(slot.token) && t.includes('폐기'));
+}
+function discardTitleMatches(title, slot) {
+  if (discardOwnTitle(title, slot)) return true;
+  return effectiveHours() === '19' && (slot.also || []).includes((title || '').trim());
 }
 function discardStamp(slotId) {
   const anchor = discardAnchor();
@@ -1586,31 +1608,129 @@ function updateManagerInfo(d) {
 }
 
 shiftSelect.onchange = () => {
+  const prev = shiftSelect.dataset.prev || '';
+  if (!guardField('shift')) {
+    shiftSelect.value = prev;
+    return;
+  }
+  shiftSelect.dataset.prev = shiftSelect.value;
   renderChecklist();
   checkAllDone();
   saveResume();
   checkVersionAtStart();
 };
+function clockReady() {
+  return !!(clockInRecord && clockInRecord.at && clockInRecord.sent);
+}
+function gapMessage(gap) {
+  if (gap === 'scan') return '출근 QR을 스캔하세요.';
+  if (gap === 'report') return '출근 QR을 보고하세요.';
+  if (gap === 'camera') return '카메라를 열 수 없습니다. 카메라 권한을 허용한 뒤 다시 스캔하세요.';
+  if (gap === 'type') return '교육, 수습, 정식 중 하나를 고르세요.';
+  if (gap === 'shift') return '근무타입을 고르세요.';
+  if (gap === 'name') return '이름을 적으세요.';
+  if (gap === 'period') return '근무시간대를 고르세요.';
+  return '';
+}
+function firstGap() {
+  if (!clockInRecord || !clockInRecord.at) return 'scan';
+  if (!clockInRecord.sent) return 'report';
+  if (!currentStore) return '';
+  if (!document.querySelector('input[name="workType"]:checked')) return 'type';
+  if (!shiftSelect.value) return 'shift';
+  if (!staffName.value.trim()) return 'name';
+  if (!workPeriod.value.trim()) return 'period';
+  return '';
+}
+const gapRank = { scan: 1, report: 1, camera: 1, type: 2, shift: 3, name: 4, period: 5 };
+function guardField(field) {
+  const gap = firstGap();
+  if (!gap || gapRank[field] <= gapRank[gap]) return true;
+  openStep(gap);
+  return false;
+}
+function openStep(act, text) {
+  const modal = document.getElementById('stepModal');
+  if (!modal) return;
+  const barcode = document.getElementById('barcodeModal');
+  if (barcode && !barcode.classList.contains('hidden')) return;
+  const msg = text || gapMessage(act);
+  if (!msg) return;
+  if (!modal.classList.contains('hidden') && modal.dataset.act === act) return;
+  modal.dataset.act = act;
+  document.getElementById('stepText').innerHTML = biHtml(msg);
+  const photo = document.getElementById('stepPhoto');
+  const ok = document.getElementById('stepOk');
+  const usePhoto = act === 'camera' || act === 'rescan';
+  if (photo) photo.classList.toggle('hidden', !usePhoto);
+  if (ok) ok.textContent = '확인';
+  modal.classList.remove('hidden');
+}
+let clockEntering = false;
+function promptFirstStep() {
+  if (clockEntering) return;
+  recallClock();
+  const report = document.getElementById('reportScreen');
+  if (report && report.classList.contains('hidden')) return;
+  const barcode = document.getElementById('barcodeModal');
+  const sending = document.getElementById('sendNowModal');
+  if ((barcode && !barcode.classList.contains('hidden')) || (sending && !sending.classList.contains('hidden'))) return;
+  const gap = firstGap();
+  const modal = document.getElementById('stepModal');
+  if (gap !== 'scan' && gap !== 'report') {
+    if (modal && (modal.dataset.act === 'scan' || modal.dataset.act === 'report')) modal.classList.add('hidden');
+    return;
+  }
+  openStep(gap);
+}
 function entryGaps() {
   const gaps = [];
   if (!currentStore) gaps.push('점포');
-  if (!shiftSelect.value) gaps.push('근무타입');
+  if (currentStore && !clockReady()) gaps.push('출근');
   if (!document.querySelector('input[name="workType"]:checked')) gaps.push('교육/수습/정식');
+  if (!shiftSelect.value) gaps.push('근무타입');
   if (!staffName.value.trim()) gaps.push('이름');
   if (!workPeriod.value.trim()) gaps.push('근무시간대');
   return gaps;
 }
-function showEntryGaps(gaps) {
-  const lines = ['빠진 항목이 있습니다.'].concat((gaps || entryGaps()).map(g => '- ' + g));
-  checklistContainer.innerHTML = '<div class="card" id="entryHint" style="line-height:1.6;">' + lines.map(line => biHtml(line)).join('<br>') + '</div>';
+function showEntryGaps() {
+  const msg = gapMessage(firstGap()) || '출근 QR을 스캔하세요.';
+  checklistContainer.innerHTML = '<div class="card" id="entryHint" style="line-height:1.6;">' + biHtml(msg) + '</div>';
   delete checklistContainer.dataset.who;
   checkAllDone();
 }
+document.querySelectorAll('.type-row label').forEach(label => {
+  label.addEventListener('pointerdown', (e) => {
+    if (guardField('type')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+});
 document.querySelectorAll('input[name="workType"]').forEach(el => {
+  el.addEventListener('pointerdown', (e) => {
+    if (guardField('type')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
   el.addEventListener('change', () => {
     if (entryGaps().length || !checklistContainer.querySelector('.item')) renderChecklist();
     else saveProgress();
   });
+});
+shiftSelect.addEventListener('pointerdown', () => {
+  shiftSelect.dataset.prev = shiftSelect.value;
+}, true);
+staffName.addEventListener('pointerdown', (e) => {
+  if (guardField('name')) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+[workStart, workEnd].forEach(el => {
+  el.addEventListener('pointerdown', (e) => {
+    if (guardField('period')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
 });
 
 function saveResume() {
@@ -1690,7 +1810,7 @@ function shiftStillOpen(saved) {
   if (own && own.sent) return false;
   if (range.start > range.end) {
     if (now.date === saved.date) return true;
-    if (now.date === addDays(saved.date, 1)) return now.minutes <= range.end + 60;
+    if (now.date === addDays(saved.date, 1)) return now.minutes <= 12 * 60;
     return false;
   }
   if (saved.date === addDays(now.date, 1) && range.start <= 6 * 60) return true;
@@ -1725,9 +1845,7 @@ function resumeWork() {
     fullReportSent = false;
     try { localStorage.setItem('cu-resume', JSON.stringify({ store: saved.store, shift: '', date: today })); } catch (e) {}
     onStoreChange();
-    bottomBar.classList.add('hidden');
-    const box = document.querySelector('.container');
-    if (box) box.style.paddingBottom = '';
+    checkAllDone();
     return;
   }
   if (saved.date) {
@@ -1801,13 +1919,16 @@ function personRecords() {
 let nameLock = false;
 function onIdentityInput() {
   if (nameLock) return false;
+  const released = releaseClockIfIdentityChanged();
+  stampClockIdentity();
+  const done = (value) => { if (released) promptFirstStep(); return value; };
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
   if (entryGaps().length) {
     nameLock = true;
     renderChecklist();
     nameLock = false;
-    return false;
+    return done(false);
   }
   const who = name + '|' + period;
   holdShiftDate();
@@ -1816,7 +1937,7 @@ function onIdentityInput() {
       renderChecklist();
       checkAllDone();
     }
-    return true;
+    return done(true);
   }
   const rows = personRecords().filter(row => (row.data.period || '').trim() === period && [...shiftSelect.options].some(opt => opt.value === row.shift));
   if (rows.length === 1 && (shiftSelect.value !== rows[0].shift || checklistContainer.dataset.who !== who)) {
@@ -1825,33 +1946,35 @@ function onIdentityInput() {
     renderChecklist();
     checkAllDone();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (rows.length > 1 && shiftSelect.value && rows.some(row => row.shift === shiftSelect.value) && checklistContainer.dataset.who !== who) {
     nameLock = true;
     renderChecklist();
     checkAllDone();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (shiftSelect.value && checklistContainer.dataset.who && checklistContainer.dataset.who !== who && !rows.some(row => row.shift === shiftSelect.value)) {
     nameLock = true;
     renderChecklist();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (shiftSelect.value && !checklistContainer.querySelector('.item')) {
     nameLock = true;
     renderChecklist();
     checkAllDone();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (shiftSelect.value) saveProgress();
-  return true;
+  return done(true);
 }
-staffName.oninput = onIdentityInput;
-staffName.addEventListener('compositionend', onIdentityInput);
+staffName.addEventListener('compositionstart', () => { staffName.dataset.composing = '1'; });
+staffName.addEventListener('compositionend', () => { staffName.dataset.composing = ''; onIdentityInput(); });
+staffName.oninput = () => { if (staffName.dataset.composing === '1') return; onIdentityInput(); };
+staffName.addEventListener('blur', () => onIdentityInput());
 function progressForCurrent() {
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
@@ -1895,14 +2018,10 @@ function saveProgress() {
         const keptAt = reportedAt || prev.reportedAt || (prevData.clockIn && prevData.clockIn.at) || '';
         if (keptAt) keepClockRecord(keptAt, prevData.clockIn);
       }
-      if (clockInRecord && clockInRecord.at) {
+      if (clockInRecord && clockInRecord.at && clockInRecord.sent) {
         done = true;
         reported = true;
         reportedAt = clockInRecord.at;
-      } else if (prev.done || prev.reported || prev.reportedAt || reportedAt) {
-        done = true;
-        reported = true;
-        reportedAt = reportedAt || prev.reportedAt || '';
       }
     } else if (!done && el.dataset.userUnchecked !== '1' && (prev.done || prev.reported || prev.reportedAt)) {
       done = true;
@@ -2100,7 +2219,7 @@ function renderChecklist() {
         const keptAt = sv.reportedAt || (saved && saved.clockIn && saved.clockIn.at) || '';
         if (keptAt || sv.done || sv.reported) keepClockRecord(keptAt, saved && saved.clockIn);
       }
-      if (clockInRecord && clockInRecord.at) {
+      if (clockInRecord && clockInRecord.at && clockInRecord.sent) {
         sv.done = true;
         sv.reported = true;
         sv.reportedAt = clockInRecord.at;
@@ -2361,7 +2480,7 @@ function alarmSavedDone(id, saved) {
 }
 function rowDone(it, saved) {
   if (String(it.id).startsWith('alarm-')) return !!discardStamp(String(it.id).slice(6)) || alarmSavedDone(it.id, saved);
-  if (isClockItem(it.title) && clockInRecord && clockInRecord.at) return true;
+  if (isClockItem(it.title) && clockInRecord && clockInRecord.at && clockInRecord.sent) return true;
   if (activeSlots().some(s => discardTitleMatches(it.title || '', s) && discardStamp(s.id))) return true;
   return alarmSavedDone(it.id, saved);
 }
@@ -2572,9 +2691,7 @@ function isClockItem(title) {
 function requiredMissing(id) {
   const it = itemById(id);
   if (it && isClockItem(it.title)) {
-    if (clockInRecord && clockInRecord.at) return [];
-    const el = document.querySelector('.item[data-id="' + String(id).replace(/"/g, '') + '"]');
-    if (el && (el.dataset.reported === '1' || el.dataset.reportedAt)) return [];
+    if (clockInRecord && clockInRecord.at && clockInRecord.sent) return [];
     return ['출근'];
   }
   if (!needsPhoto(id)) return [];
@@ -2808,9 +2925,9 @@ function checkAllDone() {
   }
   const items = checklistContainer.querySelectorAll('.item');
   if (!items.length) {
-    bottomBar.classList.add('hidden');
     if (reportFields()) reportFields().classList.add('hidden');
-    if (box) box.style.paddingBottom = '';
+    bottomBar.classList.remove('hidden');
+    if (box) box.style.paddingBottom = '88px';
     return;
   }
   let blocked = false;
@@ -2823,7 +2940,7 @@ function checkAllDone() {
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
   syncDoneBorders();
-  maybeConditionPopups();
+  if (!firstGap()) maybeConditionPopups();
 }
 
 function syncDoneBorders() {
@@ -2995,6 +3112,25 @@ async function stampCaption(file, text, index) {
   const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
   if (img.close) img.close();
   return new File([blob], 'photo-' + index + '.jpg', { type: 'image/jpeg' });
+}
+function whenPageVisible() {
+  if (document.visibilityState !== 'hidden') return Promise.resolve();
+  return new Promise(resolve => {
+    const done = () => {
+      if (document.visibilityState === 'hidden') return;
+      document.removeEventListener('visibilitychange', done);
+      resolve();
+    };
+    document.addEventListener('visibilitychange', done);
+  });
+}
+let sentAskJob = null;
+function askSent(text, onYes) {
+  const modal = document.getElementById('sentAskModal');
+  if (!modal || !modal.classList.contains('hidden')) return;
+  sentAskJob = onYes;
+  document.getElementById('sentAskText').textContent = text || '보냈으면 보냈어요를 누르세요.';
+  modal.classList.remove('hidden');
 }
 async function finishShare(files) {
   if (!navigator.share) return 'fail';
@@ -3311,13 +3447,10 @@ function backToStart() {
   clockInRecord = null;
   showClockIn();
   fullReportSent = false;
-  if (reportFields()) reportFields().classList.add('hidden');
-  bottomBar.classList.add('hidden');
-  const box = document.querySelector('.container');
-  if (box) box.style.paddingBottom = '';
+  checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v187';
+const APP_VERSION = 'v200';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3328,6 +3461,10 @@ sendReportBtn.onclick = async () => {
   try {
   const latest = await ensureLatestVersion();
   if (!latest) return;
+  if (!currentStore) { openStep('scan'); return; }
+  const gap = firstGap();
+  if (gap) { openStep(gap); return; }
+  if (!checklistContainer.querySelector('.item')) { alert('체크리스트가 없습니다.'); return; }
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
@@ -3371,12 +3508,8 @@ sendReportBtn.onclick = async () => {
   const saved = await savePayRecord();
   markReportSent();
   rememberPending(sum);
-  const sent = await shareReportText(sum);
-  if (sent) {
-    clearPending();
-    await finishFullReport(sum, saved);
-    return;
-  }
+  await shareReportText(sum);
+  await whenPageVisible();
   showReportAsk();
   if (!saved) alert(notice('보고는 보냅니다. 근무 시간은 연결되면 서버에 넣습니다.'));
   } catch (e) {
@@ -3432,16 +3565,11 @@ document.getElementById('reportAskOk').onclick = async () => {
   clearPending();
   await finishFullReport((pending && pending.sum) || '', true);
 };
-document.getElementById('reportAskRetry').onclick = async () => {
+document.getElementById('reportAskRetry').onclick = () => {
   hideReportAsk();
-  const sent = await shareReportText();
-  if (sent) {
-    const pending = readPending();
-    clearPending();
-    await finishFullReport((pending && pending.sum) || '', true);
-    return;
-  }
-  showReportAsk();
+  clearPending();
+  fullReportSent = false;
+  saveProgress();
 };
 if (readPending()) showReportAsk();
 async function putPayRow(row) {
@@ -3666,6 +3794,9 @@ async function shareClockIn(isSms) {
   if (!text || !clockInRecord || clockInRecord.sent || clockSharing) return;
   clockSharing = true;
   let shared = false;
+  let left = false;
+  const onHide = () => { if (document.visibilityState === 'hidden') left = true; };
+  document.addEventListener('visibilitychange', onHide);
   try {
     if (isSms || !navigator.share) {
       location.href = `sms:?body=${encodeURIComponent(text)}`;
@@ -3675,15 +3806,22 @@ async function shareClockIn(isSms) {
       shared = true;
     }
   } catch (e) {
-    shared = false;
+    shared = left;
   }
+  document.removeEventListener('visibilitychange', onHide);
   clockSharing = false;
   if (!shared) return;
-  clockInRecord.sent = true;
-  if (!clockInRecord.name && staffName.value.trim()) clockInRecord.name = staffName.value.trim();
-  writeClockLock(clockInRecord);
-  paintClock(clockInRecord.at);
-  saveProgress();
+  await whenPageVisible();
+  askSent('출근 보고를 보냈으면 보냈어요를 누르세요.', () => {
+    if (!clockInRecord || clockInRecord.sent) return;
+    clockInRecord.sent = true;
+    if (!clockInRecord.name && staffName.value.trim()) clockInRecord.name = staffName.value.trim();
+    writeClockLock(clockInRecord);
+    paintClock(clockInRecord.at);
+    saveProgress();
+    renderChecklist();
+    checkAllDone();
+  });
 }
 function offerSendNow(id) {
   if (sessionReported[reportKey(id)]) return;
@@ -3724,6 +3862,17 @@ document.getElementById('sendNowSms').onclick = () => sendOfferedNow(true);
 document.getElementById('sendNowClose').onclick = () => {
   document.getElementById('sendNowModal').classList.add('hidden');
 };
+document.getElementById('sentAskYes').onclick = () => {
+  document.getElementById('sentAskModal').classList.add('hidden');
+  const job = sentAskJob;
+  sentAskJob = null;
+  if (job) job();
+};
+document.getElementById('sentAskNo').onclick = () => {
+  document.getElementById('sentAskModal').classList.add('hidden');
+  sentAskJob = null;
+  clearSharePending();
+};
 function showClockIn() {}
 function stopQr() {
   qrRunning = false;
@@ -3733,14 +3882,29 @@ function stopQr() {
   if (video) video.srcObject = null;
 }
 function parseCuQr(text) {
-  const raw = String(text || '').trim().replace(/[\s-]/g, '');
-  if (!/^bgf/i.test(raw)) return null;
-  const body = raw.slice(3);
+  const raw = String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const at = raw.lastIndexOf('BGF');
+  if (at < 0) return null;
+  const body = raw.slice(at + 3);
+  if (!body) return null;
+  const today = koreaNow().date.replace(/-/g, '');
+  const today6 = today.slice(2);
+  const cut = (token) => {
+    const i = body.indexOf(token);
+    if (i <= 0) return null;
+    const storeCode = body.slice(0, i).replace(/\D/g, '');
+    if (!storeCode) return null;
+    return { storeCode, ymd: token };
+  };
+  const todayHit = cut(today) || cut(today6);
+  if (todayHit) return todayHit;
   const take = (n) => {
     if (body.length <= n) return null;
     const ymd = body.slice(-n);
-    const storeCode = body.slice(0, -n);
+    const storeCode = body.slice(0, -n).replace(/\D/g, '');
     if (!/^\d+$/.test(ymd) || !storeCode) return null;
+    if (n === 8 && !/^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(ymd)) return null;
+    if (n === 6 && !/^\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(ymd)) return null;
     return { storeCode, ymd };
   };
   return take(8) || take(6);
@@ -3750,9 +3914,14 @@ function myStoreCode() {
   return fromStore || String(localStorage.getItem('cu-access-code') || '').trim();
 }
 function sameStoreCode(a, b) {
-  const x = String(a || '').replace(/\s/g, '').toLowerCase();
-  const y = String(b || '').replace(/\s/g, '').toLowerCase();
-  return !!x && x === y;
+  const digits = (s) => String(s || '').replace(/\D/g, '');
+  const x = digits(a);
+  const y = digits(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const xz = x.replace(/^0+/, '');
+  const yz = y.replace(/^0+/, '');
+  return !!xz && xz === yz;
 }
 function qrDateOk(ymd) {
   const today = koreaNow().date.replace(/-/g, '');
@@ -3769,6 +3938,67 @@ function earlierClock(a, b) {
   if (bm == null) return a;
   return am <= bm ? a : b;
 }
+function namesConflict(saved, typed) {
+  if (!saved || !typed || saved === typed) return false;
+  return !(typed.startsWith(saved) || saved.startsWith(typed));
+}
+function longerName(a, b) {
+  const x = String(a || '').trim();
+  const y = String(b || '').trim();
+  if (!x) return y;
+  if (!y) return x;
+  if (x.startsWith(y) || y.startsWith(x)) return x.length >= y.length ? x : y;
+  return y;
+}
+function releaseClockIfIdentityChanged() {
+  if (!clockInRecord || !clockInRecord.at) return false;
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  const nameChanged = namesConflict(clockInRecord.name, name);
+  const periodChanged = !!(clockInRecord.period && period && clockInRecord.period !== period);
+  if (!nameChanged && !periodChanged) return false;
+  clockInRecord = null;
+  return true;
+}
+function stampClockIdentity() {
+  if (!clockInRecord || !clockInRecord.at) return;
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  if (namesConflict(clockInRecord.name, name)) return;
+  if (clockInRecord.period && period && clockInRecord.period !== period) return;
+  let changed = false;
+  if (name && clockInRecord.name !== name) { clockInRecord.name = name; changed = true; }
+  if (period && clockInRecord.period !== period) { clockInRecord.period = period; changed = true; }
+  if (changed) writeClockLock(clockInRecord);
+}
+function recallClock() {
+  if (clockInRecord && clockInRecord.at) {
+    if (clockFits(clockInRecord)) return clockInRecord;
+    clockInRecord = null;
+  }
+  if (!currentStore || !reportDate.value) return null;
+  const prefix = 'cuclock_' + currentStore + '_';
+  const date = reportDate.value;
+  let found = null;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || k.indexOf(prefix) !== 0 || k.indexOf('_' + date) < 0) continue;
+    const row = readStore(k);
+    if (!clockFits(row)) continue;
+    found = preferClock(found, row);
+  }
+  if (!found) return null;
+  clockInRecord = found;
+  return found;
+}
+function preferClock(a, b) {
+  if (!a || !a.at) return b && b.at ? b : null;
+  if (!b || !b.at) return a;
+  if (!!a.sent !== !!b.sent) return a.sent ? a : b;
+  const weight = row => (row.name || '').length + (row.period || '').length;
+  if (weight(a) !== weight(b)) return weight(a) > weight(b) ? a : b;
+  return earlierClock(a, b);
+}
 function readClockLock() {
   if (!currentStore || !reportDate.value) return null;
   const prefix = 'cuclock_' + currentStore + '_';
@@ -3779,7 +4009,7 @@ function readClockLock() {
     if (!k || !k.startsWith(prefix) || k.indexOf(mark) < 0) continue;
     const row = readStore(k);
     if (!row || !row.at) continue;
-    if (row.shift && shiftSelect.value && row.shift !== shiftSelect.value) continue;
+    if (!clockFits(row)) continue;
     found = earlierClock(found, row);
   }
   return found;
@@ -3804,14 +4034,16 @@ function writeClockLock(record) {
   const keep = earlierClock(prev, record) || record;
   const next = Object.assign({}, keep, {
     sent: !!((prev && prev.sent) || record.sent),
-    name: keep.name || record.name || staffName.value.trim(),
+    name: longerName(record.name || staffName.value.trim(), keep.name),
+    period: record.period || keep.period || workPeriod.value.trim(),
     store: keep.store || record.store || currentStore,
     date: keep.date || record.date || reportDate.value,
     shift: keep.shift || record.shift || shiftSelect.value || ''
   });
   const shift = next.shift || 'none';
   const name = (next.name || '').trim();
-  const key = 'cuclock_' + currentStore + '_' + shift + '_' + next.date + (name ? '_' + encodeURIComponent(name) : '');
+  const period = (next.period || '').trim();
+  const key = 'cuclock_' + currentStore + '_' + shift + '_' + next.date + (name ? '_' + encodeURIComponent(name) : '') + (period ? '_' + encodeURIComponent(period) : '');
   try { localStorage.setItem(key, JSON.stringify(next)); } catch (e) {}
   clockInRecord = next;
 }
@@ -3827,7 +4059,8 @@ function adoptClock(savedClock) {
     return null;
   }
   picked = Object.assign({}, picked, {
-    name: picked.name || name,
+    name: longerName(name, picked.name),
+    period: picked.period || workPeriod.value.trim(),
     shift: picked.shift || shiftSelect.value,
     store: picked.store || currentStore || '',
     date: picked.date || (reportDate && reportDate.value) || ''
@@ -3838,14 +4071,18 @@ function adoptClock(savedClock) {
 }
 function clockFits(row) {
   if (!row || !row.at) return false;
-  const name = staffName.value.trim();
-  if (row.name && name && row.name !== name) return false;
   if (row.date && reportDate.value && row.date !== reportDate.value) return false;
-  if (row.shift && shiftSelect.value && row.shift !== shiftSelect.value) return false;
   if (row.store && currentStore && row.store !== currentStore) return false;
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  if (namesConflict(row.name, name)) return false;
+  if (row.period && period && row.period !== period) return false;
+  if (!name && !period) return !row.name && !row.period;
+  if (!name && row.name) return false;
   return true;
 }
 function paintClock(at) {
+  if (!(clockInRecord && clockInRecord.sent)) return;
   document.querySelectorAll('.item').forEach(el => {
     if (!isClockItem(el.dataset.title)) return;
     const id = el.dataset.id;
@@ -3866,19 +4103,25 @@ async function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
   const parsed = parseCuQr(code);
-  if (!parsed) { alert('CU 출근 QR이 아닙니다.'); return; }
-  if (!qrDateOk(parsed.ymd)) { alert('오늘 출근 QR이 아닙니다.'); return; }
+  if (!parsed) { openStep('rescan', 'CU 출근 QR이 아닙니다.'); return; }
+  if (!qrDateOk(parsed.ymd)) { openStep('rescan', '오늘 출근 QR이 아닙니다.'); return; }
   if (!sameStoreCode(parsed.storeCode, myStoreCode())) {
-    const ok = await enterStoreCode(parsed.storeCode, false);
-    if (!ok) return;
+    clockEntering = true;
+    let opened = false;
+    try { opened = await enterStoreCode(parsed.storeCode, true); }
+    finally { clockEntering = false; }
+    if (opened === 'error') { openStep('rescan', '연결되지 않았습니다. 네트워크를 확인한 뒤 다시 스캔하세요.'); return; }
+    if (opened !== true || !sameStoreCode(parsed.storeCode, myStoreCode())) {
+      openStep('rescan', '등록된 점포 QR이 아닙니다.');
+      return;
+    }
   }
   const existing = adoptClock(null);
   if (existing && existing.at) {
-    paintClock(existing.at);
-    saveProgress();
-    syncDoneBorders();
-    checkAllDone();
-    alert('이미 ' + existing.at + '에 출근했습니다.');
+    if (existing.sent) {
+      paintClock(existing.at);
+      alert('이미 ' + existing.at + '에 출근했습니다.');
+    } else offerClockSend();
     return;
   }
   clockInRecord = {
@@ -3925,7 +4168,15 @@ document.querySelector('.qr-help-pop').onclick = (e) => {
 document.querySelector('.qr-help').addEventListener('mouseleave', () => {
   document.querySelector('.qr-help').classList.remove('closed');
 });
-document.getElementById('clockInBtn').onclick = () => startClockScan();
+document.getElementById('clockInBtn').onclick = () => {
+  recallClock();
+  if (clockInRecord && clockInRecord.at && clockFits(clockInRecord)) {
+    if (clockInRecord.sent) { alert('이미 ' + clockInRecord.at + '에 출근했습니다.'); return; }
+    offerClockSend();
+    return;
+  }
+  startClockScan();
+};
 async function startClockScan() {
   const modal = document.getElementById('barcodeModal');
   const msg = document.getElementById('qrMsg');
@@ -3935,7 +4186,7 @@ async function startClockScan() {
     qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
   } catch (e) {
     modal.classList.add('hidden');
-    alert('카메라를 열 수 없습니다.');
+    openStep('camera');
     return;
   }
   const video = document.getElementById('qrVideo');
@@ -3968,7 +4219,14 @@ async function startClockScan() {
         const found = window.jsQR(img.data, img.width, img.height);
         if (found) code = found.data || '';
       }
-      if (code) { finishClockIn(code); return; }
+      if (code) {
+        if (!parseCuQr(code)) {
+          msg.textContent = '오른쪽 근무자 인증 QR을 비추세요.';
+        } else {
+          finishClockIn(code);
+          return;
+        }
+      }
     }
     setTimeout(loop, 300);
   };
@@ -3978,6 +4236,78 @@ document.getElementById('cancelBarcode').onclick = () => {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
 };
+document.getElementById('stepClose').onclick = () => {
+  document.getElementById('stepModal').classList.add('hidden');
+};
+async function readQrFromFile(file) {
+  if (!file) return;
+  let img = null;
+  try {
+    if (window.createImageBitmap) img = await createImageBitmap(file);
+  } catch (e) { img = null; }
+  if (!img) {
+    img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = URL.createObjectURL(file);
+    }).catch(() => null);
+  }
+  if (!img) { openStep('camera', '사진을 열지 못했습니다. 다시 찍어 주세요.'); return; }
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  const scale = Math.min(1, 1600 / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  if (img.close) img.close();
+  let code = '';
+  if ('BarcodeDetector' in window) {
+    try {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const found = await detector.detect(canvas);
+      if (found && found[0]) code = found[0].rawValue || '';
+    } catch (e) {}
+  }
+  if (!code) {
+    try { await loadJsQR(); } catch (e) {}
+    if (window.jsQR) {
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const found = window.jsQR(data.data, data.width, data.height);
+      if (found) code = found.data || '';
+    }
+  }
+  if (!code) { openStep('camera', '사진에서 QR을 읽지 못했습니다. 근무자 인증 QR이 크게 나오게 다시 찍으세요.'); return; }
+  finishClockIn(code);
+}
+function pickQrPhoto() {
+  const input = document.getElementById('qrPhoto');
+  input.value = '';
+  input.click();
+}
+document.getElementById('qrPhoto').onchange = () => readQrFromFile(document.getElementById('qrPhoto').files[0]);
+document.getElementById('qrPhotoBtn').onclick = pickQrPhoto;
+document.getElementById('stepPhoto').onclick = () => {
+  document.getElementById('stepModal').classList.add('hidden');
+  pickQrPhoto();
+};
+document.getElementById('stepOk').onclick = () => {
+  const modal = document.getElementById('stepModal');
+  const act = modal.dataset.act || '';
+  modal.classList.add('hidden');
+  if (act === 'scan' || act === 'camera' || act === 'rescan') startClockScan();
+  else if (act === 'report') offerClockSend();
+  else if (act === 'type') {
+    const row = document.querySelector('.type-row');
+    if (row) row.scrollIntoView({ block: 'center' });
+  } else if (act === 'shift') shiftSelect.focus();
+  else if (act === 'name') staffName.focus();
+  else if (act === 'period') workStart.focus();
+};
+checkAllDone();
+if (!localStorage.getItem('cu-access-code')) promptFirstStep();
 
 // ===== 숨김 관리자 (10번) =====
 document.getElementById('secretArea').addEventListener('click', function(e) {
