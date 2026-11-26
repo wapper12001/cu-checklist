@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v194">
+<meta name="cu-version" content="v195">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v194</h1>
+  <h1>CU 점포 체크리스트 v195</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1906,14 +1906,16 @@ function personRecords() {
 let nameLock = false;
 function onIdentityInput() {
   if (nameLock) return false;
+  const released = releaseClockIfIdentityChanged();
   stampClockIdentity();
+  const done = (value) => { if (released) promptFirstStep(); return value; };
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
   if (entryGaps().length) {
     nameLock = true;
     renderChecklist();
     nameLock = false;
-    return false;
+    return done(false);
   }
   const who = name + '|' + period;
   holdShiftDate();
@@ -1922,7 +1924,7 @@ function onIdentityInput() {
       renderChecklist();
       checkAllDone();
     }
-    return true;
+    return done(true);
   }
   const rows = personRecords().filter(row => (row.data.period || '').trim() === period && [...shiftSelect.options].some(opt => opt.value === row.shift));
   if (rows.length === 1 && (shiftSelect.value !== rows[0].shift || checklistContainer.dataset.who !== who)) {
@@ -1931,30 +1933,30 @@ function onIdentityInput() {
     renderChecklist();
     checkAllDone();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (rows.length > 1 && shiftSelect.value && rows.some(row => row.shift === shiftSelect.value) && checklistContainer.dataset.who !== who) {
     nameLock = true;
     renderChecklist();
     checkAllDone();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (shiftSelect.value && checklistContainer.dataset.who && checklistContainer.dataset.who !== who && !rows.some(row => row.shift === shiftSelect.value)) {
     nameLock = true;
     renderChecklist();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (shiftSelect.value && !checklistContainer.querySelector('.item')) {
     nameLock = true;
     renderChecklist();
     checkAllDone();
     nameLock = false;
-    return true;
+    return done(true);
   }
   if (shiftSelect.value) saveProgress();
-  return true;
+  return done(true);
 }
 staffName.oninput = onIdentityInput;
 staffName.addEventListener('compositionend', onIdentityInput);
@@ -3414,7 +3416,7 @@ function backToStart() {
   checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v194';
+const APP_VERSION = 'v195';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3895,6 +3897,16 @@ function earlierClock(a, b) {
   if (am == null) return b;
   if (bm == null) return a;
   return am <= bm ? a : b;
+}
+function releaseClockIfIdentityChanged() {
+  if (!clockInRecord || !clockInRecord.at) return false;
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  const nameChanged = !!(clockInRecord.name && name && clockInRecord.name !== name);
+  const periodChanged = !!(clockInRecord.period && period && clockInRecord.period !== period);
+  if (!nameChanged && !periodChanged) return false;
+  clockInRecord = null;
+  return true;
 }
 function stampClockIdentity() {
   if (!clockInRecord || !clockInRecord.at) return;
