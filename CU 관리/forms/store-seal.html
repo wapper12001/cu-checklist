@@ -10,7 +10,6 @@
 <style>
   :root {
     --purple: #652f8d;
-    --ink: #c41a2b;
     --bg: #eee;
     --text: #111;
   }
@@ -24,7 +23,7 @@
     line-height: 1.45;
   }
   .wrap {
-    max-width: 960px;
+    max-width: 980px;
     margin: 0 auto;
     padding: 16px 14px 32px;
   }
@@ -106,6 +105,10 @@
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
     background-color: #f7f7f7;
   }
+  .preview-stage.wide {
+    width: 100%;
+    aspect-ratio: 3.5 / 1;
+  }
   #preview {
     display: block;
     max-width: 100%;
@@ -131,6 +134,7 @@
     .layout { grid-template-columns: 1fr; }
     h1 { font-size: 20px; }
     .preview-stage { width: min(100%, 320px); }
+    .preview-stage.wide { width: 100%; }
   }
 </style>
 </head>
@@ -142,19 +146,12 @@
     <div class="layout">
       <div class="card">
         <div class="field">
-          <label for="storePick">점포 선택</label>
-          <select id="storePick">
-            <option value="" selected></option>
-            <option value="CU 소사센터점">소사센터점</option>
-            <option value="CU 사랑방점">사랑방점</option>
-            <option value="CU 부천IC점">부천IC점</option>
-            <option value="CU 중동그린타운점">중동그린타운점</option>
-            <option value="CU 중동롯데점">중동롯데점</option>
-          </select>
-        </div>
-        <div class="field">
           <label for="storeName">점포(상호)명</label>
           <input type="text" id="storeName" autocomplete="organization">
+        </div>
+        <div class="field">
+          <label for="bizNo">사업자등록번호</label>
+          <input type="text" id="bizNo" inputmode="numeric" maxlength="12" autocomplete="off">
         </div>
         <div class="field">
           <label for="ownerName">대표자 성명</label>
@@ -165,6 +162,13 @@
           <div class="choices" role="radiogroup" aria-label="모양">
             <label><input type="radio" name="shape" value="round" checked> 동그란 직인</label>
             <label><input type="radio" name="shape" value="rect"> 직사각형 직인</label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="legend">색</span>
+          <div class="choices" role="radiogroup" aria-label="색">
+            <label><input type="radio" name="color" value="red" checked> 빨간색</label>
+            <label><input type="radio" name="color" value="blue"> 파란색</label>
           </div>
         </div>
         <div class="field">
@@ -195,7 +199,7 @@
       </div>
 
       <div class="card preview-card">
-        <div class="preview-stage">
+        <div class="preview-stage" id="previewStage">
           <canvas id="preview" width="600" height="600" aria-label="직인 미리보기"></canvas>
         </div>
         <div class="toolbar">
@@ -209,10 +213,14 @@
 
 <script>
 (function () {
-  var INK = "#c41a2b";
+  var INK_RED = "#c41a2b";
+  var INK_BLUE = "#1a4a8c";
+  var WIDE_RATIO = 3.5;
   var preview = document.getElementById("preview");
+  var stage = document.getElementById("previewStage");
   var msgEl = document.getElementById("msg");
   var sizeInput = document.getElementById("sealSize");
+  var bizInput = document.getElementById("bizNo");
   var drawTimer = null;
 
   function setMsg(text, isError) {
@@ -228,6 +236,10 @@
   function radio(name) {
     var el = document.querySelector('input[name="' + name + '"]:checked');
     return el ? el.value : "";
+  }
+
+  function inkColor() {
+    return radio("color") === "blue" ? INK_BLUE : INK_RED;
   }
 
   function fontStack() {
@@ -260,6 +272,17 @@
     }
     if (buf) out.push(buf);
     return out;
+  }
+
+  function digitsOnly(s) {
+    return String(s || "").replace(/\D/g, "").slice(0, 10);
+  }
+
+  function formatBizNo(s) {
+    var d = digitsOnly(s);
+    if (d.length <= 3) return d;
+    if (d.length <= 5) return d.slice(0, 3) + "-" + d.slice(3);
+    return d.slice(0, 3) + "-" + d.slice(3, 5) + "-" + d.slice(5);
   }
 
   function sealName() {
@@ -306,6 +329,7 @@
   }
 
   function drawRound(ctx, size, opts) {
+    var ink = opts.color;
     var cx = size / 2, cy = size / 2;
     var pad = size * 0.06;
     var r = size / 2 - pad;
@@ -317,8 +341,8 @@
     var textR = (outerR - outerW / 2 + innerR + innerW / 2) / 2;
     var band = (outerR - outerW / 2) - (innerR + innerW / 2);
 
-    ctx.strokeStyle = INK;
-    ctx.fillStyle = INK;
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
     ctx.lineCap = "butt";
     ctx.lineJoin = "round";
     ctx.lineWidth = outerW;
@@ -342,12 +366,12 @@
     if (est < band * 0.42) gap = minGap;
     else if (est < band * 0.58) gap = (preferGap + minGap) / 2;
     var span = Math.PI * 2 - gap;
-    var start = Math.PI / 2 + gap / 2;
+    var i;
 
     if (letters.length) {
       var maxChar = Math.max(8, Math.min(band * 0.86, (textR * span) / (letters.length * 1.02)));
       var fontSize = maxChar;
-      var totalW, i, ch;
+      var totalW;
       for (var attempt = 0; attempt < 80; attempt++) {
         ctx.font = weight + " " + fontSize + "px " + family;
         totalW = 0;
@@ -390,14 +414,18 @@
     var innerBox = innerR * 2 * 0.86;
     var lines = phraseLines(opts.phrase);
     var owner = opts.owner;
-    var block = (owner ? 1 : 0) + lines.length;
-    var lineMax = innerBox * (block === 1 ? 0.42 : block === 2 ? 0.28 : 0.22);
+    var biz = opts.bizNo ? formatBizNo(opts.bizNo) : "";
+    var block = (owner ? 1 : 0) + lines.length + (biz ? 1 : 0);
+    var lineMax = innerBox * (block === 1 ? 0.42 : block === 2 ? 0.26 : block === 3 ? 0.2 : 0.17);
     var used = [];
     if (owner) {
       used.push({ text: owner, size: fitFont(ctx, owner, family, weight, lineMax * 0.85, 8, innerBox * 0.9) });
     }
     for (i = 0; i < lines.length; i++) {
       used.push({ text: lines[i], size: fitFont(ctx, lines[i], family, weight, lineMax, 9, innerBox * 0.92) });
+    }
+    if (biz) {
+      used.push({ text: biz, size: fitFont(ctx, biz, family, weight, lineMax * 0.72, 8, innerBox * 0.88) });
     }
     var gapY = size * 0.012;
     var totalH = 0;
@@ -406,7 +434,7 @@
     var y = cy - totalH / 2;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillStyle = INK;
+    ctx.fillStyle = ink;
     for (i = 0; i < used.length; i++) {
       ctx.font = weight + " " + used[i].size + "px " + family;
       ctx.fillText(used[i].text, cx, y);
@@ -414,44 +442,19 @@
     }
   }
 
-  function rectChars(opts) {
-    var base = compactName(opts.name);
-    var letters = tokensOf(base);
-    var phrase = opts.phrase;
-    if (phrase === "인" && !base.endsWith("인")) letters = letters.concat(["인"]);
-    if (phrase === "직인" && !base.endsWith("직인")) letters = letters.concat(["직", "인"]);
-    return letters;
-  }
+  function drawWide(ctx, w, h, opts) {
+    var ink = opts.color;
+    var pad = Math.min(w, h) * 0.1;
+    var boxW = w - pad * 2;
+    var boxH = h - pad * 2;
+    var x0 = pad;
+    var y0 = pad;
+    var outer = Math.max(2, Math.min(boxW, boxH) * 0.08);
+    var inner = Math.max(1.5, outer * 0.42);
+    var inset = outer * 1.7;
 
-  function gridShape(n) {
-    if (n <= 0) return { cols: 2, rows: 2 };
-    if (n === 1) return { cols: 1, rows: 1 };
-    if (n === 2) return { cols: 1, rows: 2 };
-    if (n === 3) return { cols: 1, rows: 3 };
-    if (n === 4) return { cols: 2, rows: 2 };
-    var cols;
-    if (n <= 8) cols = 2;
-    else if (n <= 12) cols = 3;
-    else cols = 4;
-    return { cols: cols, rows: Math.ceil(n / cols) };
-  }
-
-  function drawRect(ctx, size, opts) {
-    var letters = rectChars(opts);
-    var grid = gridShape(letters.length);
-    var cols = grid.cols, rows = grid.rows;
-    var pad = size * 0.07;
-    var cell = Math.min((size - pad * 2) / cols, (size - pad * 2) / rows);
-    var boxW = cell * cols;
-    var boxH = cell * rows;
-    var x0 = (size - boxW) / 2;
-    var y0 = (size - boxH) / 2;
-    var outer = Math.max(2, Math.min(boxW, boxH) * 0.055);
-    var inner = Math.max(1.5, outer * 0.45);
-    var inset = outer * 1.55;
-
-    ctx.strokeStyle = INK;
-    ctx.fillStyle = INK;
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
     ctx.lineJoin = "miter";
     ctx.miterLimit = 2;
     ctx.lineWidth = outer;
@@ -459,44 +462,45 @@
     ctx.lineWidth = inner;
     ctx.strokeRect(x0 + inset, y0 + inset, boxW - inset * 2, boxH - inset * 2);
 
-    if (!letters.length) return;
+    var rows = [];
+    if (opts.name) rows.push({ text: opts.name, role: "name" });
+    if (opts.bizNo) rows.push({ text: formatBizNo(opts.bizNo), role: "biz" });
+    if (opts.owner) rows.push({ text: opts.owner, role: "owner" });
+    if (!rows.length) return;
 
-    var innerPad = inset + inner * 0.6;
-    var usableW = boxW - innerPad * 2;
-    var usableH = boxH - innerPad * 2;
-    var cw = usableW / cols;
-    var ch = usableH / rows;
-    var maxFont = Math.min(cw, ch) * 0.82;
+    var innerPadX = inset + inner + boxW * 0.04;
+    var innerPadY = inset + inner + boxH * 0.08;
+    var usableW = boxW - innerPadX * 2;
+    var usableH = boxH - innerPadY * 2;
+    var n = rows.length;
+    var gapY = usableH * (n === 1 ? 0 : n === 2 ? 0.12 : 0.08);
+    var lineSpace = (usableH - gapY * (n - 1)) / n;
+    var family = opts.fontFamily;
+    var weight = opts.fontWeight;
+
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-
-    var colCounts = [];
-    for (var i = 0; i < letters.length; i++) {
-      var cf = Math.floor(i / rows);
-      colCounts[cf] = (colCounts[cf] || 0) + 1;
-    }
-
-    for (i = 0; i < letters.length; i++) {
-      var colFromRight = Math.floor(i / rows);
-      var row = i % rows;
-      var col = cols - 1 - colFromRight;
-      var count = colCounts[colFromRight] || rows;
-      var yOff = count < rows ? ((rows - count) * ch) / 2 : 0;
-      var cx = x0 + innerPad + (col + 0.5) * cw;
-      var cy = y0 + innerPad + yOff + (row + 0.5) * ch;
-      var token = letters[i];
-      var fontSize = fitFont(ctx, token, opts.fontFamily, opts.fontWeight, maxFont, 8, cw * 0.9);
-      ctx.font = opts.fontWeight + " " + fontSize + "px " + opts.fontFamily;
-      ctx.fillText(token, cx, cy);
+    var y = y0 + innerPadY;
+    for (var i = 0; i < n; i++) {
+      var maxSize;
+      if (rows[i].role === "name") maxSize = lineSpace * (n === 1 ? 0.78 : 0.86);
+      else if (rows[i].role === "biz") maxSize = lineSpace * 0.72;
+      else maxSize = lineSpace * 0.7;
+      var size = fitFont(ctx, rows[i].text, family, weight, maxSize, 8, usableW);
+      ctx.font = weight + " " + size + "px " + family;
+      ctx.fillText(rows[i].text, x0 + boxW / 2, y + lineSpace / 2);
+      y += lineSpace + gapY;
     }
   }
 
   function options() {
     return {
       shape: radio("shape") || "round",
-      name: sealName(),
+      name: val("storeName") || val("ownerName"),
       owner: val("storeName") ? val("ownerName") : "",
+      bizNo: formatBizNo(val("bizNo")),
       phrase: val("phrase") || "직인",
+      color: inkColor(),
       fontFamily: fontStack(),
       fontWeight: radio("font") === "gothic" ? "700" : "800",
       texture: document.getElementById("texture").checked,
@@ -504,22 +508,28 @@
     };
   }
 
-  function render(canvas, px, opts) {
-    canvas.width = px;
-    canvas.height = px;
+  function exportDims(opts, longSide) {
+    if (opts.shape === "rect") {
+      return { w: longSide, h: Math.max(1, Math.round(longSide / WIDE_RATIO)) };
+    }
+    return { w: longSide, h: longSide };
+  }
+
+  function render(canvas, w, h, opts) {
+    canvas.width = w;
+    canvas.height = h;
     var ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, px, px);
+    ctx.clearRect(0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    if (opts.shape === "rect") drawRect(ctx, px, opts);
-    else drawRound(ctx, px, opts);
-    if (opts.texture) applyTexture(ctx, px, px);
+    if (opts.shape === "rect") drawWide(ctx, w, h, opts);
+    else drawRound(ctx, w, opts);
+    if (opts.texture) applyTexture(ctx, w, h);
   }
 
   function previewCssSize() {
     var exportSize = Number(sizeInput.value) || 1800;
-    var css = 200 + (exportSize - 1200) * (140 / 1200);
-    return Math.round(css);
+    return Math.round(200 + (exportSize - 1200) * (140 / 1200));
   }
 
   function updateSizeLabel() {
@@ -529,16 +539,42 @@
 
   function redraw() {
     var opts = options();
-    var css = previewCssSize();
     var dpr = Math.max(2, window.devicePixelRatio || 1);
-    render(preview, Math.round(css * dpr), opts);
-    preview.style.width = css + "px";
-    preview.style.height = css + "px";
+    if (opts.shape === "rect") {
+      stage.classList.add("wide");
+      var cssW = stage.clientWidth || 480;
+      var cssH = Math.max(1, Math.round(cssW / WIDE_RATIO));
+      render(preview, Math.round(cssW * dpr), Math.round(cssH * dpr), opts);
+      preview.style.width = cssW + "px";
+      preview.style.height = cssH + "px";
+    } else {
+      stage.classList.remove("wide");
+      var css = previewCssSize();
+      render(preview, Math.round(css * dpr), Math.round(css * dpr), opts);
+      preview.style.width = css + "px";
+      preview.style.height = css + "px";
+    }
   }
 
   function scheduleDraw() {
     clearTimeout(drawTimer);
     drawTimer = setTimeout(redraw, 40);
+  }
+
+  function formatBizField() {
+    var el = bizInput;
+    var old = el.value;
+    var caret = el.selectionStart;
+    var digitsBefore = old.slice(0, caret).replace(/\D/g, "").length;
+    var formatted = formatBizNo(old);
+    if (formatted === old) return;
+    el.value = formatted;
+    var i = 0, seen = 0;
+    while (i < formatted.length && seen < digitsBefore) {
+      if (/\d/.test(formatted.charAt(i))) seen++;
+      i++;
+    }
+    try { el.setSelectionRange(i, i); } catch (e) {}
   }
 
   function safeFilePart(s) {
@@ -553,7 +589,8 @@
     }
     setMsg("이미지를 만들고 있습니다.");
     var out = document.createElement("canvas");
-    render(out, opts.exportSize, opts);
+    var dim = exportDims(opts, opts.exportSize);
+    render(out, dim.w, dim.h, opts);
     var btn = document.getElementById("btnSave");
     btn.disabled = true;
     function finish() { btn.disabled = false; }
@@ -580,9 +617,8 @@
     }, "image/png");
   }
 
-  document.getElementById("storePick").addEventListener("change", function () {
-    var v = this.value;
-    if (v) document.getElementById("storeName").value = v;
+  bizInput.addEventListener("input", function () {
+    formatBizField();
     scheduleDraw();
   });
   ["storeName", "ownerName", "phrase", "sealSize", "texture"].forEach(function (id) {
@@ -590,11 +626,12 @@
     el.addEventListener("input", scheduleDraw);
     el.addEventListener("change", scheduleDraw);
   });
-  document.querySelectorAll('input[name="shape"], input[name="font"]').forEach(function (el) {
+  document.querySelectorAll('input[name="shape"], input[name="font"], input[name="color"]').forEach(function (el) {
     el.addEventListener("change", scheduleDraw);
   });
   sizeInput.addEventListener("input", updateSizeLabel);
   document.getElementById("btnSave").addEventListener("click", savePng);
+  window.addEventListener("resize", scheduleDraw);
 
   updateSizeLabel();
   function start() {
@@ -610,9 +647,12 @@
     options: options,
     render: render,
     redraw: redraw,
-    exportCanvas: function (px) {
+    formatBizNo: formatBizNo,
+    exportCanvas: function (longSide) {
+      var opts = options();
+      var dim = exportDims(opts, longSide || opts.exportSize);
       var c = document.createElement("canvas");
-      render(c, px || options().exportSize, options());
+      render(c, dim.w, dim.h, opts);
       return c;
     }
   };
