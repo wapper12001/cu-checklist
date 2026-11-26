@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v187">
+<meta name="cu-version" content="v188">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v187</h1>
+  <h1>CU 점포 체크리스트 v188</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -1305,7 +1305,11 @@ function slotAlreadyDue(slotMin, range, nowMin) {
 }
 function shiftAnchorDate(now, range) {
   if (!now || !range) return now ? now.date : '';
-  if (range.start > range.end && now.minutes <= range.end + 60) return addDays(now.date, -1);
+  if (range.start > range.end) {
+    const picked = reportDate && reportDate.value;
+    if (picked === now.date || picked === addDays(now.date, -1)) return picked;
+    if (now.minutes <= range.end + 60) return addDays(now.date, -1);
+  }
   return now.date;
 }
 function discardPopupId(id) {
@@ -1320,7 +1324,7 @@ function discardDoneOnList(slot) {
   for (const el of nodes) {
     const id = String(el.dataset.id || '');
     if (id.startsWith('alarm-')) continue;
-    if (!discardTitleMatches(el.dataset.title || '', slot)) continue;
+    if (!discardOwnTitle(el.dataset.title || '', slot)) continue;
     if (el.dataset.reported === '1' || sessionReported[reportKey(id)]) return el.dataset.reportedAt || koreaStamp();
   }
   const saved = progressForCurrent();
@@ -1328,7 +1332,7 @@ function discardDoneOnList(slot) {
   const items = (shift && shift.items) || [];
   for (const it of items) {
     if (String(it.id || '').startsWith('alarm-')) continue;
-    if (!discardTitleMatches(it.title || '', slot)) continue;
+    if (!discardOwnTitle(it.title || '', slot)) continue;
     const sv = saved && saved.items && (saved.items[it.id] || saved.items[String(it.id)]);
     if (sv && (sv.reported || sv.reportedAt)) return sv.reportedAt || koreaStamp();
   }
@@ -1408,8 +1412,9 @@ document.getElementById('discardBody').onclick = e => {
 };
 function ackDiscard(id) {
   const slot = activeSlots().find(s => s.id === id);
+  const when = slot && discardDoneOnList(slot);
+  if (!when) return;
   const anchor = discardAnchor();
-  const when = (slot && discardDoneOnList(slot)) || koreaStamp();
   if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, when);
   const modal = document.getElementById('discardModal');
   if (modal) modal.dataset.ids = '';
@@ -1446,10 +1451,13 @@ function discardAnchor() {
   if (!currentStore || !range) return '';
   return currentStore + '_' + shiftAnchorDate(koreaNow(), range);
 }
-function discardTitleMatches(title, slot) {
+function discardOwnTitle(title, slot) {
   const t = title || '';
-  if (t.includes(slot.token) && t.includes('폐기')) return true;
-  return effectiveHours() === '19' && (slot.also || []).includes(t.trim());
+  return !!(slot && slot.token && t.includes(slot.token) && t.includes('폐기'));
+}
+function discardTitleMatches(title, slot) {
+  if (discardOwnTitle(title, slot)) return true;
+  return effectiveHours() === '19' && (slot.also || []).includes((title || '').trim());
 }
 function discardStamp(slotId) {
   const anchor = discardAnchor();
@@ -1690,7 +1698,7 @@ function shiftStillOpen(saved) {
   if (own && own.sent) return false;
   if (range.start > range.end) {
     if (now.date === saved.date) return true;
-    if (now.date === addDays(saved.date, 1)) return now.minutes <= range.end + 60;
+    if (now.date === addDays(saved.date, 1)) return now.minutes <= 12 * 60;
     return false;
   }
   if (saved.date === addDays(now.date, 1) && range.start <= 6 * 60) return true;
@@ -3317,7 +3325,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v187';
+const APP_VERSION = 'v188';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
