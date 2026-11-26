@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>표준근로계약서</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+  @page { size: A4; margin: 10mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic", sans-serif;
+    background: #eee;
+    margin: 0;
+    color: #111;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .toolbar {
+    text-align: center;
+    padding: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #eee;
+  }
+  .toolbar button {
+    font-size: 15px;
+    padding: 8px 18px;
+    margin: 0 4px 4px;
+    cursor: pointer;
+    border: 1px solid #652f8d;
+    background: #652f8d;
+    color: #fff;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .toolbar button.sub {
+    background: #fff;
+    color: #652f8d;
+  }
+  .toolbar p { font-size: 13px; color: #555; margin: 8px 0 0; }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 20px;
+    background: #fff;
+    padding: 10mm 12mm 12mm;
+    box-shadow: 0 0 8px rgba(0,0,0,.15);
+    position: relative;
+  }
+  h1 {
+    text-align: center;
+    font-size: 26px;
+    letter-spacing: 12px;
+    margin: 0 0 5.5mm;
+    font-weight: 700;
+  }
+  .opening { margin: 0 0 4mm; line-height: 1.85; word-break: keep-all; }
+  input[type="text"], textarea {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #666;
+    outline: none;
+    padding: 1px 4px;
+    vertical-align: baseline;
+  }
+  input[type="text"]:focus, textarea:focus { background: #fffbe6; }
+  textarea.addr {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid #666;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.5;
+    display: block;
+    padding: 2px 4px;
+    min-height: 2.2em;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  textarea.addr:focus { background: #fffbe6; }
+  textarea.ex {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.45;
+    min-height: 1.6em;
+    padding: 2px 4px;
+    margin-top: 1mm;
+  }
+  .uline { min-width: 3.2em; }
+  .uline.wide { width: 36%; min-width: 8em; }
+  .uline.mid { width: 20%; min-width: 5em; }
+  .uline.date { width: 7.8em; text-align: center; }
+  .uline.sm { width: 3.4em; text-align: center; }
+  .uline.time { width: 2.8em; text-align: center; }
+  .uline.amt { width: 7.5em; text-align: right; }
+  .uline.flex { width: auto; min-width: 5em; flex: 1; }
+  input[type="checkbox"], input[type="radio"] {
+    accent-color: #652f8d;
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    margin: 0 3px 0 1px;
+  }
+  label.chk, label.rad { white-space: nowrap; cursor: pointer; margin-right: 6px; }
+  ol.clauses { list-style: none; margin: 0; padding: 0; }
+  ol.clauses > li { margin: 0 0 2mm; }
+  li.flex-item { display: flex; align-items: flex-start; gap: 6px; }
+  li.flex-item .hd { flex: none; white-space: nowrap; padding-top: 1px; }
+  li.flex-item textarea.line { flex: 1; min-width: 0; min-height: 1.5em; }
+  .hd { font-weight: 700; }
+  .indent { margin: 0.4mm 0 0 1.15em; }
+  .note { font-size: 11.5px; color: #222; margin: 0.7mm 0 0 1.15em; line-height: 1.45; }
+  .wage-row { margin: 0.5mm 0; }
+  .allow-line { margin: 0.4mm 0 0 1em; }
+  .allow-line input[type="text"] { min-width: 6em; width: 30%; }
+  .date-line { text-align: center; margin: 5.5mm 0 4.5mm; font-size: 15px; }
+  .parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 7mm;
+    align-items: stretch;
+  }
+  .party { display: flex; flex-direction: column; min-width: 0; }
+  .party h2 { font-size: 14px; margin: 0 0 2mm; font-weight: 700; }
+  .party .row {
+    display: flex;
+    align-items: flex-start;
+    margin: 0 0 1.5mm;
+    gap: 6px;
+  }
+  .party .label {
+    flex: 0 0 6.8em;
+    font-weight: 600;
+    padding-top: 2px;
+  }
+  .party .row input[type="text"],
+  .party .row textarea.addr { flex: 1; width: auto; min-width: 0; }
+  .party textarea.addr { min-height: 2.6em; }
+  .sig-row { margin-top: auto; padding-top: 2.5mm; }
+  .sig-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 2px;
+  }
+  .sig-head .label { flex: none; padding: 0; }
+  button.btn-clear {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 3px 10px;
+    cursor: pointer;
+    border: 1px solid #652f8d;
+    background: #fff;
+    color: #652f8d;
+    border-radius: 6px;
+  }
+  .sig-box {
+    border: 1px dashed #999;
+    background: #fafafa;
+    border-radius: 2px;
+    min-height: 86px;
+  }
+  .sig-box.unsigned-hidden {
+    border-color: transparent;
+    background: transparent;
+  }
+  .sig-box canvas,
+  .sig-box img.sig-print {
+    display: block;
+    width: 100%;
+    height: 86px;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .footer-note {
+    margin-top: 4.5mm;
+    font-size: 10px;
+    color: #666;
+    text-align: center;
+    line-height: 1.45;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  body.capturing {
+    background: #fff !important;
+  }
+  body.capturing .toolbar,
+  body.capturing .btn-clear,
+  body.capturing .no-print { display: none !important; }
+  body.capturing .page {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 10mm 12mm 12mm !important;
+    box-shadow: none !important;
+  }
+  body.capturing .parties { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+  body.capturing .sig-box canvas,
+  body.capturing .sig-box img.sig-print { height: 86px; }
+
+  @media screen and (max-width: 860px) {
+    body { background: #f3f3f3; }
+    .page {
+      width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 16px 14px 40px;
+      box-shadow: none;
+    }
+    h1 { font-size: 22px; letter-spacing: 8px; margin-bottom: 16px; }
+    .parties { grid-template-columns: 1fr; gap: 20px; }
+    .sig-box canvas { height: 120px; }
+    .opening .uline.wide,
+    .opening .uline.mid { width: 70%; max-width: 100%; }
+    .allow-line input[type="text"] { width: 42%; }
+  }
+  @media print {
+    body { background: #fff; font-size: 10.5px; line-height: 1.42; }
+    .toolbar, .btn-clear, .no-print { display: none !important; }
+    .page {
+      box-shadow: none;
+      margin: 0;
+      width: auto;
+      min-height: auto;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    h1 { font-size: 20px; letter-spacing: 10px; margin: 0 0 3.5mm; }
+    input[type="text"]:focus, textarea:focus { background: transparent; }
+    .note { font-size: 9px; }
+    ol.clauses > li { margin-bottom: 1.45mm; }
+    .date-line { margin: 3.8mm 0 3.2mm; font-size: 12.5px; }
+    .sig-box { background: transparent; min-height: 20mm; border: 1px dashed #888; }
+    .sig-box canvas,
+    .sig-box img.sig-print { height: 20mm; }
+    .footer-note { font-size: 7.5px; margin-top: 2mm; word-break: keep-all; }
+    .party h2 { font-size: 11.5px; }
+    .parties { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+  <button type="button" id="btnPrint">출력</button>
+  <button type="button" id="btnImage" class="sub">이미지로 저장</button>
+  <p>빈칸을 입력하고 서명란에 서명하세요. 휴대폰에서는 손가락으로 서명할 수 있습니다. PDF는 출력 창에서 대상을 「PDF로 저장」으로 고르면 됩니다.</p>
+</div>
+
+<div class="page" id="contractPage">
+  <h1>표준근로계약서</h1>
+
+  <p class="opening">
+    <input type="text" class="uline wide" id="employerName" autocomplete="off" aria-label="사업체명">
+    (이하 “사업주”라 함)과(와)
+    <input type="text" class="uline mid" id="workerName" autocomplete="off" aria-label="근로자 성명">
+    (이하 “근로자”라 함)은<br>다음과 같이 근로계약을 체결한다.
+  </p>
+
+  <ol class="clauses">
+    <li>
+      <span class="hd">1. 근로계약기간 :</span>
+      <div class="indent">
+        <div>
+          <label class="rad"><input type="radio" name="termType" id="termNone" value="none">기간의 정함이 없는 경우</label>
+          — 근로개시일 :
+          <input type="text" class="uline date" id="startDateNone" autocomplete="off" aria-label="근로개시일">부터
+        </div>
+        <div style="margin-top:1mm">
+          <label class="rad"><input type="radio" name="termType" id="termFixed" value="fixed">기간의 정함이 있는 경우</label>
+          —
+          <input type="text" class="uline date" id="startDateFixed" autocomplete="off" aria-label="계약 시작일">부터
+          <input type="text" class="uline date" id="endDate" autocomplete="off" aria-label="계약 종료일">까지
+        </div>
+      </div>
+    </li>
+    <li class="flex-item">
+      <span class="hd">2. 근 무 장 소 :</span>
+      <textarea class="addr line" id="workplace" rows="1" aria-label="근무장소"></textarea>
+    </li>
+    <li class="flex-item">
+      <span class="hd">3. 업무의 내용 :</span>
+      <textarea class="addr line" id="duties" rows="1" aria-label="업무의 내용"></textarea>
+    </li>
+    <li>
+      <span class="hd">4. 소정근로시간 :</span>
+      <input type="text" class="uline time" id="workStartH" autocomplete="off" aria-label="근무 시작 시">시
+      <input type="text" class="uline time" id="workStartM" autocomplete="off" aria-label="근무 시작 분">분 ~
+      <input type="text" class="uline time" id="workEndH" autocomplete="off" aria-label="근무 종료 시">시
+      <input type="text" class="uline time" id="workEndM" autocomplete="off" aria-label="근무 종료 분">분
+      (휴게 :
+      <input type="text" class="uline time" id="breakStartH" autocomplete="off" aria-label="휴게 시작 시">시
+      <input type="text" class="uline time" id="breakStartM" autocomplete="off" aria-label="휴게 시작 분">분 ~
+      <input type="text" class="uline time" id="breakEndH" autocomplete="off" aria-label="휴게 종료 시">시
+      <input type="text" class="uline time" id="breakEndM" autocomplete="off" aria-label="휴게 종료 분">분)
+      (1일 <input type="text" class="uline sm" id="hoursDay" autocomplete="off" aria-label="1일 근로시간">시간,
+      1주 <input type="text" class="uline sm" id="hoursWeek" autocomplete="off" aria-label="1주 근로시간">시간)
+    </li>
+    <li>
+      <span class="hd">5. 근무일/휴일 :</span>
+      매주 <input type="text" class="uline sm" id="workDays" autocomplete="off" aria-label="주당 근무일수">일 근무(필요시, 근무요일
+      <input type="text" class="uline" id="workWeekdays" autocomplete="off" aria-label="근무요일" style="width:28%">),
+      주휴일 매주 <input type="text" class="uline sm" id="weeklyHoliday" autocomplete="off" aria-label="주휴일">요일
+      <div class="note">- 공휴일(대체공휴일 포함)은 근로기준법이 정하는 바에 따르며, 근로자의 날은 유급휴일로 함</div>
+    </li>
+    <li>
+      <span class="hd">6. 임 금</span>
+      <div class="indent">
+        <div class="wage-row">
+          - 월(일, 시간)급 :
+          <label class="rad"><input type="radio" name="wageType" id="wageMonth" value="month">월급</label>
+          <label class="rad"><input type="radio" name="wageType" id="wageDay" value="day">일급</label>
+          <label class="rad"><input type="radio" name="wageType" id="wageHour" value="hour">시급</label>
+          <input type="text" class="uline amt" id="wageAmount" autocomplete="off" aria-label="임금 금액">원
+        </div>
+        <div class="wage-row">
+          - 상여금 : 있음 (<input type="text" class="uline amt" id="bonusAmount" autocomplete="off" aria-label="상여금 금액">) 원,
+          없음 (<label class="chk" style="margin:0"><input type="checkbox" id="bonusNone">)</label>
+        </div>
+        <div class="wage-row">
+          - 그 밖의 수당(약정수당) :
+          있음 <label class="chk"><input type="checkbox" id="allowYes"></label>
+          없음 <label class="chk"><input type="checkbox" id="allowNone"></label>
+          <div class="allow-line">· <input type="text" id="allow1" autocomplete="off" aria-label="수당 1"> 원,
+            <input type="text" id="allow2" autocomplete="off" aria-label="수당 2"> 원</div>
+          <div class="allow-line">· <input type="text" id="allow3" autocomplete="off" aria-label="수당 3"> 원,
+            <input type="text" id="allow4" autocomplete="off" aria-label="수당 4"> 원</div>
+        </div>
+        <div class="wage-row">
+          - 임금지급일 :
+          <label class="rad"><input type="radio" name="payCycle" id="payMonth" value="month">매월</label>
+          <label class="rad"><input type="radio" name="payCycle" id="payWeek" value="week">매주</label>
+          <label class="rad"><input type="radio" name="payCycle" id="payDay" value="day">매일</label>
+          <input type="text" class="uline sm" id="payDate" autocomplete="off" aria-label="임금지급일">일(휴일의 경우는 전날 지급)
+        </div>
+        <div class="wage-row">
+          - 지급방법 : 근로자에게 직접(현금)지급 <label class="chk"><input type="radio" name="payMethod" id="payCash" value="cash"></label>
+          근로자 명의 계좌에 입금 <label class="chk"><input type="radio" name="payMethod" id="payAccount" value="account"></label>
+        </div>
+      </div>
+    </li>
+    <li>
+      <span class="hd">7. 연차유급휴가</span>
+      <div class="indent">- 연차유급휴가는 근로기준법에서 정하는 바에 따라 부여함</div>
+    </li>
+    <li>
+      <span class="hd">8. 사회보험 적용여부</span>
+      <div class="indent">- 4대 사회보험(고용보험, 산재보험, 국민연금, 건강보험) 적용(가입)을 원칙으로 함</div>
+      <div class="indent" style="margin-top:0.8mm">
+        <label class="chk"><input type="checkbox" id="insEmp">고용보험</label>
+        <label class="chk"><input type="checkbox" id="insAccident">산재보험</label>
+        <label class="chk"><input type="checkbox" id="insPension">국민연금</label>
+        <label class="chk"><input type="checkbox" id="insHealth">건강보험</label>
+      </div>
+      <div class="note">※ (참고) 적용(가입) 예외에 해당하는 경우에는 예외 사항 및 사유를 기재 (예외 사유 해당 여부는 근로복지공단, 국민연금공단, 국민건강보험공단 누리집 참조)</div>
+      <div class="indent"><textarea class="ex addr" id="insException" rows="1" aria-label="사회보험 예외 사항 및 사유"></textarea></div>
+    </li>
+    <li>
+      <span class="hd">9. 근로계약서 교부</span>
+      <div class="indent">- 사업주는 근로계약을 체결함과 동시에 본 계약서를 사본하여 근로자의 교부 요구와 관계없이 근로자에게 교부함(근로기준법 제17조 이행)</div>
+    </li>
+    <li>
+      <span class="hd">10. 근로계약, 취업규칙 등의 성실한 이행의무</span>
+      <div class="indent">- 사업주와 근로자는 각자가 근로계약, 취업규칙, 단체협약을 지키고 성실하게 이행하여야 함</div>
+    </li>
+    <li>
+      <span class="hd">11. 그 밖의 사항</span>
+      <div class="indent">- 이 계약에 정함이 없는 사항은 근로관계법령에 따름</div>
+    </li>
+  </ol>
+
+  <p class="date-line">
+    <input type="text" class="uline sm" id="issueYear" autocomplete="off" aria-label="작성 연도">년
+    <input type="text" class="uline sm" id="issueMonth" autocomplete="off" aria-label="작성 월">월
+    <input type="text" class="uline sm" id="issueDay" autocomplete="off" aria-label="작성 일">일
+  </p>
+
+  <div class="parties">
+    <div class="party" id="partyEmployer">
+      <h2>(사업주)</h2>
+      <div class="row">
+        <span class="label">사업체명</span>
+        <input type="text" id="employerNameSig" autocomplete="off" aria-label="사업체명">
+      </div>
+      <div class="row">
+        <span class="label">대 표 자</span>
+        <input type="text" id="employerCeo" autocomplete="off" aria-label="대표자">
+      </div>
+      <div class="row">
+        <span class="label">사업자등록번호</span>
+        <input type="text" id="employerBizNo" autocomplete="off" aria-label="사업자등록번호">
+      </div>
+      <div class="row">
+        <span class="label">주 소</span>
+        <textarea class="addr" id="employerAddr" rows="2" aria-label="사업주 주소"></textarea>
+      </div>
+      <div class="row">
+        <span class="label">연 락 처</span>
+        <input type="text" id="employerPhone" autocomplete="off" aria-label="사업주 연락처">
+      </div>
+      <div class="sig-row">
+        <div class="sig-head">
+          <span class="label">서 명</span>
+          <button type="button" class="btn-clear no-print" data-clear="sigEmployer">지우기</button>
+        </div>
+        <div class="sig-box" id="boxEmployer">
+          <canvas id="sigEmployer" aria-label="사업주 서명란"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="party" id="partyWorker">
+      <h2>(근로자)</h2>
+      <div class="row">
+        <span class="label">성 명</span>
+        <input type="text" id="workerNameSig" autocomplete="off" aria-label="근로자 성명">
+      </div>
+      <div class="row">
+        <span class="label">생년월일</span>
+        <input type="text" id="workerBirth" autocomplete="off" aria-label="생년월일">
+      </div>
+      <div class="row">
+        <span class="label">주 소</span>
+        <textarea class="addr" id="workerAddr" rows="2" aria-label="근로자 주소"></textarea>
+      </div>
+      <div class="row">
+        <span class="label">연 락 처</span>
+        <input type="text" id="workerPhone" autocomplete="off" aria-label="근로자 연락처">
+      </div>
+      <div class="sig-row">
+        <div class="sig-head">
+          <span class="label">서 명</span>
+          <button type="button" class="btn-clear no-print" data-clear="sigWorker">지우기</button>
+        </div>
+        <div class="sig-box" id="boxWorker">
+          <canvas id="sigWorker" aria-label="근로자 서명란"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">본 서식은 고용노동부 「개정 표준근로계약서(2025년, 배포)」의 표준 문구를 바탕으로 작성하였습니다. 사업자등록번호·생년월일은 당사자 확인을 위해 추가한 항목입니다.</div>
+</div>
+
+<script>
+(function () {
+  function fitTextarea(t) {
+    var cs = window.getComputedStyle(t);
+    var line = parseFloat(cs.lineHeight);
+    if (!line || isNaN(line)) line = 18;
+    var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    var minLines = (t.classList.contains("ex") || t.classList.contains("line")) ? 1 : 2;
+    var minH = line * minLines + pad;
+    t.style.height = "auto";
+    t.style.height = Math.max(minH, t.scrollHeight) + "px";
+  }
+  document.querySelectorAll("textarea.addr, textarea.ex").forEach(function (t) {
+    t.addEventListener("input", function () { fitTextarea(t); });
+    fitTextarea(t);
+  });
+
+  function bindSync(a, b) {
+    function copy(from, to) {
+      if (to.value !== from.value) to.value = from.value;
+    }
+    a.addEventListener("input", function () { copy(a, b); });
+    b.addEventListener("input", function () { copy(b, a); });
+  }
+  bindSync(document.getElementById("employerName"), document.getElementById("employerNameSig"));
+  bindSync(document.getElementById("workerName"), document.getElementById("workerNameSig"));
+
+  document.getElementById("bonusNone").addEventListener("change", function () {
+    if (this.checked) document.getElementById("bonusAmount").value = "";
+  });
+  document.getElementById("bonusAmount").addEventListener("input", function () {
+    if (this.value.trim()) document.getElementById("bonusNone").checked = false;
+  });
+  document.getElementById("allowNone").addEventListener("change", function () {
+    if (this.checked) document.getElementById("allowYes").checked = false;
+  });
+  document.getElementById("allowYes").addEventListener("change", function () {
+    if (this.checked) document.getElementById("allowNone").checked = false;
+  });
+
+  var pads = {};
+  function setupPad(canvas) {
+    var ctx = canvas.getContext("2d");
+    var drawing = false;
+    var last = null;
+    var signed = false;
+    var box = canvas.parentElement;
+
+    function cssSize() {
+      return { w: canvas.clientWidth, h: canvas.clientHeight };
+    }
+    function resize(keep) {
+      return new Promise(function (resolve) {
+        var prev = keep && (signed || canvas.dataset.signed === "1") ? canvas.toDataURL() : null;
+        var dpr = window.devicePixelRatio || 1;
+        var s = cssSize();
+        if (!s.w || !s.h) { resolve(); return; }
+        canvas.width = Math.round(s.w * dpr);
+        canvas.height = Math.round(s.h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111";
+        if (prev) {
+          var img = new Image();
+          img.onload = function () { ctx.drawImage(img, 0, 0, s.w, s.h); resolve(); };
+          img.onerror = function () { resolve(); };
+          img.src = prev;
+        } else {
+          resolve();
+        }
+      });
+    }
+    function pos(e) {
+      var r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    canvas.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      drawing = true;
+      last = pos(e);
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!drawing) return;
+      e.preventDefault();
+      var p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+      signed = true;
+      canvas.dataset.signed = "1";
+    });
+    function endDraw() { drawing = false; last = null; }
+    canvas.addEventListener("pointerup", endDraw);
+    canvas.addEventListener("pointercancel", endDraw);
+    canvas.addEventListener("pointerleave", function (e) {
+      if (drawing && e.pointerType === "mouse") endDraw();
+    });
+
+    function hasInk() {
+      try {
+        var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        for (var i = 3; i < data.length; i += 16) {
+          if (data[i] > 8) return true;
+        }
+      } catch (err) {}
+      return false;
+    }
+    var state = {
+      canvas: canvas,
+      box: box,
+      isSigned: function () {
+        if (signed || canvas.dataset.signed === "1") return true;
+        if (hasInk()) { signed = true; canvas.dataset.signed = "1"; return true; }
+        return false;
+      },
+      clear: function () {
+        var s = cssSize();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var dpr = window.devicePixelRatio || 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111";
+        signed = false;
+        canvas.dataset.signed = "";
+      },
+      resize: resize
+    };
+    pads[canvas.id] = state;
+    resize(false);
+    return state;
+  }
+
+  setupPad(document.getElementById("sigEmployer"));
+  setupPad(document.getElementById("sigWorker"));
+  document.querySelectorAll(".btn-clear").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var p = pads[btn.getAttribute("data-clear")];
+      if (p) p.clear();
+    });
+  });
+  var resizeTimer;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      Object.keys(pads).forEach(function (id) { pads[id].resize(true); });
+    }, 150);
+  });
+
+  function swapFields(root, on) {
+    if (!on) {
+      root.querySelectorAll(".field-swap").forEach(function (s) { s.remove(); });
+      root.querySelectorAll(".js-hidden-field").forEach(function (el) {
+        el.classList.remove("js-hidden-field");
+        el.style.display = el.dataset.prevDisplay || "";
+        delete el.dataset.prevDisplay;
+      });
+      return;
+    }
+    root.querySelectorAll("input, textarea, select").forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      var span = document.createElement("span");
+      span.className = "field-swap";
+      var cs = window.getComputedStyle(el);
+      if (type === "checkbox" || type === "radio") {
+        span.textContent = el.checked ? (type === "radio" ? "●" : "☑") : (type === "radio" ? "○" : "☐");
+        span.style.cssText = "display:inline; font-size:1.05em; line-height:1;";
+      } else {
+        span.textContent = el.value || "";
+        span.style.whiteSpace = (el.tagName === "TEXTAREA") ? "pre-wrap" : "nowrap";
+        span.style.display = (el.tagName === "TEXTAREA") ? "block" : "inline-block";
+        span.style.boxSizing = "border-box";
+        span.style.borderBottom = "1px solid #666";
+        span.style.padding = cs.padding;
+        span.style.verticalAlign = "baseline";
+        span.style.wordBreak = "keep-all"; span.style.overflowWrap = "break-word";
+        span.style.font = cs.font;
+        if (el.tagName === "TEXTAREA") {
+          span.style.whiteSpace = "pre-wrap";
+          span.style.width = "100%";
+          span.style.minHeight = el.offsetHeight + "px";
+          span.style.lineHeight = cs.lineHeight;
+        } else {
+          span.style.width = cs.width;
+          span.style.maxWidth = cs.width;
+          span.style.overflow = "hidden";
+        }
+      }
+      el.dataset.prevDisplay = el.style.display;
+      el.style.display = "none";
+      el.classList.add("js-hidden-field");
+      el.parentNode.insertBefore(span, el);
+    });
+  }
+
+  function setUnsignedBorders(hide) {
+    Object.keys(pads).forEach(function (id) {
+      var p = pads[id];
+      if (hide && !p.isSigned()) p.box.classList.add("unsigned-hidden");
+      else p.box.classList.remove("unsigned-hidden");
+    });
+  }
+
+  function preparePrintImages(on) {
+    Object.keys(pads).forEach(function (id) {
+      var p = pads[id];
+      var canvas = p.canvas;
+      var existing = p.box.querySelector("img.sig-print");
+      if (existing) existing.remove();
+      if (!on) {
+        canvas.style.display = "";
+        return;
+      }
+      if (p.isSigned()) {
+        var img = document.createElement("img");
+        img.className = "sig-print";
+        img.src = canvas.toDataURL("image/png");
+        img.alt = "";
+        canvas.style.display = "none";
+        p.box.appendChild(img);
+      } else {
+        canvas.style.display = "none";
+      }
+    });
+  }
+
+  document.getElementById("btnPrint").addEventListener("click", function () {
+    window.print();
+  });
+  window.addEventListener("beforeprint", function () {
+    document.querySelectorAll("textarea").forEach(fitTextarea);
+    preparePrintImages(true);
+    setUnsignedBorders(false);
+  });
+  window.addEventListener("afterprint", function () {
+    preparePrintImages(false);
+    setUnsignedBorders(false);
+  });
+
+  function safeName(s) {
+    return String(s || "").trim().replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ") || "미기재";
+  }
+  function fileDate() {
+    var y = document.getElementById("issueYear").value.trim();
+    var m = document.getElementById("issueMonth").value.trim().padStart(2, "0");
+    var d = document.getElementById("issueDay").value.trim().padStart(2, "0");
+    if (y && m && d && m !== "00" && d !== "00") return y + m + d;
+    var now = new Date();
+    var mm = String(now.getMonth() + 1).padStart(2, "0");
+    var dd = String(now.getDate()).padStart(2, "0");
+    return now.getFullYear() + mm + dd;
+  }
+
+  function captureContract() {
+    if (typeof html2canvas !== "function") {
+      return Promise.reject(new Error("이미지 저장 기능을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요."));
+    }
+    var page = document.getElementById("contractPage");
+    document.body.classList.add("capturing");
+    void page.offsetWidth;
+    document.querySelectorAll("textarea").forEach(fitTextarea);
+    function cleanup() {
+      swapFields(page, false);
+      preparePrintImages(false);
+      setUnsignedBorders(false);
+      document.body.classList.remove("capturing");
+    }
+    return Promise.all(Object.keys(pads).map(function (id) { return pads[id].resize(true); })).then(function () {
+      swapFields(page, true);
+      preparePrintImages(true);
+      setUnsignedBorders(true);
+      return html2canvas(page, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: Math.max(900, page.scrollWidth + 48)
+      });
+    }).then(function (canvas) {
+      cleanup();
+      return canvas;
+    }, function (err) {
+      cleanup();
+      throw err;
+    });
+  }
+
+  document.getElementById("btnImage").addEventListener("click", function () {
+    var btn = document.getElementById("btnImage");
+    btn.disabled = true;
+    captureContract().then(function (canvas) {
+      var a = document.createElement("a");
+      var name = safeName(document.getElementById("workerName").value || document.getElementById("workerNameSig").value);
+      a.download = "근로계약서_" + name + "_" + fileDate() + ".png";
+      a.href = canvas.toDataURL("image/png");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }).catch(function (err) {
+      alert(err.message || "이미지 저장에 실패했습니다.");
+    }).then(function () {
+      btn.disabled = false;
+    });
+  });
+
+  window.__contractCapture = captureContract;
+})();
+</script>
+</body>
+</html>
