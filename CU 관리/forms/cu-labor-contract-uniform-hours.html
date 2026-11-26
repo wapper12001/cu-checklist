@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>표준 근로계약서</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+  @page { size: A4; margin: 8mm 9mm 7mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic", sans-serif;
+    background: #eee;
+    margin: 0;
+    color: #111;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .toolbar {
+    text-align: center;
+    padding: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #eee;
+  }
+  .toolbar button {
+    font-size: 15px;
+    padding: 8px 18px;
+    margin: 0 4px 4px;
+    cursor: pointer;
+    border: 1px solid #652f8d;
+    background: #652f8d;
+    color: #fff;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .toolbar button.sub { background: #fff; color: #652f8d; }
+  .toolbar p { font-size: 13px; color: #555; margin: 8px 0 0; }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 20px;
+    background: #fff;
+    padding: 10mm 10mm 8mm;
+    box-shadow: 0 0 8px rgba(0,0,0,.15);
+  }
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0;
+    margin: 0 0 5mm;
+    text-decoration: underline;
+    text-underline-offset: 5px;
+  }
+  .sec { font-size: 13px; font-weight: 700; margin: 2.5mm 0 1mm; }
+  table.doc { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.doc > tbody > tr > th.side,
+  table.doc > tbody > tr > td,
+  table.doc > tbody > tr > th {
+    border: 1px solid #000;
+    vertical-align: middle;
+  }
+  th.side {
+    width: 17mm;
+    font-weight: 700;
+    text-align: center;
+    padding: 2px 2px;
+    line-height: 1.25;
+  }
+  td.nested { padding: 0; vertical-align: stretch; }
+  table.in { width: 100%; border-collapse: collapse; table-layout: fixed; height: 100%; }
+  table.in th, table.in td {
+    border: 1px solid #000;
+    border-top: none;
+    border-bottom: none;
+    padding: 2px 4px;
+    vertical-align: middle;
+    font-weight: 400;
+  }
+  table.in th { font-weight: 700; text-align: center; }
+  table.in tr > *:first-child { border-left: none; }
+  table.in tr > *:last-child { border-right: none; }
+  table.in tr + tr > * { border-top: 1px solid #000; }
+  table.in .lbl { font-weight: 700; text-align: center; }
+  input[type="text"], textarea {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0 2px;
+    vertical-align: baseline;
+  }
+  input[type="text"]:focus, textarea:focus { background: #fffbe6; }
+  input.cell, textarea.cell { width: 100%; }
+  textarea.addr, textarea.cell {
+    width: 100%;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.4;
+    display: block;
+    min-height: 1.4em;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .uline { border-bottom: 1px solid #111; min-width: 1.8em; }
+  .sm { width: 2.2em; text-align: center; }
+  .xs { width: 1.7em; text-align: center; }
+  .md { width: 4.2em; text-align: center; }
+  .amt { width: 6em; text-align: right; }
+  .store { width: 42%; min-width: 5em; text-align: center; }
+  .notes { font-size: 10.5px; line-height: 1.4; padding: 3px 5px !important; text-align: left; }
+  .notes .b { font-weight: 700; }
+  .tiny { font-size: 10.5px; line-height: 1.35; }
+  .clause { font-size: 11px; line-height: 1.42; padding: 2px 5px 2px 6px !important; text-align: left; vertical-align: top; }
+  .clause p { margin: 0 0 0.4mm; }
+  .clause .b { font-weight: 700; }
+  .sig-inline { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; }
+  .sig-box {
+    border: 1px dashed #888;
+    background: #fafafa;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 0;
+    min-width: 88px;
+    min-height: 28px;
+  }
+  .sig-box canvas, .sig-box img.sig-print {
+    display: block;
+    width: 88px;
+    height: 28px;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .sig-box.bottom { min-width: 120px; min-height: 36px; }
+  .sig-box.bottom canvas, .sig-box.bottom img.sig-print {
+    width: 120px;
+    height: 36px;
+  }
+  .sig-box.unsigned-hidden { border-color: transparent; background: transparent; }
+  button.btn-clear {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 1px 6px;
+    cursor: pointer;
+    border: 1px solid #652f8d;
+    background: #fff;
+    color: #652f8d;
+    border-radius: 4px;
+    line-height: 1.3;
+  }
+  .vchk { display: inline-flex; align-items: center; cursor: pointer; user-select: none; }
+  .vchk input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  .vchk span::before { content: "( )"; }
+  .vchk input:checked + span::before { content: "(V)"; font-weight: 700; }
+  .days { text-align: center; font-size: 11px; padding: 2px 1px !important; }
+  .time-cell { text-align: center; padding: 2px 4px !important; }
+  .tstack { display: inline-block; text-align: center; line-height: 1.55; }
+  .tstack .row { white-space: nowrap; }
+  .close { margin-top: 3mm; }
+  .close-msg { text-align: center; margin: 0 0 3mm; font-size: 12px; }
+  .close-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4mm 0 18mm;
+  }
+  .date-line { font-size: 13px; padding-bottom: 2mm; }
+  th.side .uline { min-width: 1.8em; }
+  .signers { font-size: 13px; }
+  .signers .row { display: flex; align-items: center; gap: 4px; margin: 1mm 0 0; }
+  .signers .who { width: 3.4em; }
+
+  @media screen and (max-width: 860px) {
+    body { background: #f3f3f3; }
+    .page { width: 100%; min-height: 0; margin: 0; padding: 14px 8px 28px; box-shadow: none; overflow-x: auto; }
+    h1 { font-size: 20px; }
+    .sig-box canvas { height: 44px; }
+    .sig-box.bottom canvas { width: 140px; height: 56px; }
+  }
+  body.capturing { background: #fff !important; }
+  body.capturing .toolbar, body.capturing .btn-clear, body.capturing .no-print { display: none !important; }
+  body.capturing .page {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 10mm 10mm 8mm !important;
+    box-shadow: none !important;
+  }
+
+  @media print {
+    body { background: #fff; font-size: 10px; line-height: 1.3; }
+    .toolbar, .btn-clear, .no-print { display: none !important; }
+    .page {
+      box-shadow: none; margin: 0; width: auto; min-height: auto; padding: 0;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    h1 { font-size: 18px; margin: 0 0 3.5mm; text-underline-offset: 3px; letter-spacing: 0; }
+    .sec { font-size: 11px; margin: 2mm 0 0.8mm; }
+    th.side { width: 16mm; padding: 1px 1px; }
+    table.in th, table.in td { padding: 2px 3px; }
+    .notes { font-size: 8.2px; line-height: 1.35; padding: 2px 4px !important; }
+    .tiny { font-size: 8px; }
+    .clause { font-size: 9px; line-height: 1.36; padding: 2px 4px !important; }
+    .days { font-size: 8.5px; }
+    .close { margin-top: 2.5mm; }
+    .close-msg { font-size: 10px; margin-bottom: 2.5mm; }
+    .date-line, .signers { font-size: 11px; }
+    .sig-box {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #333;
+      min-width: 24mm;
+      min-height: 8mm;
+    }
+    .sig-box.bottom { min-width: 32mm; min-height: 10mm; }
+    .sig-box canvas, .sig-box img.sig-print { width: 24mm; height: 8mm; }
+    .sig-box.bottom canvas, .sig-box.bottom img.sig-print { width: 32mm; height: 10mm; }
+    .xs { width: 1.8em; }
+    .sm { width: 2.4em; }
+    input[type="text"]:focus, textarea:focus { background: transparent; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+  <button type="button" id="btnPrint">출력</button>
+  <button type="button" id="btnImage" class="sub">이미지로 저장</button>
+  <p>빈칸을 입력하고 서명란에 서명하세요. 휴대폰에서는 손가락으로 서명할 수 있습니다. PDF는 출력 창에서 대상을 「PDF로 저장」으로 고르면 됩니다.</p>
+</div>
+<div class="page" id="contractPage">
+  <h1>표준 근로계약서</h1>
+  <div class="sec">1. 양당사자</div>
+  <table class="doc">
+    <colgroup><col style="width:16.5mm"><col></colgroup>
+    <tr>
+      <th class="side" rowspan="2">사용자</th>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:16%"><col style="width:48%"><col style="width:10%"><col style="width:26%"></colgroup>
+          <tr>
+            <th>사업체명</th>
+            <td style="text-align:center">CU <input type="text" class="uline store" id="storeName" autocomplete="off" aria-label="점포명"> 점</td>
+            <th>점주</th>
+            <td><input type="text" class="cell" id="ownerName" autocomplete="off" aria-label="점주"></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:16%"><col style="width:84%"></colgroup>
+          <tr>
+            <th>소재지</th>
+            <td><textarea class="addr cell" id="ownerAddr" rows="1" aria-label="소재지"></textarea></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <th class="side" rowspan="2">근로자</th>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:16%"><col style="width:38%"><col style="width:16%"><col style="width:30%"></colgroup>
+          <tr>
+            <th>성명</th>
+            <td><input type="text" class="cell" id="workerName" autocomplete="off" aria-label="근로자 성명"></td>
+            <th>생년월일</th>
+            <td><input type="text" class="cell" id="workerBirth" autocomplete="off" aria-label="생년월일"></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:16%"><col style="width:84%"></colgroup>
+          <tr>
+            <th>주소</th>
+            <td><textarea class="addr cell" id="workerAddr" rows="1" aria-label="근로자 주소"></textarea></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div class="sec">2. 근로조건</div>
+  <table class="doc">
+    <colgroup><col style="width:16.5mm"><col></colgroup>
+    <tr>
+      <th class="side">계약기간</th>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:22%"><col style="width:22%"><col style="width:56%"></colgroup>
+          <tr>
+            <th>시작일</th>
+            <th>종료일</th>
+            <td class="notes" rowspan="2">
+              <span class="b">※ 근로계약기간을 정하지 않는 경우에는 “근로개시일”만 기재</span><br>
+              ※ 계약기간 만료시 근로계약은 자동 종료된다.<br>
+              (단, 계약기간의 연장 및 갱신 필요시 별도의 근로계약을 작성함)
+            </td>
+          </tr>
+          <tr>
+            <td><input type="text" class="cell" id="startDate" autocomplete="off" aria-label="시작일"></td>
+            <td><input type="text" class="cell" id="endDate" autocomplete="off" aria-label="종료일"></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <th class="side">근무장소</th>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:36%"><col style="width:14%"><col style="width:50%"></colgroup>
+          <tr>
+            <td style="text-align:center">CU <input type="text" class="uline store" id="storePlace" autocomplete="off" aria-label="근무장소 점포명"> 점</td>
+            <th>업무내용</th>
+            <td>상품판매, 매장관리 및 관련 부대 업무</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <th class="side">근로시간<br>(주 <input type="text" class="uline xs" id="weekHours" autocomplete="off" aria-label="주 근로시간"> 시간)</th>
+      <td class="nested">
+        <table class="in hours-uni">
+          <colgroup>
+            <col style="width:11%"><col style="width:12.7%"><col style="width:12.7%"><col style="width:12.7%"><col style="width:12.7%"><col style="width:12.7%"><col style="width:12.7%"><col style="width:12.8%">
+          </colgroup>
+          <tr>
+            <th>근무요일</th>
+            <td class="days">월요일 <label class="vchk"><input type="checkbox" id="dMon"><span></span></label></td>
+            <td class="days">화요일 <label class="vchk"><input type="checkbox" id="dTue"><span></span></label></td>
+            <td class="days">수요일 <label class="vchk"><input type="checkbox" id="dWed"><span></span></label></td>
+            <td class="days">목요일 <label class="vchk"><input type="checkbox" id="dThu"><span></span></label></td>
+            <td class="days">금요일 <label class="vchk"><input type="checkbox" id="dFri"><span></span></label></td>
+            <td class="days">토요일 <label class="vchk"><input type="checkbox" id="dSat"><span></span></label></td>
+            <td class="days">일요일 <label class="vchk"><input type="checkbox" id="dSun"><span></span></label></td>
+          </tr>
+          <tr>
+            <th>근로시간</th>
+            <td class="time-cell" colspan="3"><div class="tstack"><div class="row"><input type="text" class="uline xs" id="workSh" autocomplete="off" aria-label="시작 시">:<input type="text" class="uline xs" id="workSm" autocomplete="off" aria-label="시작 분"> ~</div><div class="row"><input type="text" class="uline xs" id="workEh" autocomplete="off" aria-label="종료 시">:<input type="text" class="uline xs" id="workEm" autocomplete="off" aria-label="종료 분"></div></div></td>
+            <th>휴게시간</th>
+            <td class="time-cell" colspan="3"><div class="tstack"><div class="row"><input type="text" class="uline xs" id="breakSh" autocomplete="off" aria-label="시작 시">:<input type="text" class="uline xs" id="breakSm" autocomplete="off" aria-label="시작 분"> ~</div><div class="row"><input type="text" class="uline xs" id="breakEh" autocomplete="off" aria-label="종료 시">:<input type="text" class="uline xs" id="breakEm" autocomplete="off" aria-label="종료 분"></div></div></td>
+          </tr>
+          <tr>
+            <td colspan="8" class="tiny" style="text-align:left;padding:2px 5px !important">※ 휴게시간은 실근무시간에 미포함되며, 근로 및 휴게시간, 주휴일은 사업장 사정에 따라 변경 운영할 수 있음</td>
+          </tr>
+        </table>
+</td>
+    </tr>
+    <tr>
+      <th class="side">임 금</th>
+      <td class="nested">
+        <table class="in">
+          <colgroup><col style="width:16%"><col style="width:28%"><col style="width:56%"></colgroup>
+          <tr>
+            <th>계산방법</th>
+            <td colspan="2" style="text-align:center">시급 <input type="text" class="uline amt" id="hourlyPay" autocomplete="off" aria-label="시급"> 원</td>
+          </tr>
+          <tr>
+            <th>정산방법</th>
+            <th>정산기간</th>
+            <th>지급일</th>
+          </tr>
+          <tr>
+            <td class="lbl">매월 <label class="vchk"><input type="checkbox" id="payMonth"><span></span></label></td>
+            <td style="text-align:center"><input type="text" class="uline sm" id="monthFrom" autocomplete="off" aria-label="정산 시작일"> 일~ <input type="text" class="uline sm" id="monthTo" autocomplete="off" aria-label="정산 종료일"> 일</td>
+            <td>매월 <input type="text" class="uline sm" id="monthPayDay" autocomplete="off" aria-label="지급일"> 일까지(휴일의 경우 전일 지급, 근로자 명의 계좌 입금)</td>
+          </tr>
+          <tr>
+            <td class="lbl">매주 <label class="vchk"><input type="checkbox" id="payWeek"><span></span></label></td>
+            <td style="text-align:center"><input type="text" class="uline sm" id="weekFrom" autocomplete="off" aria-label="정산 시작 요일"> 요일 ~ <input type="text" class="uline sm" id="weekTo" autocomplete="off" aria-label="정산 종료 요일"> 요일</td>
+            <td>매주 <input type="text" class="uline sm" id="weekPayDay" autocomplete="off" aria-label="지급 요일"> 요일까지(휴일의 경우 전일 지급, 근로자 명의 계좌 입금)</td>
+          </tr>
+          <tr>
+            <td class="lbl">기타 <label class="vchk"><input type="checkbox" id="payOther"><span></span></label></td>
+            <td><input type="text" class="cell uline" id="otherPeriod" autocomplete="off" aria-label="기타 정산기간"></td>
+            <td><input type="text" class="cell uline" id="otherPay" autocomplete="off" aria-label="기타 지급일"></td>
+          </tr>
+        </table>
+</td>
+    </tr>
+    
+      <tr>
+        <th class="side">법정수당</th>
+        <td class="clause">
+          <p>1) 연장수당 : 연장근로시 통상시급의 50% 가산 지급함</p>
+          <p>2) 야간수당 : 22:00 ~ 06:00 근무시 통상시급의 50% 가산 지급함</p>
+          <p>3) 휴일수당 : 법정휴일에 근무시 통상시급의 50% 가산 지급함</p>
+          <p class="tiny">※ 연장/야간/휴일근로수당은 근로기준법 등 관계 법령이 정하는 바에 따르며, 상시근로자 5인 이상 사업장에 적용</p>
+          <p class="tiny">※ 근로자는 사업장 운영상 필요에 따라 실시하는 연장•야간•휴일 근로에 동의함 <span class="sig-inline"><span class="sig-box"><canvas class="sig" id="sigOt" aria-label="서명란"></canvas></span><button type="button" class="btn-clear no-print" data-clear="sigOt">지우기</button></span> (서명/인)</p>
+        </td>
+      </tr>
+      <tr>
+        <th class="side">유급휴일/<br>유급휴가</th>
+        <td class="clause">
+          <p>1) 유급휴일은 주휴일(매주 <input type="text" class="uline sm" id="weeklyHoliday" autocomplete="off" aria-label="주휴일">요일), 노동절(5월 1일), 관계 법령에 따라 부여되는 휴일로 함</p>
+          <p>2) 연차유급휴가는 근로기준법에서 정하는 바에 따라 부여한다.</p>
+          <p class="tiny">※ 관공서 공휴일 및 대체공휴일, 연차유급휴가는 상시근로자 5인 이상 사업장에 적용됨.</p>
+        </td>
+      </tr>
+      <tr>
+        <th class="side">퇴직금</th>
+        <td class="clause">근로자의 퇴직시 계속근로 1년에 대하여 30일분의 평균임금을 퇴직금으로 지급함</td>
+      </tr>
+      <tr>
+        <th class="side">적용제외</th>
+        <td class="clause">
+          <p>1) 상시근로자 5인 미만의 사업장에 대해서는 상기의 연장․야간․휴일근로에 대한 가산수당과<br>연차유급휴가 제도의 적용이 제외됨</p>
+          <p>2) 4주 동안을 평균하여 1주 기준 15시간 미만의 소정근로시간을 정한 초단시간 근로자에게는<br>주휴일과 연차유급휴가, 퇴직금 제도의 적용이 제외됨</p>
+        </td>
+      </tr>
+      <tr>
+        <th class="side">법정보험</th>
+        <td class="clause">사회보험 관련법에 따라 근로자에게 고용보험, 산재보험, 국민연금, 건강보험을 적용함</td>
+      </tr>
+      <tr>
+        <th class="side">계약상<br>주의사항</th>
+        <td class="clause">
+          <p>1) 입사일로부터 최초 3개월(단, 근로계약기간이 3개월 미만인 경우에는 그 기간)은<br>수습기간으로 적용하며, 수습기간 동안에는 시급의 90%를 지급할 수 있음<br><span class="b">(※ 단, 근로계약기간이 1년 미만인 경우에는 수습기간 동안 시급 100% 지급함)</span></p>
+          <p>2) 상기 수습기간 중 근무태도, 능력, 자질, 성실성, 건강상태 등이 불량하여 계속근로가<br>부적격하다고 판단 될 경우 근로계약을 해지할 수 있음</p>
+          <p>3) 연소자(만18세 미만) 및 임산부는 야간시간(22:00 ~ 06:00) 및 휴일에 근무하지 못함</p>
+          <p>4) 연소자(만18세 미만) 근로자는 가족관계기록증명서와 친권자 또는 후견인의 동의서를<br>제출해야 하며, 만15세 미만인 자(중학교에 재학중인 만18세 미만인 자 포함)을 채용시에는<br>고용노동부장관으로부터 취직인허증을 교부받아야 함</p>
+          <p class="tiny b">※ 근로자는 사용자가 CU가맹점사업자로 근무장소가 CU가맹본부의 가맹점사업장이며, 이에 따라 근로자의 사회법규에 반하는 행위가 가맹점사업자로서의 사용자 및 CU가맹본부의 명성과 통일성을 훼손할 수 있음을 충분히 고지받고 이해하였음을 확인하고, 이에 따른 손해배상 책임을 부담할 수 있음을 동의함</p>
+        </td>
+      </tr>
+
+    <tr>
+      <th class="side">기타</th>
+      <td class="clause">
+        <p>1) 본 계약에 정함이 없는 사항은 근로기준법 및 관계 법령에 따름</p>
+        <p>2) 상기 계약정보사항은 근로계약관계 유지 외에 어떠한 용도로 사용되지 않을 것이며,<br>
+        근로자는 사용자가 본인의 개인정보를 수집 및 이용함에 동의함 <span class="sig-inline"><span class="sig-box"><canvas class="sig" id="sigPrivacy" aria-label="서명란"></canvas></span><button type="button" class="btn-clear no-print" data-clear="sigPrivacy">지우기</button></span> (서명/인)</p>
+      </td>
+    </tr>
+  </table>
+
+  <div class="close">
+    <p class="close-msg">상기와 같이 근로계약을 체결하며, 본 계약서를 근로자에게 교부하여 양당사자가 각 1부씩 보관한다.</p>
+    <div class="close-row">
+      <div class="date-line">20<input type="text" class="uline sm" id="issueYear" autocomplete="off" aria-label="작성 연도"> . <input type="text" class="uline sm" id="issueMonth" autocomplete="off" aria-label="작성 월"> . <input type="text" class="uline sm" id="issueDay" autocomplete="off" aria-label="작성 일"></div>
+      <div class="signers">
+        <div class="row"><span class="who">사용자:</span><span class="sig-box bottom"><canvas class="sig" id="sigEmployer" aria-label="사용자 서명란"></canvas></span> (서명/인) <button type="button" class="btn-clear no-print" data-clear="sigEmployer">지우기</button></div>
+        <div class="row"><span class="who">근로자:</span><span class="sig-box bottom"><canvas class="sig" id="sigWorker" aria-label="근로자 서명란"></canvas></span> (서명/인) <button type="button" class="btn-clear no-print" data-clear="sigWorker">지우기</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+
+(function () {
+  function fitTextarea(t) {
+    var cs = window.getComputedStyle(t);
+    var line = parseFloat(cs.lineHeight);
+    if (!line || isNaN(line)) line = 16;
+    var pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    var minH = line + pad;
+    t.style.height = "auto";
+    t.style.height = Math.max(minH, t.scrollHeight) + "px";
+  }
+  document.querySelectorAll("textarea").forEach(function (t) {
+    t.addEventListener("input", function () { fitTextarea(t); });
+    fitTextarea(t);
+  });
+
+  function bindSync(a, b) {
+    if (!a || !b) return;
+    function copy(from, to) { if (to.value !== from.value) to.value = from.value; }
+    a.addEventListener("input", function () { copy(a, b); });
+    b.addEventListener("input", function () { copy(b, a); });
+  }
+  bindSync(document.getElementById("storeName"), document.getElementById("storePlace"));
+
+  var pads = {};
+  function setupPad(canvas) {
+    var ctx = canvas.getContext("2d");
+    var drawing = false, last = null, signed = false;
+    var box = canvas.parentElement;
+    function cssSize() { return { w: canvas.clientWidth, h: canvas.clientHeight }; }
+    function resize(keep) {
+      return new Promise(function (resolve) {
+        var prev = keep && (signed || canvas.dataset.signed === "1") ? canvas.toDataURL() : null;
+        var dpr = window.devicePixelRatio || 1;
+        var s = cssSize();
+        if (!s.w || !s.h) { resolve(); return; }
+        canvas.width = Math.round(s.w * dpr);
+        canvas.height = Math.round(s.h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111";
+        if (prev) {
+          var img = new Image();
+          img.onload = function () { ctx.drawImage(img, 0, 0, s.w, s.h); resolve(); };
+          img.onerror = function () { resolve(); };
+          img.src = prev;
+        } else resolve();
+      });
+    }
+    function pos(e) {
+      var r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    canvas.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      drawing = true;
+      last = pos(e);
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!drawing) return;
+      e.preventDefault();
+      var p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+      signed = true;
+      canvas.dataset.signed = "1";
+    });
+    function endDraw() { drawing = false; last = null; }
+    canvas.addEventListener("pointerup", endDraw);
+    canvas.addEventListener("pointercancel", endDraw);
+    function hasInk() {
+      try {
+        var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        for (var i = 3; i < data.length; i += 16) { if (data[i] > 8) return true; }
+      } catch (err) {}
+      return false;
+    }
+    var state = {
+      canvas: canvas,
+      box: box,
+      isSigned: function () {
+        if (signed || canvas.dataset.signed === "1") return true;
+        if (hasInk()) { signed = true; canvas.dataset.signed = "1"; return true; }
+        return false;
+      },
+      clear: function () {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var dpr = window.devicePixelRatio || 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111";
+        signed = false;
+        canvas.dataset.signed = "";
+      },
+      resize: resize
+    };
+    pads[canvas.id] = state;
+    resize(false);
+    return state;
+  }
+  document.querySelectorAll("canvas.sig").forEach(setupPad);
+  document.querySelectorAll(".btn-clear").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var p = pads[btn.getAttribute("data-clear")];
+      if (p) p.clear();
+    });
+  });
+  var resizeTimer;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      Object.keys(pads).forEach(function (id) { pads[id].resize(true); });
+    }, 150);
+  });
+
+  function swapFields(root, on) {
+    if (!on) {
+      root.querySelectorAll(".field-swap").forEach(function (s) { s.remove(); });
+      root.querySelectorAll(".js-hidden-field").forEach(function (el) {
+        el.classList.remove("js-hidden-field");
+        el.style.display = el.dataset.prevDisplay || "";
+        delete el.dataset.prevDisplay;
+      });
+      return;
+    }
+    root.querySelectorAll("input, textarea").forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      var span = document.createElement("span");
+      span.className = "field-swap";
+      var cs = window.getComputedStyle(el);
+      if (type === "checkbox" || type === "radio") {
+        span.textContent = el.checked ? "(V)" : "( )";
+        span.style.cssText = "display:inline;";
+      } else {
+        span.textContent = el.value || "";
+        span.style.whiteSpace = (el.tagName === "TEXTAREA") ? "pre-wrap" : "nowrap";
+        span.style.display = (el.tagName === "TEXTAREA") ? "block" : "inline-block";
+        span.style.boxSizing = "border-box";
+        span.style.font = cs.font;
+        span.style.verticalAlign = "baseline";
+        span.style.wordBreak = "keep-all";
+        span.style.overflowWrap = "break-word";
+        if (el.classList.contains("uline") || el.tagName === "TEXTAREA") {
+          span.style.borderBottom = "1px solid #333";
+        }
+        if (el.tagName === "TEXTAREA") {
+          span.style.width = "100%";
+          span.style.minHeight = el.offsetHeight + "px";
+        } else {
+          span.style.width = cs.width;
+          span.style.maxWidth = cs.width;
+          span.style.textAlign = cs.textAlign;
+        }
+      }
+      el.dataset.prevDisplay = el.style.display;
+      el.style.display = "none";
+      el.classList.add("js-hidden-field");
+      el.parentNode.insertBefore(span, el);
+    });
+  }
+  function setUnsignedBorders(hide) {
+    Object.keys(pads).forEach(function (id) {
+      var p = pads[id];
+      if (hide && !p.isSigned()) p.box.classList.add("unsigned-hidden");
+      else p.box.classList.remove("unsigned-hidden");
+    });
+  }
+  function preparePrintImages(on) {
+    Object.keys(pads).forEach(function (id) {
+      var p = pads[id];
+      var canvas = p.canvas;
+      var existing = p.box.querySelector("img.sig-print");
+      if (existing) existing.remove();
+      if (!on) { canvas.style.display = ""; return; }
+      if (p.isSigned()) {
+        var img = document.createElement("img");
+        img.className = "sig-print";
+        img.src = canvas.toDataURL("image/png");
+        img.alt = "";
+        canvas.style.display = "none";
+        p.box.appendChild(img);
+      } else {
+        canvas.style.display = "none";
+      }
+    });
+  }
+
+  document.getElementById("btnPrint").addEventListener("click", function () { window.print(); });
+  window.addEventListener("beforeprint", function () {
+    document.querySelectorAll("textarea").forEach(fitTextarea);
+    preparePrintImages(true);
+    setUnsignedBorders(false);
+  });
+  window.addEventListener("afterprint", function () {
+    preparePrintImages(false);
+    setUnsignedBorders(false);
+  });
+
+  function safeName(s) {
+    return String(s || "").trim().replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ") || "미기재";
+  }
+  function fileDate() {
+    var y = (document.getElementById("issueYear") || {}).value;
+    var m = (document.getElementById("issueMonth") || {}).value;
+    var d = (document.getElementById("issueDay") || {}).value;
+    y = (y || "").trim(); m = (m || "").trim(); d = (d || "").trim();
+    if (y && m && d) return y + String(m).padStart(2, "0") + String(d).padStart(2, "0");
+    var now = new Date();
+    return now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+  }
+  function captureContract() {
+    if (typeof html2canvas !== "function") {
+      return Promise.reject(new Error("이미지 저장 기능을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요."));
+    }
+    var page = document.getElementById("contractPage");
+    document.body.classList.add("capturing");
+    void page.offsetWidth;
+    document.querySelectorAll("textarea").forEach(fitTextarea);
+    function cleanup() {
+      swapFields(page, false);
+      preparePrintImages(false);
+      setUnsignedBorders(false);
+      document.body.classList.remove("capturing");
+    }
+    return Promise.all(Object.keys(pads).map(function (id) { return pads[id].resize(true); })).then(function () {
+      swapFields(page, true);
+      preparePrintImages(true);
+      setUnsignedBorders(true);
+      return html2canvas(page, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: Math.max(900, page.scrollWidth + 48)
+      });
+    }).then(function (canvas) { cleanup(); return canvas; }, function (err) { cleanup(); throw err; });
+  }
+  document.getElementById("btnImage").addEventListener("click", function () {
+    var btn = document.getElementById("btnImage");
+    btn.disabled = true;
+    captureContract().then(function (canvas) {
+      var a = document.createElement("a");
+      var name = safeName((document.getElementById("workerName") || {}).value);
+      a.download = "표준근로계약서_" + name + "_" + fileDate() + ".png";
+      a.href = canvas.toDataURL("image/png");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }).catch(function (err) {
+      alert(err.message || "이미지 저장에 실패했습니다.");
+    }).then(function () { btn.disabled = false; });
+  });
+  window.__contractCapture = captureContract;
+})();
+
+</script>
+</body>
+</html>
