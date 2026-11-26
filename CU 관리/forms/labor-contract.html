@@ -246,12 +246,16 @@
     .party h2 { font-size: 11.5px; }
     .parties { break-inside: avoid; page-break-inside: avoid; }
   }
+
+  .draft-status { font-size: 12px; color: #666; margin: 6px 0 0; min-height: 1em; }
+  @media print { .draft-status { display: none !important; } }
 </style>
 </head>
 <body>
 <div class="toolbar no-print">
   <button type="button" id="btnPrint">출력</button>
   <button type="button" id="btnImage" class="sub">이미지로 저장</button>
+  <div class="draft-status no-print" id="draftStatus" aria-live="polite"></div>
   <p>빈칸을 입력하고 서명란에 서명하세요. 휴대폰에서는 손가락으로 서명할 수 있습니다. PDF는 출력 창에서 대상을 「PDF로 저장」으로 고르면 됩니다.</p>
 </div>
 
@@ -765,5 +769,211 @@
   window.__contractCapture = captureContract;
 })();
 </script>
+
+<script>
+(function () {
+  var STORAGE_KEY = "cuform:" + (function () {
+    var p = (location.pathname || "").split("/").pop() || "";
+    try { p = decodeURIComponent(p); } catch (e) {}
+    return p || "form.html";
+  })();
+  var restoring = false;
+  var saveTimer = null;
+  var statusEl = document.getElementById("draftStatus");
+
+  function setStatus(msg) {
+    if (statusEl) statusEl.textContent = msg || "";
+  }
+  function canStore() {
+    try {
+      var k = STORAGE_KEY + "/__t";
+      localStorage.setItem(k, "1");
+      localStorage.removeItem(k);
+      return true;
+    } catch (e) { return false; }
+  }
+  function fieldList() {
+    return Array.prototype.slice.call(document.querySelectorAll("input, textarea, select"));
+  }
+  function domPath(el) {
+    var parts = [];
+    var cur = el;
+    while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+      if (cur.id) { parts.unshift(cur.tagName.toLowerCase() + "#" + cur.id); break; }
+      var parent = cur.parentElement;
+      if (!parent) { parts.unshift(cur.tagName.toLowerCase()); break; }
+      var tag = cur.tagName;
+      var same = 0, idx = 0, kids = parent.children;
+      for (var i = 0; i < kids.length; i++) {
+        if (kids[i].tagName === tag) {
+          if (kids[i] === cur) idx = same;
+          same++;
+        }
+      }
+      parts.unshift(same > 1 ? cur.tagName.toLowerCase() + "[" + idx + "]" : cur.tagName.toLowerCase());
+      cur = parent;
+    }
+    return parts.join(">");
+  }
+  function fieldKey(el) {
+    if (el.id) return "id:" + el.id;
+    var aria = el.getAttribute("aria-label");
+    if (aria) return "aria:" + el.tagName + ":" + el.type + ":" + aria;
+    if (el.name) return "name:" + el.type + ":" + el.name + ":" + (el.value || "");
+    return "path:" + domPath(el);
+  }
+  function canvasList() {
+    return Array.prototype.slice.call(document.querySelectorAll("canvas.sig, canvas[id^='sig']"));
+  }
+  function canvasKey(c, i) { return c.id ? "id:" + c.id : "ix:" + i; }
+  function isSignedCanvas(canvas) {
+    if (canvas.dataset.signed === "1") return true;
+    try {
+      var ctx = canvas.getContext("2d");
+      var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (var i = 3; i < data.length; i += 16) { if (data[i] > 8) return true; }
+    } catch (e) {}
+    return false;
+  }
+  function collect() {
+    var data = { fields: {}, signatures: {} };
+    fieldList().forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      if (type === "button" || type === "submit" || type === "reset" || type === "file") return;
+      var key = fieldKey(el);
+      if (type === "checkbox" || type === "radio") data.fields[key] = { t: type, c: !!el.checked, v: el.value };
+      else data.fields[key] = { t: type || el.tagName.toLowerCase(), v: el.value };
+    });
+    canvasList().forEach(function (c, i) {
+      if (isSignedCanvas(c)) data.signatures[canvasKey(c, i)] = c.toDataURL("image/png");
+    });
+    return data;
+  }
+  function saveDraft() {
+    if (restoring) return;
+    if (document.body && document.body.classList.contains("capturing")) return;
+    if (!canStore()) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collect()));
+      setStatus("임시저장됨");
+    } catch (e) {}
+  }
+  function saveDraftSoon() {
+    if (restoring) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDraft, 300);
+  }
+  function clearDraft() {
+    clearTimeout(saveTimer);
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    setStatus("");
+  }
+  function restoreCanvas(canvas, dataUrl) {
+    return new Promise(function (resolve) {
+      if (!dataUrl) { resolve(); return; }
+      var img = new Image();
+      img.onload = function () {
+        var dpr = window.devicePixelRatio || 1;
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (w && h) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        var ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, canvas.clientWidth || w, canvas.clientHeight || h);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 1.8;
+        ctx.drawImage(img, 0, 0, canvas.clientWidth || w, canvas.clientHeight || h);
+        canvas.dataset.signed = "1";
+        resolve();
+      };
+      img.onerror = function () { resolve(); };
+      img.src = dataUrl;
+    });
+  }
+  function restore() {
+    if (!canStore()) return Promise.resolve(false);
+    var raw;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return Promise.resolve(false); }
+    if (!raw) return Promise.resolve(false);
+    var data;
+    try { data = JSON.parse(raw); } catch (e) { return Promise.resolve(false); }
+    if (!data || typeof data !== "object") return Promise.resolve(false);
+    restoring = true;
+    fieldList().forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      if (type === "button" || type === "submit" || type === "reset" || type === "file") return;
+      var rec = data.fields && data.fields[fieldKey(el)];
+      if (!rec) return;
+      if (type === "checkbox" || type === "radio") el.checked = !!rec.c;
+      else if (rec.v != null) el.value = rec.v;
+    });
+    document.querySelectorAll("textarea").forEach(function (t) {
+      t.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    var jobs = [];
+    canvasList().forEach(function (c, i) {
+      var url = data.signatures && data.signatures[canvasKey(c, i)];
+      if (url) jobs.push(restoreCanvas(c, url));
+    });
+    return Promise.all(jobs).then(function () {
+      restoring = false;
+      setStatus("임시저장됨");
+      return true;
+    }, function () {
+      restoring = false;
+      return false;
+    });
+  }
+
+  document.addEventListener("input", function (e) {
+    var t = e.target;
+    if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    saveDraftSoon();
+  });
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    saveDraft();
+  });
+  document.addEventListener("pointerup", function (e) {
+    if (e.target && e.target.tagName === "CANVAS") saveDraft();
+  }, true);
+  document.addEventListener("pointercancel", function (e) {
+    if (e.target && e.target.tagName === "CANVAS") saveDraft();
+  }, true);
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.closest && t.closest(".btn-clear, [data-clear]")) {
+      setTimeout(saveDraft, 0);
+      return;
+    }
+    if (t.tagName === "BUTTON" && /초기화|리셋|다시\s*작성|모두\s*지움|전체\s*삭제/.test((t.textContent || ""))) {
+      setTimeout(clearDraft, 0);
+    }
+  }, true);
+
+  window.addEventListener("afterprint", function () { clearDraft(); });
+
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== "A" || !t.hasAttribute("download")) return;
+    var href = t.getAttribute("href") || "";
+    if (/^data:image\/png/i.test(href) || /^blob:/i.test(href)) clearDraft();
+  }, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { restore(); });
+  } else {
+    restore();
+  }
+  window.__cuformDraft = { key: STORAGE_KEY, save: saveDraft, clear: clearDraft, restore: restore };
+})();
+</script>
+
 </body>
 </html>
