@@ -188,8 +188,9 @@
     });
     return data;
   }
+  var holdOffSave = false;
   function saveDraft() {
-    if (restoring) return;
+    if (restoring || holdOffSave) return;
     if (document.body && document.body.classList.contains("capturing")) return;
     if (!canStore()) return;
     try {
@@ -198,14 +199,18 @@
     } catch (e) {}
   }
   function saveDraftSoon() {
-    if (restoring) return;
+    if (restoring || holdOffSave) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveDraft, 300);
   }
   function clearDraft() {
+    holdOffSave = true;
     clearTimeout(saveTimer);
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
     setStatus("");
+  }
+  function resumeIfTrusted(e) {
+    if (holdOffSave && e && e.isTrusted) holdOffSave = false;
   }
   function restoreCanvas(canvas, dataUrl) {
     return new Promise(function (resolve) {
@@ -271,32 +276,62 @@
   document.addEventListener("input", function (e) {
     var t = e.target;
     if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    resumeIfTrusted(e);
     saveDraftSoon();
   });
   document.addEventListener("change", function (e) {
     var t = e.target;
     if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    resumeIfTrusted(e);
     saveDraft();
   });
   document.addEventListener("pointerup", function (e) {
-    if (e.target && e.target.tagName === "CANVAS") saveDraft();
+    if (e.target && e.target.tagName === "CANVAS") {
+      resumeIfTrusted(e);
+      saveDraft();
+    }
   }, true);
   document.addEventListener("pointercancel", function (e) {
-    if (e.target && e.target.tagName === "CANVAS") saveDraft();
+    if (e.target && e.target.tagName === "CANVAS") {
+      resumeIfTrusted(e);
+      saveDraft();
+    }
   }, true);
   document.addEventListener("click", function (e) {
     var t = e.target;
-    if (!t) return;
-    if (t.closest && t.closest(".btn-clear, [data-clear]")) {
+    if (!t || !t.closest) return;
+    var btn = t.closest("button");
+    if (btn && (btn.id === "btnPrint" || /window\.print\s*\(/.test(btn.getAttribute("onclick") || "") || /^\s*(출력|인쇄)/.test((btn.textContent || "").trim()))) {
+      clearDraft();
+    }
+    if (btn && (btn.id === "btnImage" || /이미지로\s*저장/.test(btn.textContent || ""))) {
+      clearDraft();
+    }
+    if (t.closest(".btn-clear, [data-clear]")) {
+      resumeIfTrusted(e);
       setTimeout(saveDraft, 0);
       return;
     }
-    if (t.tagName === "BUTTON" && /초기화|리셋|다시\s*작성|모두\s*지움|전체\s*삭제/.test((t.textContent || ""))) {
+    if (btn && /초기화|리셋|다시\s*작성|모두\s*지움|전체\s*삭제/.test((btn.textContent || ""))) {
       setTimeout(clearDraft, 0);
     }
   }, true);
 
+  window.addEventListener("beforeprint", function () { clearDraft(); });
   window.addEventListener("afterprint", function () { clearDraft(); });
+  if (window.matchMedia) {
+    var printMq = window.matchMedia("print");
+    var onPrintMq = function (e) { if (e && e.matches) clearDraft(); };
+    if (printMq.addEventListener) printMq.addEventListener("change", onPrintMq);
+    else if (printMq.addListener) printMq.addListener(onPrintMq);
+  }
+  if (typeof window.print === "function") {
+    var origPrint = window.print;
+    window.print = function () {
+      clearDraft();
+      return origPrint.apply(window, arguments);
+    };
+  }
 
   document.addEventListener("click", function (e) {
     var t = e.target;
@@ -310,7 +345,7 @@
   } else {
     restore();
   }
-  window.__cuformDraft = { key: STORAGE_KEY, save: saveDraft, clear: clearDraft, restore: restore };
+  window.__cuformDraft = { key: STORAGE_KEY, save: saveDraft, clear: clearDraft, restore: restore, isHoldOff: function () { return holdOffSave; } };
 })();
 </script>
 
