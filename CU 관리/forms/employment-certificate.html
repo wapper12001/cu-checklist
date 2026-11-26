@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>재직증명서 - CU 편의점</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif; background:#eee; margin:0; color:#111; }
+  .toolbar { text-align:center; padding:12px; }
+  .toolbar button { font-size:15px; padding:8px 18px; margin:0 4px; cursor:pointer; border:1px solid #652f8d; background:#652f8d; color:#fff; border-radius:6px; }
+  .toolbar button.sub { background:#fff; color:#652f8d; }
+  .toolbar p { font-size:13px; color:#555; margin:8px 0 0; }
+  .page { width:210mm; min-height:297mm; margin:0 auto 20px; background:#fff; padding:22mm 20mm; box-shadow:0 0 8px rgba(0,0,0,.15); position:relative; }
+  .doc-no { font-size:13px; }
+  h1 { text-align:center; font-size:34px; letter-spacing:18px; margin:18mm 0 14mm; }
+  h2 { font-size:16px; margin:8mm 0 2mm; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th, td { border:1px solid #333; padding:10px 8px; vertical-align:middle; }
+  th { background:#f3f0f7; width:22%; font-weight:600; text-align:center; }
+  td input, td select { width:100%; border:none; font:inherit; background:transparent; outline:none; }
+  td input:focus { background:#fffbe6; }
+  .inline input { width:auto; }
+  textarea.addr { width:100%; border:none; font:inherit; background:transparent; outline:none; resize:none; overflow:hidden; line-height:1.5; padding:0; display:block; }
+  td textarea.addr:focus { background:#fffbe6; }
+  .issuer .addr-row { align-items:flex-start; }
+  .issuer textarea.addr { flex:1; border-bottom:1px solid #999; padding:4px; }
+  .statement { text-align:center; font-size:17px; margin:16mm 0 10mm; line-height:1.9; }
+  .issue-date { text-align:center; font-size:16px; margin-bottom:12mm; }
+  .issuer { width:80%; margin:0 auto; font-size:16px; }
+  .issuer .row { display:flex; align-items:center; margin:8px 0; }
+  .issuer .label { width:30%; }
+  .issuer input { flex:1; border:none; border-bottom:1px solid #999; font:inherit; padding:4px; outline:none; }
+  .seal { width:70px; height:70px; border:1px dashed #999; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; color:#888; margin-left:10px; }
+  .footer { position:absolute; bottom:18mm; left:20mm; right:20mm; text-align:center; font-size:12px; color:#666; }
+  @media print {
+    body { background:#fff; }
+    .toolbar { display:none; }
+    .page { box-shadow:none; margin:0; width:auto; min-height:auto; padding:0; }
+    td input:focus { background:transparent; }
+    .seal { border-color:#bbb; }
+    td textarea.addr:focus { background:transparent; }
+    .footer { position:static; margin-top:8mm; }
+    .doc-no { font-size:12px; }
+    h1 { font-size:30px; margin:6mm 0 8mm; }
+    h2 { font-size:15px; margin:5mm 0 2mm; }
+    table { font-size:14px; }
+    th, td { padding:7px 8px; }
+    .statement { font-size:16px; margin:10mm 0 6mm; line-height:1.7; }
+    .issue-date { margin-bottom:8mm; }
+    .issuer { font-size:15px; }
+    .issuer .row { margin:5px 0; }
+    .seal { width:60px; height:60px; }
+    .page { break-inside:avoid; page-break-inside:avoid; }
+  }
+
+  .draft-status { font-size: 12px; color: #666; margin: 6px 0 0; min-height: 1em; }
+  @media print { .draft-status { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button onclick="window.print()">인쇄 / PDF로 저장</button>
+  <div class="draft-status no-print" id="draftStatus" aria-live="polite"></div>
+  <p>빈칸을 클릭해 입력한 뒤 인쇄하세요. PDF는 인쇄 창에서 대상을 "PDF로 저장"으로 고르면 됩니다.</p>
+</div>
+
+<div class="page">
+  <div class="doc-no">발급번호: <input style="border:none;border-bottom:1px solid #999;font:inherit;width:140px"></div>
+
+  <h1>재직증명서</h1>
+
+  <h2>1. 인적 사항</h2>
+  <table>
+    <tr><th>성 명</th><td><input></td><th>생년월일</th><td><input></td></tr>
+    <tr><th>주 소</th><td colspan="3"><textarea class="addr" rows="2"></textarea></td></tr>
+  </table>
+
+  <h2>2. 재직 사항</h2>
+  <table>
+    <tr><th>점 포 명</th><td colspan="3">
+      <input></td></tr>
+    <tr><th>직 책</th><td colspan="3"><input></td></tr>
+    <tr><th>입 사 일</th><td><input></td><th>퇴사일</th><td><input></td></tr>
+    <tr><th>재직 기간</th><td colspan="3"><input></td></tr>
+    <tr><th>용 도</th><td colspan="3"><input></td></tr>
+  </table>
+
+  <p class="statement">위 사람은 상기와 같이 당 점포에 재직하고 있음(재직하였음)을 증명합니다.</p>
+
+  <p class="issue-date">발급일: <input style="border:none;border-bottom:1px solid #999;font:inherit;width:200px"></p>
+
+  <div class="issuer">
+    <div class="row"><span class="label">점 포 명</span><input></div>
+    <div class="row"><span class="label">사업자등록번호</span><input></div>
+    <div class="row addr-row"><span class="label">주 소</span><textarea class="addr" rows="2"></textarea></div>
+    <div class="row"><span class="label">발급자(대표자/점장)</span><input></div>
+    <div class="row"><span class="label">서 명</span><input><span class="seal">(인)</span></div>
+  </div>
+
+  <div class="footer">본 증명서는 발급일 기준으로 작성되었습니다.</div>
+</div>
+
+<script>
+  document.querySelectorAll('textarea.addr').forEach(function(t){
+    function fit(){ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; }
+    t.addEventListener('input', fit); fit();
+  });
+</script>
+
+<script>
+(function () {
+  var STORAGE_KEY = "cuform:" + (function () {
+    var p = (location.pathname || "").split("/").pop() || "";
+    try { p = decodeURIComponent(p); } catch (e) {}
+    return p || "form.html";
+  })();
+  var restoring = false;
+  var saveTimer = null;
+  var statusEl = document.getElementById("draftStatus");
+
+  function setStatus(msg) {
+    if (statusEl) statusEl.textContent = msg || "";
+  }
+  function canStore() {
+    try {
+      var k = STORAGE_KEY + "/__t";
+      localStorage.setItem(k, "1");
+      localStorage.removeItem(k);
+      return true;
+    } catch (e) { return false; }
+  }
+  function fieldList() {
+    return Array.prototype.slice.call(document.querySelectorAll("input, textarea, select"));
+  }
+  function domPath(el) {
+    var parts = [];
+    var cur = el;
+    while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+      if (cur.id) { parts.unshift(cur.tagName.toLowerCase() + "#" + cur.id); break; }
+      var parent = cur.parentElement;
+      if (!parent) { parts.unshift(cur.tagName.toLowerCase()); break; }
+      var tag = cur.tagName;
+      var same = 0, idx = 0, kids = parent.children;
+      for (var i = 0; i < kids.length; i++) {
+        if (kids[i].tagName === tag) {
+          if (kids[i] === cur) idx = same;
+          same++;
+        }
+      }
+      parts.unshift(same > 1 ? cur.tagName.toLowerCase() + "[" + idx + "]" : cur.tagName.toLowerCase());
+      cur = parent;
+    }
+    return parts.join(">");
+  }
+  function fieldKey(el) {
+    if (el.id) return "id:" + el.id;
+    var aria = el.getAttribute("aria-label");
+    if (aria) return "aria:" + el.tagName + ":" + el.type + ":" + aria;
+    if (el.name) return "name:" + el.type + ":" + el.name + ":" + (el.value || "");
+    return "path:" + domPath(el);
+  }
+  function canvasList() {
+    return Array.prototype.slice.call(document.querySelectorAll("canvas.sig, canvas[id^='sig']"));
+  }
+  function canvasKey(c, i) { return c.id ? "id:" + c.id : "ix:" + i; }
+  function isSignedCanvas(canvas) {
+    if (canvas.dataset.signed === "1") return true;
+    try {
+      var ctx = canvas.getContext("2d");
+      var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (var i = 3; i < data.length; i += 16) { if (data[i] > 8) return true; }
+    } catch (e) {}
+    return false;
+  }
+  function collect() {
+    var data = { fields: {}, signatures: {} };
+    fieldList().forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      if (type === "button" || type === "submit" || type === "reset" || type === "file") return;
+      var key = fieldKey(el);
+      if (type === "checkbox" || type === "radio") data.fields[key] = { t: type, c: !!el.checked, v: el.value };
+      else data.fields[key] = { t: type || el.tagName.toLowerCase(), v: el.value };
+    });
+    canvasList().forEach(function (c, i) {
+      if (isSignedCanvas(c)) data.signatures[canvasKey(c, i)] = c.toDataURL("image/png");
+    });
+    return data;
+  }
+  function saveDraft() {
+    if (restoring) return;
+    if (document.body && document.body.classList.contains("capturing")) return;
+    if (!canStore()) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collect()));
+      setStatus("임시저장됨");
+    } catch (e) {}
+  }
+  function saveDraftSoon() {
+    if (restoring) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDraft, 300);
+  }
+  function clearDraft() {
+    clearTimeout(saveTimer);
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    setStatus("");
+  }
+  function restoreCanvas(canvas, dataUrl) {
+    return new Promise(function (resolve) {
+      if (!dataUrl) { resolve(); return; }
+      var img = new Image();
+      img.onload = function () {
+        var dpr = window.devicePixelRatio || 1;
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        if (w && h) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        var ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, canvas.clientWidth || w, canvas.clientHeight || h);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 1.8;
+        ctx.drawImage(img, 0, 0, canvas.clientWidth || w, canvas.clientHeight || h);
+        canvas.dataset.signed = "1";
+        resolve();
+      };
+      img.onerror = function () { resolve(); };
+      img.src = dataUrl;
+    });
+  }
+  function restore() {
+    if (!canStore()) return Promise.resolve(false);
+    var raw;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return Promise.resolve(false); }
+    if (!raw) return Promise.resolve(false);
+    var data;
+    try { data = JSON.parse(raw); } catch (e) { return Promise.resolve(false); }
+    if (!data || typeof data !== "object") return Promise.resolve(false);
+    restoring = true;
+    fieldList().forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      if (type === "button" || type === "submit" || type === "reset" || type === "file") return;
+      var rec = data.fields && data.fields[fieldKey(el)];
+      if (!rec) return;
+      if (type === "checkbox" || type === "radio") el.checked = !!rec.c;
+      else if (rec.v != null) el.value = rec.v;
+    });
+    document.querySelectorAll("textarea").forEach(function (t) {
+      t.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    var jobs = [];
+    canvasList().forEach(function (c, i) {
+      var url = data.signatures && data.signatures[canvasKey(c, i)];
+      if (url) jobs.push(restoreCanvas(c, url));
+    });
+    return Promise.all(jobs).then(function () {
+      restoring = false;
+      setStatus("임시저장됨");
+      return true;
+    }, function () {
+      restoring = false;
+      return false;
+    });
+  }
+
+  document.addEventListener("input", function (e) {
+    var t = e.target;
+    if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    saveDraftSoon();
+  });
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    saveDraft();
+  });
+  document.addEventListener("pointerup", function (e) {
+    if (e.target && e.target.tagName === "CANVAS") saveDraft();
+  }, true);
+  document.addEventListener("pointercancel", function (e) {
+    if (e.target && e.target.tagName === "CANVAS") saveDraft();
+  }, true);
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.closest && t.closest(".btn-clear, [data-clear]")) {
+      setTimeout(saveDraft, 0);
+      return;
+    }
+    if (t.tagName === "BUTTON" && /초기화|리셋|다시\s*작성|모두\s*지움|전체\s*삭제/.test((t.textContent || ""))) {
+      setTimeout(clearDraft, 0);
+    }
+  }, true);
+
+  window.addEventListener("afterprint", function () { clearDraft(); });
+
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== "A" || !t.hasAttribute("download")) return;
+    var href = t.getAttribute("href") || "";
+    if (/^data:image\/png/i.test(href) || /^blob:/i.test(href)) clearDraft();
+  }, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { restore(); });
+  } else {
+    restore();
+  }
+  window.__cuformDraft = { key: STORAGE_KEY, save: saveDraft, clear: clearDraft, restore: restore };
+})();
+</script>
+
+</body>
+</html>
