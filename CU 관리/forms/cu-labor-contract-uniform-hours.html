@@ -226,12 +226,33 @@
 
   .draft-status { font-size: 12px; color: #666; margin: 6px 0 0; min-height: 1em; }
   @media print { .draft-status { display: none !important; } }
+
+  .share-panel { display: none; margin: 10px auto 0; max-width: 640px; text-align: left; background: #fff; border: 1px solid #d4c4e4; border-radius: 8px; padding: 10px 12px; }
+  .share-panel.visible { display: block; }
+  .share-panel label { display: block; font-size: 13px; color: #333; margin-bottom: 6px; }
+  .share-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .share-row input { flex: 1; min-width: 160px; font-size: 13px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+  .cuform-msg { font-size: 13px; margin: 6px 0 0; min-height: 1em; color: #555; }
+  .cuform-msg.error { color: #a33; }
+  @media print { .share-panel, .cuform-msg, #btnSubmit, #btnManagerSign { display: none !important; } }
+
 </style>
 </head>
 <body>
 <div class="toolbar no-print">
   <button type="button" id="btnPrint">출력</button>
   <button type="button" id="btnImage" class="sub">이미지로 저장</button>
+  <button type="button" id="btnSubmit">제출</button>
+  <button type="button" id="btnManagerSign" hidden>서명 제출</button>
+  <div class="share-panel no-print" id="sharePanel" hidden>
+    <label for="shareLink" id="shareLabel">점장에게 이 링크를 보내 주세요.</label>
+    <div class="share-row">
+      <input id="shareLink" type="text" readonly>
+      <button type="button" id="btnCopyLink" class="sub">복사</button>
+      <button type="button" id="btnShareLink" class="sub">공유</button>
+    </div>
+    <p class="cuform-msg" id="cuformMsg"></p>
+  </div>
   <div class="draft-status no-print" id="draftStatus" aria-live="polite"></div>
   <p>빈칸을 입력하고 서명란에 서명하세요. 휴대폰에서는 손가락으로 서명할 수 있습니다. PDF는 출력 창에서 대상을 「PDF로 저장」으로 고르면 됩니다.</p>
 </div>
@@ -746,7 +767,9 @@
     } catch (e) { return false; }
   }
   function fieldList() {
-    return Array.prototype.slice.call(document.querySelectorAll("input, textarea, select"));
+    return Array.prototype.slice.call(document.querySelectorAll("input, textarea, select")).filter(function (el) {
+      return !el.closest(".toolbar, .share-panel");
+    });
   }
   function domPath(el) {
     var parts = [];
@@ -853,6 +876,10 @@
     });
   }
   function restore() {
+    try {
+      var q = new URLSearchParams(location.search);
+      if (q.get("d") && q.get("k")) return Promise.resolve(false);
+    } catch (e) {}
     if (!canStore()) return Promise.resolve(false);
     var raw;
     try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return Promise.resolve(false); }
@@ -959,9 +986,348 @@
   } else {
     restore();
   }
-  window.__cuformDraft = { key: STORAGE_KEY, save: saveDraft, clear: clearDraft, restore: restore, isHoldOff: function () { return holdOffSave; } };
+
+  function applyData(data) {
+    if (!data || typeof data !== "object") return Promise.resolve(false);
+    restoring = true;
+    fieldList().forEach(function (el) {
+      var type = (el.type || "").toLowerCase();
+      if (type === "button" || type === "submit" || type === "reset" || type === "file") return;
+      var rec = data.fields && data.fields[fieldKey(el)];
+      if (!rec) return;
+      if (type === "checkbox" || type === "radio") el.checked = !!rec.c;
+      else if (rec.v != null) el.value = rec.v;
+    });
+    document.querySelectorAll("textarea").forEach(function (t) {
+      t.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    var jobs = [];
+    canvasList().forEach(function (c, i) {
+      var url = data.signatures && data.signatures[canvasKey(c, i)];
+      if (url) jobs.push(restoreCanvas(c, url));
+    });
+    return Promise.all(jobs).then(function () {
+      restoring = false;
+      return true;
+    }, function () {
+      restoring = false;
+      return false;
+    });
+  }
+  window.__cuformDraft = { key: STORAGE_KEY, save: saveDraft, clear: clearDraft, restore: restore, collect: collect, apply: applyData, isHoldOff: function () { return holdOffSave; } };
 })();
 </script>
 
+
+<script>
+(function () {
+  var API = "https://rfctnigrqzdqnpavwlyi.supabase.co";
+  var KEY = "sb_publishable_TSKqKqeXyy_ldx9crBsL3g_rGpkzp7w";
+  var FORM_TYPE = (function () {
+    var p = (location.pathname || "").split("/").pop() || "";
+    try { p = decodeURIComponent(p); } catch (e) {}
+    return p.replace(/\.html$/i, "") || "form";
+  })();
+  var MANAGER_FIELD_IDS = {
+    "employment-certificate": ["issue_no", "issue_date", "issuer_store", "issuer_biz_no", "issuer_addr", "issuer_name", "issuer_sign"],
+    "cu-labor-contract-uniform-hours": [],
+    "cu-labor-contract-daily-hours": []
+  };
+  var MANAGER_SIG_IDS = {
+    "employment-certificate": [],
+    "cu-labor-contract-uniform-hours": ["sigEmployer"],
+    "cu-labor-contract-daily-hours": ["sigEmployer"]
+  };
+  var managerFields = MANAGER_FIELD_IDS[FORM_TYPE] || [];
+  var managerSigs = MANAGER_SIG_IDS[FORM_TYPE] || [];
+  var currentDoc = null;
+
+  function $(id) { return document.getElementById(id); }
+  function queryDoc() {
+    try {
+      var q = new URLSearchParams(location.search);
+      return { id: q.get("d"), token: q.get("k") };
+    } catch (e) { return { id: null, token: null }; }
+  }
+  function setMsg(text, isError) {
+    var el = $("cuformMsg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "cuform-msg" + (isError ? " error" : "");
+  }
+  function rpc(name, body) {
+    return fetch(API + "/rest/v1/rpc/" + name, {
+      method: "POST",
+      headers: {
+        apikey: KEY,
+        Authorization: "Bearer " + KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        var json = null;
+        if (text) {
+          try { json = JSON.parse(text); } catch (e) { json = null; }
+        }
+        if (!res.ok) {
+          var msg = (json && (json.message || json.error || json.hint)) || "요청에 실패했습니다.";
+          throw new Error(msg);
+        }
+        return json;
+      });
+    });
+  }
+  function isManagerField(el) {
+    return !!(el && el.id && managerFields.indexOf(el.id) >= 0);
+  }
+  function isManagerCanvas(el) {
+    return !!(el && el.id && managerSigs.indexOf(el.id) >= 0);
+  }
+  function setFieldLocked(el, locked) {
+    if (!el) return;
+    var type = (el.type || "").toLowerCase();
+    if (type === "checkbox" || type === "radio") {
+      el.style.pointerEvents = locked ? "none" : "";
+      el.tabIndex = locked ? -1 : 0;
+    } else {
+      el.readOnly = !!locked;
+    }
+  }
+  function setCanvasLocked(canvas, locked) {
+    if (!canvas) return;
+    canvas.style.pointerEvents = locked ? "none" : "";
+    var clr = document.querySelector('.btn-clear[data-clear="' + canvas.id + '"]');
+    if (clr) clr.style.display = locked ? "none" : "";
+  }
+  function applyLocks(mode) {
+    document.querySelectorAll("input, textarea, select").forEach(function (el) {
+      var typ = (el.type || "").toLowerCase();
+      if (typ === "button" || typ === "submit" || typ === "reset" || typ === "file") return;
+      if (mode === "local") setFieldLocked(el, false);
+      else if (mode === "completed") setFieldLocked(el, true);
+      else setFieldLocked(el, !isManagerField(el));
+    });
+    document.querySelectorAll("canvas.sig, canvas[id^='sig']").forEach(function (c) {
+      if (mode === "local") setCanvasLocked(c, false);
+      else if (mode === "completed") setCanvasLocked(c, true);
+      else setCanvasLocked(c, !isManagerCanvas(c));
+    });
+  }
+  function shareUrl(id, token) {
+    var u = new URL(location.href);
+    u.search = "";
+    u.hash = "";
+    u.searchParams.set("d", id);
+    u.searchParams.set("k", token);
+    return u.toString();
+  }
+  function showSharePanel(url, completed) {
+    var panel = $("sharePanel");
+    var input = $("shareLink");
+    var label = $("shareLabel");
+    if (input) input.value = url || "";
+    if (label) label.textContent = completed
+      ? "이 링크로 완성본을 열어 출력하거나 이미지로 저장할 수 있습니다."
+      : "점장에게 이 링크를 보내 주세요.";
+    if (panel) {
+      panel.classList.add("visible");
+      panel.hidden = false;
+    }
+    var shareBtn = $("btnShareLink");
+    if (shareBtn) shareBtn.style.display = (navigator.share ? "" : "none");
+  }
+  function hideSharePanel() {
+    var panel = $("sharePanel");
+    if (panel) {
+      panel.classList.remove("visible");
+      panel.hidden = true;
+    }
+  }
+  function setMode(mode) {
+    document.body.setAttribute("data-cuform-mode", mode);
+    var submit = $("btnSubmit");
+    var mgr = $("btnManagerSign");
+    if (submit) {
+      submit.hidden = mode !== "local";
+      submit.style.display = mode === "local" ? "" : "none";
+    }
+    if (mgr) {
+      mgr.hidden = mode !== "submitted";
+      mgr.style.display = mode === "submitted" ? "" : "none";
+    }
+    applyLocks(mode);
+  }
+  function collectAll() {
+    if (!window.__cuformDraft || typeof window.__cuformDraft.collect !== "function") {
+      throw new Error("작성 내용을 모을 수 없습니다. 페이지를 새로고침해 주세요.");
+    }
+    return window.__cuformDraft.collect();
+  }
+  function collectManager() {
+    var all = collectAll();
+    var out = { fields: {}, signatures: {} };
+    managerFields.forEach(function (id) {
+      var k = "id:" + id;
+      if (all.fields && all.fields[k]) out.fields[k] = all.fields[k];
+    });
+    managerSigs.forEach(function (id) {
+      var k = "id:" + id;
+      if (all.signatures && all.signatures[k]) out.signatures[k] = all.signatures[k];
+    });
+    return out;
+  }
+  function applyDoc(doc) {
+    currentDoc = doc;
+    var draft = window.__cuformDraft;
+    if (draft && typeof draft.apply === "function" && doc && doc.data) {
+      return draft.apply(doc.data).then(function () {
+        if (draft.clear) draft.clear();
+        return doc;
+      });
+    }
+    return Promise.resolve(doc);
+  }
+  function bind() {
+    var btnSubmit = $("btnSubmit");
+    if (btnSubmit) {
+      btnSubmit.addEventListener("click", function () {
+        btnSubmit.disabled = true;
+        setMsg("제출하는 중입니다.");
+        rpc("form_document_create", { p_form_type: FORM_TYPE, p_data: collectAll() })
+          .then(function (doc) {
+            if (window.__cuformDraft && window.__cuformDraft.clear) window.__cuformDraft.clear();
+            var url = shareUrl(doc.id, doc.token);
+            if (history.replaceState) history.replaceState({}, "", url);
+            currentDoc = doc;
+            showSharePanel(url, false);
+            setMode("submitted");
+            setMsg("제출되었습니다. 아래 링크를 점장에게 보내 주세요.");
+          })
+          .catch(function (err) { setMsg(err.message || "제출에 실패했습니다.", true); })
+          .then(function () { btnSubmit.disabled = false; });
+      });
+    }
+    var btnMgr = $("btnManagerSign");
+    if (btnMgr) {
+      btnMgr.addEventListener("click", function () {
+        var q = queryDoc();
+        if (!q.id || !q.token) { setMsg("링크가 올바르지 않습니다.", true); return; }
+        btnMgr.disabled = true;
+        setMsg("서명을 제출하는 중입니다.");
+        rpc("form_document_manager_sign", { p_id: q.id, p_token: q.token, p_manager_data: collectManager() })
+          .then(function (doc) {
+            return applyDoc(doc).then(function () {
+              var url = shareUrl(doc.id, q.token);
+              showSharePanel(url, true);
+              setMode("completed");
+              setMsg("점장 서명이 완료되었습니다. 출력하거나 이미지로 저장할 수 있습니다.");
+            });
+          })
+          .catch(function (err) { setMsg(err.message || "서명 제출에 실패했습니다.", true); })
+          .then(function () { btnMgr.disabled = false; });
+      });
+    }
+    var btnCopy = $("btnCopyLink");
+    if (btnCopy) {
+      btnCopy.addEventListener("click", function () {
+        var input = $("shareLink");
+        var text = input ? input.value : "";
+        if (!text) return;
+        var done = function () { setMsg("링크를 복사했습니다."); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            input.select();
+            try { document.execCommand("copy"); done(); } catch (e) { setMsg("복사에 실패했습니다. 링크를 길게 눌러 복사해 주세요.", true); }
+          });
+        } else {
+          input.select();
+          try { document.execCommand("copy"); done(); } catch (e) { setMsg("복사에 실패했습니다. 링크를 길게 눌러 복사해 주세요.", true); }
+        }
+      });
+    }
+    var btnShare = $("btnShareLink");
+    if (btnShare) {
+      btnShare.addEventListener("click", function () {
+        var input = $("shareLink");
+        var text = input ? input.value : "";
+        if (!text || !navigator.share) return;
+        navigator.share({ title: document.title, url: text }).catch(function () {});
+      });
+    }
+
+    if (FORM_TYPE === "employment-certificate" && $("btnImage") && !document.getElementById("btnImage").dataset.bound) {
+      $("btnImage").dataset.bound = "1";
+      $("btnImage").addEventListener("click", function () {
+        if (typeof html2canvas !== "function") {
+          setMsg("이미지 저장 기능을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.", true);
+          return;
+        }
+        var btn = $("btnImage");
+        var page = document.querySelector(".page");
+        if (!page) return;
+        btn.disabled = true;
+        document.body.classList.add("capturing");
+        document.querySelectorAll("textarea").forEach(function (t) {
+          t.style.height = "auto";
+          t.style.height = t.scrollHeight + "px";
+        });
+        void page.offsetWidth;
+        html2canvas(page, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          windowWidth: Math.max(900, page.scrollWidth + 48)
+        }).then(function (canvas) {
+          document.body.classList.remove("capturing");
+          var a = document.createElement("a");
+          var nameEl = $("person_name");
+          var name = ((nameEl && nameEl.value) || "미기재").trim().replace(/[\\/:*?"<>|]+/g, "") || "미기재";
+          var now = new Date();
+          var ymd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+          a.download = "재직증명서_" + name + "_" + ymd + ".png";
+          a.href = canvas.toDataURL("image/png");
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }).catch(function () {
+          document.body.classList.remove("capturing");
+          setMsg("이미지 저장에 실패했습니다.", true);
+        }).then(function () { btn.disabled = false; });
+      });
+    }
+  }
+
+  function start() {
+    bind();
+    var q = queryDoc();
+    if (q.id && q.token) {
+      setMsg("문서를 불러오는 중입니다.");
+      rpc("form_document_get", { p_id: q.id, p_token: q.token })
+        .then(function (doc) {
+          return applyDoc(doc).then(function () {
+            var completed = doc.status === "completed";
+            showSharePanel(shareUrl(doc.id, q.token), completed);
+            setMode(completed ? "completed" : "submitted");
+            setMsg(completed ? "완성된 서식입니다. 출력하거나 이미지로 저장할 수 있습니다." : "내용을 확인한 뒤 점장 서명을 해 주세요.");
+          });
+        })
+        .catch(function (err) {
+          setMode("local");
+          hideSharePanel();
+          setMsg(err.message || "문서를 열 수 없습니다.", true);
+        });
+    } else {
+      setMode("local");
+      hideSharePanel();
+    }
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+
+</script>
 </body>
 </html>
