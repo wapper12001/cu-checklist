@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v188">
+<meta name="cu-version" content="v189">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v188</h1>
+  <h1>CU 점포 체크리스트 v189</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -402,6 +402,12 @@ if (document.documentElement.classList.contains('inapp')) {
     <button type="button" class="btn-kakao" id="sendNowKakao" style="width:100%;">카톡</button>
     <button type="button" class="btn-sms" id="sendNowSms" style="width:100%; margin-top:8px;">문자</button>
     <button type="button" class="btn-secondary" id="sendNowClose" style="width:100%; margin-top:8px;">닫기</button>
+  </div>
+</div>
+<div id="stepModal" class="modal hidden">
+  <div class="modal-content">
+    <p id="stepText" style="font-size:16px; font-weight:700; line-height:1.5; margin:0 0 14px;"></p>
+    <button type="button" class="btn-primary" id="stepOk" style="width:100%;">확인</button>
   </div>
 </div>
 <div id="barcodeModal" class="modal hidden">
@@ -949,7 +955,8 @@ function showLockedStore(name) {
   storeSelect.value = name;
   onStoreChange();
   resumeWork();
-  restoreRemoteProgress(name);
+  restoreRemoteProgress(name).then(() => promptFirstStep());
+  promptFirstStep();
 }
 async function enterStoreCode(code, silent) {
   code = String(code || '').trim();
@@ -1362,6 +1369,10 @@ function scheduleDiscardCheck() {
   discardTimer = setTimeout(checkDiscards, 400);
 }
 function checkDiscards() {
+  if (firstGap()) {
+    document.getElementById('discardModal').classList.add('hidden');
+    return;
+  }
   const due = dueDiscards();
   const modal = document.getElementById('discardModal');
   if (!due.length) {
@@ -1594,31 +1605,112 @@ function updateManagerInfo(d) {
 }
 
 shiftSelect.onchange = () => {
+  const prev = shiftSelect.dataset.prev || '';
+  if (!guardField('shift')) {
+    shiftSelect.value = prev;
+    return;
+  }
+  shiftSelect.dataset.prev = shiftSelect.value;
   renderChecklist();
   checkAllDone();
   saveResume();
   checkVersionAtStart();
 };
+function clockReady() {
+  return !!(clockInRecord && clockInRecord.at && clockInRecord.sent);
+}
+function gapMessage(gap) {
+  if (gap === 'scan') return '출근 QR을 스캔하세요.';
+  if (gap === 'report') return '출근 QR을 보고하세요.';
+  if (gap === 'camera') return '카메라를 열 수 없습니다. 카메라 권한을 허용한 뒤 다시 스캔하세요.';
+  if (gap === 'type') return '교육, 수습, 정식 중 하나를 고르세요.';
+  if (gap === 'shift') return '근무타입을 고르세요.';
+  if (gap === 'name') return '이름을 적으세요.';
+  if (gap === 'period') return '근무시간대를 고르세요.';
+  return '';
+}
+function firstGap() {
+  if (!currentStore) return '';
+  if (!clockInRecord || !clockInRecord.at) return 'scan';
+  if (!clockInRecord.sent) return 'report';
+  if (!document.querySelector('input[name="workType"]:checked')) return 'type';
+  if (!shiftSelect.value) return 'shift';
+  if (!staffName.value.trim()) return 'name';
+  if (!workPeriod.value.trim()) return 'period';
+  return '';
+}
+const gapRank = { scan: 1, report: 1, camera: 1, type: 2, shift: 3, name: 4, period: 5 };
+function guardField(field) {
+  const gap = firstGap();
+  if (!gap || gapRank[field] <= gapRank[gap]) return true;
+  openStep(gap);
+  return false;
+}
+function openStep(act, text) {
+  const modal = document.getElementById('stepModal');
+  if (!modal) return;
+  const barcode = document.getElementById('barcodeModal');
+  if (barcode && !barcode.classList.contains('hidden')) return;
+  const msg = text || gapMessage(act);
+  if (!msg) return;
+  if (!modal.classList.contains('hidden') && modal.dataset.act === act) return;
+  modal.dataset.act = act;
+  document.getElementById('stepText').innerHTML = biHtml(msg);
+  modal.classList.remove('hidden');
+}
+function promptFirstStep() {
+  const barcode = document.getElementById('barcodeModal');
+  const sending = document.getElementById('sendNowModal');
+  if ((barcode && !barcode.classList.contains('hidden')) || (sending && !sending.classList.contains('hidden'))) return;
+  const gap = firstGap();
+  const modal = document.getElementById('stepModal');
+  if (gap !== 'scan' && gap !== 'report') {
+    if (modal && (modal.dataset.act === 'scan' || modal.dataset.act === 'report')) modal.classList.add('hidden');
+    return;
+  }
+  openStep(gap);
+}
 function entryGaps() {
   const gaps = [];
   if (!currentStore) gaps.push('점포');
-  if (!shiftSelect.value) gaps.push('근무타입');
+  if (currentStore && !clockReady()) gaps.push('출근');
   if (!document.querySelector('input[name="workType"]:checked')) gaps.push('교육/수습/정식');
+  if (!shiftSelect.value) gaps.push('근무타입');
   if (!staffName.value.trim()) gaps.push('이름');
   if (!workPeriod.value.trim()) gaps.push('근무시간대');
   return gaps;
 }
-function showEntryGaps(gaps) {
-  const lines = ['빠진 항목이 있습니다.'].concat((gaps || entryGaps()).map(g => '- ' + g));
-  checklistContainer.innerHTML = '<div class="card" id="entryHint" style="line-height:1.6;">' + lines.map(line => biHtml(line)).join('<br>') + '</div>';
+function showEntryGaps() {
+  const msg = gapMessage(firstGap()) || '점포 코드를 입력하세요.';
+  checklistContainer.innerHTML = '<div class="card" id="entryHint" style="line-height:1.6;">' + biHtml(msg) + '</div>';
   delete checklistContainer.dataset.who;
   checkAllDone();
 }
 document.querySelectorAll('input[name="workType"]').forEach(el => {
+  el.addEventListener('pointerdown', (e) => {
+    if (guardField('type')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
   el.addEventListener('change', () => {
     if (entryGaps().length || !checklistContainer.querySelector('.item')) renderChecklist();
     else saveProgress();
   });
+});
+shiftSelect.addEventListener('pointerdown', () => {
+  shiftSelect.dataset.prev = shiftSelect.value;
+}, true);
+staffName.addEventListener('pointerdown', (e) => {
+  if (guardField('name')) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+[workStart, workEnd].forEach(el => {
+  el.addEventListener('pointerdown', (e) => {
+    if (guardField('period')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
 });
 
 function saveResume() {
@@ -1733,9 +1825,7 @@ function resumeWork() {
     fullReportSent = false;
     try { localStorage.setItem('cu-resume', JSON.stringify({ store: saved.store, shift: '', date: today })); } catch (e) {}
     onStoreChange();
-    bottomBar.classList.add('hidden');
-    const box = document.querySelector('.container');
-    if (box) box.style.paddingBottom = '';
+    checkAllDone();
     return;
   }
   if (saved.date) {
@@ -1903,14 +1993,10 @@ function saveProgress() {
         const keptAt = reportedAt || prev.reportedAt || (prevData.clockIn && prevData.clockIn.at) || '';
         if (keptAt) keepClockRecord(keptAt, prevData.clockIn);
       }
-      if (clockInRecord && clockInRecord.at) {
+      if (clockInRecord && clockInRecord.at && clockInRecord.sent) {
         done = true;
         reported = true;
         reportedAt = clockInRecord.at;
-      } else if (prev.done || prev.reported || prev.reportedAt || reportedAt) {
-        done = true;
-        reported = true;
-        reportedAt = reportedAt || prev.reportedAt || '';
       }
     } else if (!done && el.dataset.userUnchecked !== '1' && (prev.done || prev.reported || prev.reportedAt)) {
       done = true;
@@ -2108,7 +2194,7 @@ function renderChecklist() {
         const keptAt = sv.reportedAt || (saved && saved.clockIn && saved.clockIn.at) || '';
         if (keptAt || sv.done || sv.reported) keepClockRecord(keptAt, saved && saved.clockIn);
       }
-      if (clockInRecord && clockInRecord.at) {
+      if (clockInRecord && clockInRecord.at && clockInRecord.sent) {
         sv.done = true;
         sv.reported = true;
         sv.reportedAt = clockInRecord.at;
@@ -2369,7 +2455,7 @@ function alarmSavedDone(id, saved) {
 }
 function rowDone(it, saved) {
   if (String(it.id).startsWith('alarm-')) return !!discardStamp(String(it.id).slice(6)) || alarmSavedDone(it.id, saved);
-  if (isClockItem(it.title) && clockInRecord && clockInRecord.at) return true;
+  if (isClockItem(it.title) && clockInRecord && clockInRecord.at && clockInRecord.sent) return true;
   if (activeSlots().some(s => discardTitleMatches(it.title || '', s) && discardStamp(s.id))) return true;
   return alarmSavedDone(it.id, saved);
 }
@@ -2580,9 +2666,7 @@ function isClockItem(title) {
 function requiredMissing(id) {
   const it = itemById(id);
   if (it && isClockItem(it.title)) {
-    if (clockInRecord && clockInRecord.at) return [];
-    const el = document.querySelector('.item[data-id="' + String(id).replace(/"/g, '') + '"]');
-    if (el && (el.dataset.reported === '1' || el.dataset.reportedAt)) return [];
+    if (clockInRecord && clockInRecord.at && clockInRecord.sent) return [];
     return ['출근'];
   }
   if (!needsPhoto(id)) return [];
@@ -2816,9 +2900,9 @@ function checkAllDone() {
   }
   const items = checklistContainer.querySelectorAll('.item');
   if (!items.length) {
-    bottomBar.classList.add('hidden');
     if (reportFields()) reportFields().classList.add('hidden');
-    if (box) box.style.paddingBottom = '';
+    bottomBar.classList.remove('hidden');
+    if (box) box.style.paddingBottom = '88px';
     return;
   }
   let blocked = false;
@@ -2831,7 +2915,7 @@ function checkAllDone() {
   const open = reportFields() && !reportFields().classList.contains('hidden');
   if (box) box.style.paddingBottom = open ? '72vh' : '88px';
   syncDoneBorders();
-  maybeConditionPopups();
+  if (!firstGap()) maybeConditionPopups();
 }
 
 function syncDoneBorders() {
@@ -3319,13 +3403,10 @@ function backToStart() {
   clockInRecord = null;
   showClockIn();
   fullReportSent = false;
-  if (reportFields()) reportFields().classList.add('hidden');
-  bottomBar.classList.add('hidden');
-  const box = document.querySelector('.container');
-  if (box) box.style.paddingBottom = '';
+  checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v188';
+const APP_VERSION = 'v189';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3336,6 +3417,10 @@ sendReportBtn.onclick = async () => {
   try {
   const latest = await ensureLatestVersion();
   if (!latest) return;
+  if (!currentStore) { alert('점포 코드를 입력하세요.'); return; }
+  const gap = firstGap();
+  if (gap) { openStep(gap); return; }
+  if (!checklistContainer.querySelector('.item')) { alert('체크리스트가 없습니다.'); return; }
   const missing = collectMissing();
   if (missing.length) {
     refreshAllMiss();
@@ -3674,6 +3759,9 @@ async function shareClockIn(isSms) {
   if (!text || !clockInRecord || clockInRecord.sent || clockSharing) return;
   clockSharing = true;
   let shared = false;
+  let left = false;
+  const onHide = () => { if (document.visibilityState === 'hidden') left = true; };
+  document.addEventListener('visibilitychange', onHide);
   try {
     if (isSms || !navigator.share) {
       location.href = `sms:?body=${encodeURIComponent(text)}`;
@@ -3683,8 +3771,9 @@ async function shareClockIn(isSms) {
       shared = true;
     }
   } catch (e) {
-    shared = false;
+    shared = left;
   }
+  document.removeEventListener('visibilitychange', onHide);
   clockSharing = false;
   if (!shared) return;
   clockInRecord.sent = true;
@@ -3692,6 +3781,8 @@ async function shareClockIn(isSms) {
   writeClockLock(clockInRecord);
   paintClock(clockInRecord.at);
   saveProgress();
+  renderChecklist();
+  checkAllDone();
 }
 function offerSendNow(id) {
   if (sessionReported[reportKey(id)]) return;
@@ -3854,6 +3945,7 @@ function clockFits(row) {
   return true;
 }
 function paintClock(at) {
+  if (!(clockInRecord && clockInRecord.sent)) return;
   document.querySelectorAll('.item').forEach(el => {
     if (!isClockItem(el.dataset.title)) return;
     const id = el.dataset.id;
@@ -3874,19 +3966,15 @@ async function finishClockIn(code) {
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
   const parsed = parseCuQr(code);
-  if (!parsed) { alert('CU 출근 QR이 아닙니다.'); return; }
-  if (!qrDateOk(parsed.ymd)) { alert('오늘 출근 QR이 아닙니다.'); return; }
-  if (!sameStoreCode(parsed.storeCode, myStoreCode())) {
-    const ok = await enterStoreCode(parsed.storeCode, false);
-    if (!ok) return;
-  }
+  if (!parsed) { openStep('rescan', 'CU 출근 QR이 아닙니다.'); return; }
+  if (!qrDateOk(parsed.ymd)) { openStep('rescan', '오늘 출근 QR이 아닙니다.'); return; }
+  if (!sameStoreCode(parsed.storeCode, myStoreCode())) { openStep('rescan', '이 점포 QR이 아닙니다.'); return; }
   const existing = adoptClock(null);
   if (existing && existing.at) {
-    paintClock(existing.at);
-    saveProgress();
-    syncDoneBorders();
-    checkAllDone();
-    alert('이미 ' + existing.at + '에 출근했습니다.');
+    if (existing.sent) {
+      paintClock(existing.at);
+      alert('이미 ' + existing.at + '에 출근했습니다.');
+    } else offerClockSend();
     return;
   }
   clockInRecord = {
@@ -3943,7 +4031,7 @@ async function startClockScan() {
     qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
   } catch (e) {
     modal.classList.add('hidden');
-    alert('카메라를 열 수 없습니다.');
+    openStep('camera');
     return;
   }
   const video = document.getElementById('qrVideo');
@@ -3983,9 +4071,25 @@ async function startClockScan() {
   loop();
 };
 document.getElementById('cancelBarcode').onclick = () => {
+  const failed = (document.getElementById('qrMsg').textContent || '').indexOf('읽지 못합니다') >= 0;
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
+  if (failed) openStep('rescan', '이 휴대폰에서는 QR을 읽지 못합니다.');
 };
+document.getElementById('stepOk').onclick = () => {
+  const modal = document.getElementById('stepModal');
+  const act = modal.dataset.act || '';
+  modal.classList.add('hidden');
+  if (act === 'scan' || act === 'camera' || act === 'rescan') startClockScan();
+  else if (act === 'report') offerClockSend();
+  else if (act === 'type') {
+    const row = document.querySelector('.type-row');
+    if (row) row.scrollIntoView({ block: 'center' });
+  } else if (act === 'shift') shiftSelect.focus();
+  else if (act === 'name') staffName.focus();
+  else if (act === 'period') workStart.focus();
+};
+checkAllDone();
 
 // ===== 숨김 관리자 (10번) =====
 document.getElementById('secretArea').addEventListener('click', function(e) {
