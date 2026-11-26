@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v192">
+<meta name="cu-version" content="v193">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v192</h1>
+  <h1>CU 점포 체크리스트 v193</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -955,7 +955,9 @@ function showLockedStore(name) {
   storeSelect.value = name;
   onStoreChange();
   resumeWork();
-  restoreRemoteProgress(name).then(() => promptFirstStep());
+  recallClock();
+  renderChecklist();
+  restoreRemoteProgress(name).then(() => { recallClock(); renderChecklist(); promptFirstStep(); });
   promptFirstStep();
 }
 async function enterStoreCode(code, silent) {
@@ -989,7 +991,7 @@ function resetStoreCode() {
 document.getElementById('storeCodeBtn').onclick = () => enterStoreCode(document.getElementById('storeCodeInput').value, false);
 document.getElementById('storeCodeChange').onclick = resetStoreCode;
 const savedAccessCode = localStorage.getItem('cu-access-code') || '';
-if (savedAccessCode) enterStoreCode(savedAccessCode, true);
+if (savedAccessCode) enterStoreCode(savedAccessCode, true).then(ok => { if (!ok) promptFirstStep(); });
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 reportDate.dataset.prev = reportDate.value;
 
@@ -1661,6 +1663,7 @@ function openStep(act, text) {
 let clockEntering = false;
 function promptFirstStep() {
   if (clockEntering) return;
+  recallClock();
   const report = document.getElementById('reportScreen');
   if (report && report.classList.contains('hidden')) return;
   const barcode = document.getElementById('barcodeModal');
@@ -3410,7 +3413,7 @@ function backToStart() {
   checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v192';
+const APP_VERSION = 'v193';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3892,6 +3895,26 @@ function earlierClock(a, b) {
   if (bm == null) return a;
   return am <= bm ? a : b;
 }
+function recallClock() {
+  if (clockInRecord && clockInRecord.at) return clockInRecord;
+  if (!currentStore || !reportDate.value) return null;
+  const prefix = 'cuclock_' + currentStore + '_';
+  const date = reportDate.value;
+  const name = staffName.value.trim();
+  let found = null;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || k.indexOf(prefix) !== 0 || k.indexOf('_' + date) < 0) continue;
+    const row = readStore(k);
+    if (!row || !row.at || (row.date && row.date !== date)) continue;
+    if (row.name && name && row.name !== name) continue;
+    if (row.shift && row.shift !== 'none' && shiftSelect.value && row.shift !== shiftSelect.value) continue;
+    if (!found || (row.sent && !found.sent)) found = row;
+  }
+  if (!found) return null;
+  clockInRecord = found;
+  return found;
+}
 function readClockLock() {
   if (!currentStore || !reportDate.value) return null;
   const prefix = 'cuclock_' + currentStore + '_';
@@ -4132,7 +4155,7 @@ document.getElementById('stepOk').onclick = () => {
   else if (act === 'period') workStart.focus();
 };
 checkAllDone();
-promptFirstStep();
+if (!localStorage.getItem('cu-access-code')) promptFirstStep();
 
 // ===== 숨김 관리자 (10번) =====
 document.getElementById('secretArea').addEventListener('click', function(e) {
