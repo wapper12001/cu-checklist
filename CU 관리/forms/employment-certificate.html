@@ -33,7 +33,11 @@
   .issuer .row { display:flex; align-items:center; margin:8px 0; }
   .issuer .label { width:30%; }
   .issuer input { flex:1; border:none; border-bottom:1px solid #999; font:inherit; padding:4px; outline:none; }
-  .seal { width:70px; height:70px; border:1px dashed #999; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; color:#888; margin-left:10px; }
+  .seal-spot { position:relative; width:70px; height:70px; margin-left:6px; flex:0 0 auto; }
+  .seal { width:100%; height:100%; border:1px dashed #999; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; color:#888; margin-left:0; }
+  .seal-img { position:absolute; width:140px; height:92px; right:-8px; top:50%; transform:translateY(-50%) rotate(-6deg); object-fit:contain; object-position:right center; pointer-events:none; z-index:2; }
+  .seal-spot.has-seal .seal { border-color:transparent; color:transparent; }
+  .seal-controls { display:inline-block; margin:0 4px; vertical-align:middle; }
   .footer { position:absolute; bottom:18mm; left:20mm; right:20mm; text-align:center; font-size:12px; color:#666; }
   @media print {
     body { background:#fff; }
@@ -52,7 +56,9 @@
     .issue-date { margin-bottom:8mm; }
     .issuer { font-size:15px; }
     .issuer .row { margin:5px 0; }
+    .seal-spot { width:60px; height:60px; }
     .seal { width:60px; height:60px; }
+    .seal-img { width:120px; height:80px; }
     .page { break-inside:avoid; page-break-inside:avoid; }
   }
 
@@ -66,10 +72,10 @@
   .share-row input { flex: 1; min-width: 160px; font-size: 13px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
   .cuform-msg { font-size: 13px; margin: 6px 0 0; min-height: 1em; color: #555; }
   .cuform-msg.error { color: #a33; }
-  @media print { .share-panel, .cuform-msg, #btnSubmit, #btnManagerSign { display: none !important; } }
+  @media print { .share-panel, .cuform-msg, .seal-controls, #btnSubmit, #btnManagerSign, #btnSealUpload, #btnSealClear { display: none !important; } }
 
   body.capturing { background: #fff !important; }
-  body.capturing .toolbar, body.capturing .no-print { display: none !important; }
+  body.capturing .toolbar, body.capturing .no-print, body.capturing .seal-controls { display: none !important; }
   body.capturing .page {
     width: 210mm !important;
     max-width: 210mm !important;
@@ -87,6 +93,11 @@
   <button type="button" id="btnImage" class="sub">이미지로 저장</button>
   <button type="button" id="btnSubmit">제출</button>
   <button type="button" id="btnManagerSign" hidden>서명 제출</button>
+  <div id="sealControls" class="seal-controls no-print" hidden>
+    <input type="file" id="sealFile" accept="image/png" hidden>
+    <button type="button" id="btnSealUpload" class="sub">직인 올리기</button>
+    <button type="button" id="btnSealClear" class="sub" hidden>직인 지우기</button>
+  </div>
   <div class="share-panel no-print" id="sharePanel" hidden>
     <label for="shareLink" id="shareLabel">점장에게 이 링크를 보내 주세요.</label>
     <div class="share-row">
@@ -130,7 +141,7 @@
     <div class="row"><span class="label">사업자등록번호</span><input id="issuer_biz_no"></div>
     <div class="row addr-row"><span class="label">주 소</span><textarea id="issuer_addr" class="addr" rows="2"></textarea></div>
     <div class="row"><span class="label">발급자(대표자/점장)</span><input id="issuer_name"></div>
-    <div class="row"><span class="label">서 명</span><input id="issuer_sign"><span class="seal">(인)</span></div>
+    <div class="row sign-row"><span class="label">서 명</span><input id="issuer_sign"><span class="seal-spot" id="issuerSealSpot"><span class="seal" id="issuerSealMark">(인)</span><img id="managerSealImg" class="seal-img" alt="" hidden></span></div>
   </div>
 
   <div class="footer">본 증명서는 발급일 기준으로 작성되었습니다.</div>
@@ -440,6 +451,7 @@
   var managerFields = MANAGER_FIELD_IDS[FORM_TYPE] || [];
   var managerSigs = MANAGER_SIG_IDS[FORM_TYPE] || [];
   var currentDoc = null;
+  var currentSeal = "";
 
   function $(id) { return document.getElementById(id); }
   function queryDoc() {
@@ -555,7 +567,97 @@
       mgr.hidden = mode !== "submitted";
       mgr.style.display = mode === "submitted" ? "" : "none";
     }
+    var sealCtrl = $("sealControls");
+    if (sealCtrl) {
+      var showSeal = mode === "submitted";
+      sealCtrl.hidden = !showSeal;
+      sealCtrl.style.display = showSeal ? "" : "none";
+    }
     applyLocks(mode);
+  }
+  function currentMode() {
+    return document.body.getAttribute("data-cuform-mode") || "local";
+  }
+  function setSeal(dataUrl) {
+    currentSeal = dataUrl || "";
+    var img = $("managerSealImg");
+    var spot = $("issuerSealSpot") || document.querySelector(".seal-spot");
+    var clearBtn = $("btnSealClear");
+    if (img) {
+      if (currentSeal) {
+        img.src = currentSeal;
+        img.hidden = false;
+      } else {
+        img.removeAttribute("src");
+        img.hidden = true;
+      }
+    }
+    if (spot) {
+      if (currentSeal) spot.classList.add("has-seal");
+      else spot.classList.remove("has-seal");
+    }
+    if (clearBtn) clearBtn.hidden = !currentSeal;
+  }
+  function applySealFromData(data) {
+    var sigs = data && data.signatures;
+    var url = "";
+    if (sigs && typeof sigs === "object") {
+      url = sigs.manager_seal || sigs["id:manager_seal"] || "";
+    }
+    setSeal(url);
+  }
+  function downscaleSeal(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) { reject(new Error("파일을 선택해 주세요.")); return; }
+      var typ = (file.type || "").toLowerCase();
+      if (typ !== "image/png") {
+        reject(new Error("투명 배경의 PNG 파일을 선택해 주세요."));
+        return;
+      }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var maxSide = 400;
+        var dataUrl = "";
+        function render(side) {
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          if (!w || !h) return "";
+          var scale = Math.min(1, side / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale));
+          var ch = Math.max(1, Math.round(h * scale));
+          var c = document.createElement("canvas");
+          c.width = cw;
+          c.height = ch;
+          var ctx = c.getContext("2d");
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.drawImage(img, 0, 0, cw, ch);
+          return c.toDataURL("image/png");
+        }
+        dataUrl = render(maxSide);
+        if (!dataUrl || dataUrl.indexOf("data:image/png;base64,") !== 0) {
+          reject(new Error("직인 이미지를 읽지 못했습니다."));
+          return;
+        }
+        var sides = [320, 240, 180, 140];
+        var i = 0;
+        while (dataUrl.length > 600000 && i < sides.length) {
+          dataUrl = render(sides[i]);
+          i++;
+        }
+        if (dataUrl.length < 256 || dataUrl.length > 700000) {
+          reject(new Error("직인 이미지가 너무 크거나 올바르지 않습니다. 더 작은 PNG로 다시 올려 주세요."));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error("직인 이미지를 읽지 못했습니다."));
+      };
+      img.src = url;
+    });
   }
   function collectAll() {
     if (!window.__cuformDraft || typeof window.__cuformDraft.collect !== "function") {
@@ -574,18 +676,25 @@
       var k = "id:" + id;
       if (all.signatures && all.signatures[k]) out.signatures[k] = all.signatures[k];
     });
+    if (currentSeal && currentSeal.indexOf("data:image/png;base64,") === 0 && currentSeal.length >= 256) {
+      out.signatures.manager_seal = currentSeal;
+    }
     return out;
   }
   function applyDoc(doc) {
     currentDoc = doc;
     var draft = window.__cuformDraft;
+    var finish = function () {
+      applySealFromData(doc && doc.data);
+      return doc;
+    };
     if (draft && typeof draft.apply === "function" && doc && doc.data) {
       return draft.apply(doc.data).then(function () {
         if (draft.clear) draft.clear();
-        return doc;
+        return finish();
       });
     }
-    return Promise.resolve(doc);
+    return Promise.resolve(finish());
   }
   function bind() {
     var btnSubmit = $("btnSubmit");
@@ -627,6 +736,38 @@
           .then(function () { btnMgr.disabled = false; });
       });
     }
+    var btnSealUp = $("btnSealUpload");
+    var sealFile = $("sealFile");
+    if (btnSealUp && sealFile) {
+      btnSealUp.addEventListener("click", function () {
+        if (currentMode() !== "submitted") return;
+        sealFile.value = "";
+        sealFile.click();
+      });
+      sealFile.addEventListener("change", function () {
+        if (currentMode() !== "submitted") return;
+        var file = sealFile.files && sealFile.files[0];
+        if (!file) return;
+        downscaleSeal(file)
+          .then(function (dataUrl) {
+            setSeal(dataUrl);
+            setMsg("직인을 올렸습니다. 서명 제출을 눌러 주세요.");
+          })
+          .catch(function (err) {
+            setMsg((err && err.message) || "직인 이미지를 올리지 못했습니다.", true);
+          })
+          .then(function () { sealFile.value = ""; });
+      });
+    }
+    var btnSealClear = $("btnSealClear");
+    if (btnSealClear) {
+      btnSealClear.addEventListener("click", function () {
+        if (currentMode() !== "submitted") return;
+        setSeal("");
+        setMsg("직인을 지웠습니다.");
+      });
+    }
+
     var btnCopy = $("btnCopyLink");
     if (btnCopy) {
       btnCopy.addEventListener("click", function () {
