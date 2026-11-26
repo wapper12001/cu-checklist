@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v189">
+<meta name="cu-version" content="v190">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v189</h1>
+  <h1>CU 점포 체크리스트 v190</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -3406,7 +3406,7 @@ function backToStart() {
   checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v189';
+const APP_VERSION = 'v190';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3832,14 +3832,29 @@ function stopQr() {
   if (video) video.srcObject = null;
 }
 function parseCuQr(text) {
-  const raw = String(text || '').trim().replace(/[\s-]/g, '');
-  if (!/^bgf/i.test(raw)) return null;
-  const body = raw.slice(3);
+  const raw = String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const at = raw.lastIndexOf('BGF');
+  if (at < 0) return null;
+  const body = raw.slice(at + 3);
+  if (!body) return null;
+  const today = koreaNow().date.replace(/-/g, '');
+  const today6 = today.slice(2);
+  const cut = (token) => {
+    const i = body.indexOf(token);
+    if (i <= 0) return null;
+    const storeCode = body.slice(0, i).replace(/\D/g, '');
+    if (!storeCode) return null;
+    return { storeCode, ymd: token };
+  };
+  const todayHit = cut(today) || cut(today6);
+  if (todayHit) return todayHit;
   const take = (n) => {
     if (body.length <= n) return null;
     const ymd = body.slice(-n);
-    const storeCode = body.slice(0, -n);
+    const storeCode = body.slice(0, -n).replace(/\D/g, '');
     if (!/^\d+$/.test(ymd) || !storeCode) return null;
+    if (n === 8 && !/^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(ymd)) return null;
+    if (n === 6 && !/^\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(ymd)) return null;
     return { storeCode, ymd };
   };
   return take(8) || take(6);
@@ -3849,9 +3864,14 @@ function myStoreCode() {
   return fromStore || String(localStorage.getItem('cu-access-code') || '').trim();
 }
 function sameStoreCode(a, b) {
-  const x = String(a || '').replace(/\s/g, '').toLowerCase();
-  const y = String(b || '').replace(/\s/g, '').toLowerCase();
-  return !!x && x === y;
+  const digits = (s) => String(s || '').replace(/\D/g, '');
+  const x = digits(a);
+  const y = digits(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const xz = x.replace(/^0+/, '');
+  const yz = y.replace(/^0+/, '');
+  return !!xz && xz === yz;
 }
 function qrDateOk(ymd) {
   const today = koreaNow().date.replace(/-/g, '');
@@ -4064,7 +4084,14 @@ async function startClockScan() {
         const found = window.jsQR(img.data, img.width, img.height);
         if (found) code = found.data || '';
       }
-      if (code) { finishClockIn(code); return; }
+      if (code) {
+        if (!parseCuQr(code)) {
+          msg.textContent = '오른쪽 근무자 인증 QR을 비추세요.';
+        } else {
+          finishClockIn(code);
+          return;
+        }
+      }
     }
     setTimeout(loop, 300);
   };
