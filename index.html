@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v197">
+<meta name="cu-version" content="v198">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v197</h1>
+  <h1>CU 점포 체크리스트 v198</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -401,6 +401,7 @@ if (document.documentElement.classList.contains('inapp')) {
     <p id="stepText" style="font-size:16px; font-weight:700; line-height:1.5; margin:0 0 14px;"></p>
     <button type="button" class="btn-primary" id="stepOk" style="width:100%;">확인</button>
     <button type="button" class="btn-secondary hidden" id="stepPhoto" style="width:100%; margin-top:8px;">사진으로 읽기</button>
+    <button type="button" class="btn-secondary" id="stepClose" style="width:100%; margin-top:8px;">닫기</button>
   </div>
 </div>
 <div id="barcodeModal" class="modal hidden">
@@ -961,12 +962,12 @@ async function enterStoreCode(code, silent) {
   code = String(code || '').trim();
   if (!code) { if (!silent) alert('점포 코드를 입력하세요.'); return false; }
   const { data, error } = await supabase.from('checklist_items').select('title').eq('store_name', '__i18n__').eq('shift_key', 'access').eq('description', code);
-  if (error) { if (!silent) alert('코드를 확인하지 못했습니다.'); return false; }
+  if (error) { if (!silent) alert('코드를 확인하지 못했습니다.'); return 'error'; }
   const names = [...new Set((data || []).map(row => (row.title || '').trim()).filter(Boolean))];
-  if (!names.length) { if (!silent) alert('점포 코드가 맞지 않습니다.'); return false; }
-  if (names.length > 1) { if (!silent) alert('같은 코드를 쓰는 점포가 있습니다. 코드를 다르게 정해 주세요.'); return false; }
+  if (!names.length) { if (!silent) alert('점포 코드가 맞지 않습니다.'); return 'missing'; }
+  if (names.length > 1) { if (!silent) alert('같은 코드를 쓰는 점포가 있습니다. 코드를 다르게 정해 주세요.'); return 'missing'; }
   try { await loadOneStore(names[0]); }
-  catch (e) { if (!silent) alert('점포를 불러오지 못했습니다.'); return false; }
+  catch (e) { if (!silent) alert('점포를 불러오지 못했습니다.'); return 'error'; }
   localStorage.setItem('cu-access-code', code);
   showLockedStore(names[0]);
   return true;
@@ -985,7 +986,7 @@ function resetStoreCode() {
   if (line) line.classList.add('hidden');
 }
 const savedAccessCode = localStorage.getItem('cu-access-code') || '';
-if (savedAccessCode) enterStoreCode(savedAccessCode, true).then(ok => { if (!ok) promptFirstStep(); });
+if (savedAccessCode) enterStoreCode(savedAccessCode, true).then(ok => { if (ok !== true) promptFirstStep(); });
 reportDate.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 reportDate.dataset.prev = reportDate.value;
 
@@ -1618,7 +1619,7 @@ function clockReady() {
 function gapMessage(gap) {
   if (gap === 'scan') return '출근 QR을 스캔하세요.';
   if (gap === 'report') return '출근 QR을 보고하세요.';
-  if (gap === 'camera') return '카메라를 열 수 없습니다. 주소창 자물쇠나 휴대폰 설정에서 카메라 권한을 허용한 뒤 다시 시도하세요. 그래도 안 되면 사진으로 읽기를 누르고, 포스 오른쪽 근무자 인증 QR을 찍어 올리세요.';
+  if (gap === 'camera') return '카메라를 열 수 없습니다. 카메라 권한을 허용한 뒤 다시 스캔하세요.';
   if (gap === 'type') return '교육, 수습, 정식 중 하나를 고르세요.';
   if (gap === 'shift') return '근무타입을 고르세요.';
   if (gap === 'name') return '이름을 적으세요.';
@@ -1656,7 +1657,7 @@ function openStep(act, text) {
   const ok = document.getElementById('stepOk');
   const usePhoto = act === 'camera' || act === 'rescan';
   if (photo) photo.classList.toggle('hidden', !usePhoto);
-  if (ok) ok.textContent = usePhoto ? '다시 시도' : '확인';
+  if (ok) ok.textContent = '확인';
   modal.classList.remove('hidden');
 }
 let clockEntering = false;
@@ -1687,11 +1688,18 @@ function entryGaps() {
   return gaps;
 }
 function showEntryGaps() {
-  const msg = gapMessage(firstGap()) || '점포 코드를 입력하세요.';
+  const msg = gapMessage(firstGap()) || '출근 QR을 스캔하세요.';
   checklistContainer.innerHTML = '<div class="card" id="entryHint" style="line-height:1.6;">' + biHtml(msg) + '</div>';
   delete checklistContainer.dataset.who;
   checkAllDone();
 }
+document.querySelectorAll('.type-row label').forEach(label => {
+  label.addEventListener('pointerdown', (e) => {
+    if (guardField('type')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+});
 document.querySelectorAll('input[name="workType"]').forEach(el => {
   el.addEventListener('pointerdown', (e) => {
     if (guardField('type')) return;
@@ -1957,8 +1965,10 @@ function onIdentityInput() {
   if (shiftSelect.value) saveProgress();
   return done(true);
 }
-staffName.oninput = onIdentityInput;
-staffName.addEventListener('compositionend', onIdentityInput);
+staffName.addEventListener('compositionstart', () => { staffName.dataset.composing = '1'; });
+staffName.addEventListener('compositionend', () => { staffName.dataset.composing = ''; onIdentityInput(); });
+staffName.oninput = () => { if (staffName.dataset.composing === '1') return; onIdentityInput(); };
+staffName.addEventListener('blur', () => onIdentityInput());
 function progressForCurrent() {
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
@@ -3415,7 +3425,7 @@ function backToStart() {
   checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v197';
+const APP_VERSION = 'v198';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3426,7 +3436,7 @@ sendReportBtn.onclick = async () => {
   try {
   const latest = await ensureLatestVersion();
   if (!latest) return;
-  if (!currentStore) { alert('점포 코드를 입력하세요.'); return; }
+  if (!currentStore) { openStep('scan'); return; }
   const gap = firstGap();
   if (gap) { openStep(gap); return; }
   if (!checklistContainer.querySelector('.item')) { alert('체크리스트가 없습니다.'); return; }
@@ -3897,11 +3907,23 @@ function earlierClock(a, b) {
   if (bm == null) return a;
   return am <= bm ? a : b;
 }
+function namesConflict(saved, typed) {
+  if (!saved || !typed || saved === typed) return false;
+  return !(typed.startsWith(saved) || saved.startsWith(typed));
+}
+function longerName(a, b) {
+  const x = String(a || '').trim();
+  const y = String(b || '').trim();
+  if (!x) return y;
+  if (!y) return x;
+  if (x.startsWith(y) || y.startsWith(x)) return x.length >= y.length ? x : y;
+  return y;
+}
 function releaseClockIfIdentityChanged() {
   if (!clockInRecord || !clockInRecord.at) return false;
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
-  const nameChanged = !!(clockInRecord.name && name && clockInRecord.name !== name);
+  const nameChanged = namesConflict(clockInRecord.name, name);
   const periodChanged = !!(clockInRecord.period && period && clockInRecord.period !== period);
   if (!nameChanged && !periodChanged) return false;
   clockInRecord = null;
@@ -3911,7 +3933,7 @@ function stampClockIdentity() {
   if (!clockInRecord || !clockInRecord.at) return;
   const name = staffName.value.trim();
   const period = workPeriod.value.trim();
-  if (clockInRecord.name && name && clockInRecord.name !== name) return;
+  if (namesConflict(clockInRecord.name, name)) return;
   if (clockInRecord.period && period && clockInRecord.period !== period) return;
   let changed = false;
   if (name && clockInRecord.name !== name) { clockInRecord.name = name; changed = true; }
@@ -3919,13 +3941,11 @@ function stampClockIdentity() {
   if (changed) writeClockLock(clockInRecord);
 }
 function recallClock() {
-  const name = staffName.value.trim();
-  const period = workPeriod.value.trim();
   if (clockInRecord && clockInRecord.at) {
-    if (!name || !period || clockFits(clockInRecord)) return clockInRecord;
+    if (clockFits(clockInRecord)) return clockInRecord;
     clockInRecord = null;
   }
-  if (!name || !period || !currentStore || !reportDate.value) return null;
+  if (!currentStore || !reportDate.value) return null;
   const prefix = 'cuclock_' + currentStore + '_';
   const date = reportDate.value;
   let found = null;
@@ -3934,11 +3954,19 @@ function recallClock() {
     if (!k || k.indexOf(prefix) !== 0 || k.indexOf('_' + date) < 0) continue;
     const row = readStore(k);
     if (!clockFits(row)) continue;
-    if (!found || (row.sent && !found.sent)) found = row;
+    found = preferClock(found, row);
   }
   if (!found) return null;
   clockInRecord = found;
   return found;
+}
+function preferClock(a, b) {
+  if (!a || !a.at) return b && b.at ? b : null;
+  if (!b || !b.at) return a;
+  if (!!a.sent !== !!b.sent) return a.sent ? a : b;
+  const weight = row => (row.name || '').length + (row.period || '').length;
+  if (weight(a) !== weight(b)) return weight(a) > weight(b) ? a : b;
+  return earlierClock(a, b);
 }
 function readClockLock() {
   if (!currentStore || !reportDate.value) return null;
@@ -3975,8 +4003,8 @@ function writeClockLock(record) {
   const keep = earlierClock(prev, record) || record;
   const next = Object.assign({}, keep, {
     sent: !!((prev && prev.sent) || record.sent),
-    name: keep.name || record.name || staffName.value.trim(),
-    period: keep.period || record.period || workPeriod.value.trim(),
+    name: longerName(record.name || staffName.value.trim(), keep.name),
+    period: record.period || keep.period || workPeriod.value.trim(),
     store: keep.store || record.store || currentStore,
     date: keep.date || record.date || reportDate.value,
     shift: keep.shift || record.shift || shiftSelect.value || ''
@@ -4000,7 +4028,7 @@ function adoptClock(savedClock) {
     return null;
   }
   picked = Object.assign({}, picked, {
-    name: picked.name || name,
+    name: longerName(name, picked.name),
     period: picked.period || workPeriod.value.trim(),
     shift: picked.shift || shiftSelect.value,
     store: picked.store || currentStore || '',
@@ -4012,12 +4040,14 @@ function adoptClock(savedClock) {
 }
 function clockFits(row) {
   if (!row || !row.at) return false;
-  const name = staffName.value.trim();
-  const period = workPeriod.value.trim();
-  if (!name || !period || !row.name || !row.period) return false;
-  if (row.name !== name || row.period !== period) return false;
   if (row.date && reportDate.value && row.date !== reportDate.value) return false;
   if (row.store && currentStore && row.store !== currentStore) return false;
+  const name = staffName.value.trim();
+  const period = workPeriod.value.trim();
+  if (namesConflict(row.name, name)) return false;
+  if (row.period && period && row.period !== period) return false;
+  if (!name && !period) return !row.name && !row.period;
+  if (!name && row.name) return false;
   return true;
 }
 function paintClock(at) {
@@ -4049,7 +4079,8 @@ async function finishClockIn(code) {
     let opened = false;
     try { opened = await enterStoreCode(parsed.storeCode, true); }
     finally { clockEntering = false; }
-    if (!opened || !sameStoreCode(parsed.storeCode, myStoreCode())) {
+    if (opened === 'error') { openStep('rescan', '연결되지 않았습니다. 네트워크를 확인한 뒤 다시 스캔하세요.'); return; }
+    if (opened !== true || !sameStoreCode(parsed.storeCode, myStoreCode())) {
       openStep('rescan', '등록된 점포 QR이 아닙니다.');
       return;
     }
@@ -4106,7 +4137,15 @@ document.querySelector('.qr-help-pop').onclick = (e) => {
 document.querySelector('.qr-help').addEventListener('mouseleave', () => {
   document.querySelector('.qr-help').classList.remove('closed');
 });
-document.getElementById('clockInBtn').onclick = () => startClockScan();
+document.getElementById('clockInBtn').onclick = () => {
+  recallClock();
+  if (clockInRecord && clockInRecord.at && clockFits(clockInRecord)) {
+    if (clockInRecord.sent) { alert('이미 ' + clockInRecord.at + '에 출근했습니다.'); return; }
+    offerClockSend();
+    return;
+  }
+  startClockScan();
+};
 async function startClockScan() {
   const modal = document.getElementById('barcodeModal');
   const msg = document.getElementById('qrMsg');
@@ -4163,11 +4202,11 @@ async function startClockScan() {
   loop();
 };
 document.getElementById('cancelBarcode').onclick = () => {
-  const failed = (document.getElementById('qrMsg').textContent || '').indexOf('읽지 못합니다') >= 0;
   stopQr();
   document.getElementById('barcodeModal').classList.add('hidden');
-  if (failed) openStep('rescan', '이 휴대폰에서는 QR을 읽지 못합니다.');
-  else promptFirstStep();
+};
+document.getElementById('stepClose').onclick = () => {
+  document.getElementById('stepModal').classList.add('hidden');
 };
 async function readQrFromFile(file) {
   if (!file) return;
