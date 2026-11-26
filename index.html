@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v186">
+<meta name="cu-version" content="v187">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v186</h1>
+  <h1>CU 점포 체크리스트 v187</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -385,7 +385,7 @@ if (document.documentElement.classList.contains('inapp')) {
 <!-- 폐기 알림 -->
 <div id="discardModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="margin-top:0; color:#b00020;">폐기 알림</h3>
+    <h3 id="discardTitle" style="margin-top:0; color:#b00020;">폐기 알림</h3>
     <div id="discardBody" style="font-size:15px; line-height:1.5;"></div>
   </div>
 </div>
@@ -1266,6 +1266,9 @@ function currentWeather() {
     phrase: (saved.phrase || WEATHER_DEFAULT.phrase).trim()
   };
 }
+function koreaStamp(ms) {
+  return new Date(ms == null ? Date.now() : ms).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+}
 function koreaNow() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
@@ -1301,13 +1304,35 @@ function slotAlreadyDue(slotMin, range, nowMin) {
   return slotMin <= nowMin;
 }
 function shiftAnchorDate(now, range) {
-  if (range.start > range.end && now.minutes < range.end) {
-    const [y, m, d] = now.date.split('-').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() - 1);
-    return dt.toISOString().slice(0, 10);
-  }
+  if (!now || !range) return now ? now.date : '';
+  if (range.start > range.end && now.minutes <= range.end + 60) return addDays(now.date, -1);
   return now.date;
+}
+function discardPopupId(id) {
+  const raw = String(id || '');
+  if (raw.indexOf('discard-') !== 0) return '';
+  const slotId = raw.slice('discard-'.length);
+  return activeSlots().some(s => s.id === slotId) ? slotId : '';
+}
+function discardDoneOnList(slot) {
+  if (!slot) return '';
+  const nodes = document.querySelectorAll('.item');
+  for (const el of nodes) {
+    const id = String(el.dataset.id || '');
+    if (id.startsWith('alarm-')) continue;
+    if (!discardTitleMatches(el.dataset.title || '', slot)) continue;
+    if (el.dataset.reported === '1' || sessionReported[reportKey(id)]) return el.dataset.reportedAt || koreaStamp();
+  }
+  const saved = progressForCurrent();
+  const shift = allData[currentStore] && allData[currentStore].shifts && allData[currentStore].shifts[shiftSelect.value];
+  const items = (shift && shift.items) || [];
+  for (const it of items) {
+    if (String(it.id || '').startsWith('alarm-')) continue;
+    if (!discardTitleMatches(it.title || '', slot)) continue;
+    const sv = saved && saved.items && (saved.items[it.id] || saved.items[String(it.id)]);
+    if (sv && (sv.reported || sv.reportedAt)) return sv.reportedAt || koreaStamp();
+  }
+  return '';
 }
 function dueDiscards() {
   if (!currentStore || !allData[currentStore]) return [];
@@ -1321,6 +1346,9 @@ function dueDiscards() {
     if (s.who === '19' && hours !== '19') return false;
     if (s.who === '24' && hours !== '24') return false;
     return !localStorage.getItem('discard45_' + currentStore + '_' + anchor + '_' + s.id);
+  }).map(s => {
+    const when = discardDoneOnList(s);
+    return Object.assign({}, s, { recheck: !!when, recheckAt: when });
   });
 }
 let discardTimer = null;
@@ -1338,11 +1366,21 @@ function checkDiscards() {
     syncAlarmList();
     return;
   }
-  const key = due.map(s => s.id).join(',');
+  const key = due.map(s => s.id + (s.recheck ? ':r' : '')).join(',');
   if (modal.dataset.ids === key && !modal.classList.contains('hidden')) return;
   const store = String(currentStore || '').replace(/&/g, '&' + 'amp;').replace(/</g, '&' + 'lt;');
   const hours = effectiveHours();
-  document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => `
+  const recheckOnly = due.every(s => s.recheck);
+  const title = document.getElementById('discardTitle');
+  if (title) {
+    title.textContent = recheckOnly ? '재확인' : '폐기 알림';
+    title.style.color = recheckOnly ? '#6B2C91' : '#b00020';
+  }
+  document.getElementById('discardBody').innerHTML = `<p style="margin:0 0 8px;"><strong>${store}</strong></p>` + due.map(s => s.recheck ? `
+    <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #eadcf5;">
+      <p style="margin:0 0 8px;"><strong>${escHtml(s.title)}</strong><br>이미 보고했습니다. 다시 확인만 하면 됩니다.</p>
+      <button type="button" class="btn-primary" data-discard="${s.id}" data-act="ack" style="width:100%;">확인했어요</button>
+    </div>` : `
     <div style="margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid #f0d0d0;">
       <p style="margin:0 0 8px;"><strong>${escHtml(s.title)}</strong>${slotNote(s, hours) ? '<br>' + escHtml(slotNote(s, hours)) : ''}<br>${escHtml(s.body || '')}</p>
       <div class="btn-row">
@@ -1366,7 +1404,17 @@ document.getElementById('discardBody').onclick = e => {
   if (!id) return;
   if (btn.dataset.act === 'photo') takePhoto('discard-' + id);
   if (btn.dataset.act === 'kakao' || btn.dataset.act === 'sms') shareDiscard(id);
+  if (btn.dataset.act === 'ack') ackDiscard(id);
 };
+function ackDiscard(id) {
+  const slot = activeSlots().find(s => s.id === id);
+  const anchor = discardAnchor();
+  const when = (slot && discardDoneOnList(slot)) || koreaStamp();
+  if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, when);
+  const modal = document.getElementById('discardModal');
+  if (modal) modal.dataset.ids = '';
+  checkDiscards();
+}
 function tooManyPhotos(count) {
   if (count <= 10) return false;
   alert('한 번에 10장까지만 보낼 수 있습니다. 꼭 보고할 사진만 남기고 다시 보내 주세요.');
@@ -1388,7 +1436,7 @@ async function shareDiscard(id) {
   if (sent === 'fail') { alert('사진을 보내지 못했습니다.'); return; }
   if (sent !== 'sent' && sent !== 'left') return;
   const anchor = discardAnchor();
-  if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, new Date().toLocaleString('ko-KR'));
+  if (anchor) localStorage.setItem('discard45_' + anchor + '_' + id, koreaStamp());
   if (slot) applyDiscardToView(slot, photos);
   document.getElementById('discardModal').dataset.ids = '';
   checkDiscards();
@@ -1410,7 +1458,7 @@ function discardStamp(slotId) {
   return value === '1' ? '폐기 알림 보고' : value;
 }
 function applyDiscardToView(slot, photos) {
-  const when = discardStamp(slot.id) || new Date().toLocaleString('ko-KR');
+  const when = discardStamp(slot.id) || koreaStamp();
   const shift = allData[currentStore]?.shifts?.[shiftSelect.value];
   if (!shift) return;
   visibleItems(shift).forEach(it => {
@@ -1502,7 +1550,7 @@ async function shareMidTag() {
   if (sent === 'fail') { alert('사진을 보내지 못했습니다.'); return; }
   if (sent !== 'sent' && sent !== 'left') return;
   const key = midTagKey();
-  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  if (key) localStorage.setItem(key, koreaStamp());
   document.getElementById('midTagModal').classList.add('hidden');
 }
 
@@ -1979,7 +2027,7 @@ function loadProgress() {
     if (!name || !period || !shiftSelect.value) return null;
     const d = progressForCurrent();
     if (!d) return null;
-    fullReportSent = !!d.sent || reportFormFilled(d);
+    fullReportSent = !!d.sent;
     if (d.clockIn && d.clockIn.at) clockInRecord = d.clockIn;
     adoptClock(d.clockIn);
     showClockIn();
@@ -1996,13 +2044,6 @@ function loadProgress() {
   } catch (e) {}
   return null;
 }
-function reportFormFilled(d) {
-  const memo = (d.dayMemo || '').trim();
-  if (!memo || /^퇴근(합니다)?\.?$/.test(memo)) return false;
-  const pay = d.pay || {};
-  return !!(pay.lateYn && pay.deductYn && pay.extraYn);
-}
-
 function renderChecklist() {
   if (entryGaps().length) {
     showEntryGaps();
@@ -2447,6 +2488,11 @@ function placeClimateOff(list) {
     }
     out.push(it);
   });
+  if (!placed) {
+    const at = out.findIndex(it => norm(it.title).startsWith('퇴근'));
+    if (at >= 0) out.splice(at, 0, item);
+    else out.push(item);
+  }
   return out;
 }
 function itemById(id) {
@@ -2653,7 +2699,7 @@ document.getElementById('inboundConfirm').onclick = () => {
     return;
   }
   const key = inboundAckKey();
-  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  if (key) localStorage.setItem(key, koreaStamp());
   document.getElementById('inboundModal').classList.add('hidden');
   maybeConditionPopups();
 };
@@ -2747,7 +2793,7 @@ document.getElementById('weatherConfirm').onclick = () => {
     return;
   }
   const key = weatherAckKey();
-  if (key) localStorage.setItem(key, new Date().toLocaleString('ko-KR'));
+  if (key) localStorage.setItem(key, koreaStamp());
   document.getElementById('weatherModal').classList.add('hidden');
   maybeInboundPopup();
 };
@@ -3271,7 +3317,7 @@ function backToStart() {
   if (box) box.style.paddingBottom = '';
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v186';
+const APP_VERSION = 'v187';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -3641,6 +3687,11 @@ async function shareClockIn(isSms) {
 }
 function offerSendNow(id) {
   if (sessionReported[reportKey(id)]) return;
+  if (discardPopupId(id) && discardStamp(discardPopupId(id))) return;
+  if (id === 'mid-tag') {
+    const key = midTagKey();
+    if (key && localStorage.getItem(key)) return;
+  }
   const modal = document.getElementById('sendNowModal');
   modal.dataset.mode = 'photo';
   modal.dataset.id = id;
@@ -3657,22 +3708,19 @@ function offerClockSend() {
   document.getElementById('sendNowText').textContent = clockShareText();
   modal.classList.remove('hidden');
 }
-document.getElementById('sendNowKakao').onclick = () => {
+function sendOfferedNow(isSms) {
   const modal = document.getElementById('sendNowModal');
   const mode = modal.dataset.mode;
-  const id = modal.dataset.id;
+  const id = modal.dataset.id || '';
   modal.classList.add('hidden');
-  if (mode === 'clock') shareClockIn(false);
-  else if (id) shareItem(id, false);
-};
-document.getElementById('sendNowSms').onclick = () => {
-  const modal = document.getElementById('sendNowModal');
-  const mode = modal.dataset.mode;
-  const id = modal.dataset.id;
-  modal.classList.add('hidden');
-  if (mode === 'clock') shareClockIn(true);
-  else if (id) shareItem(id, true);
-};
+  const slotId = discardPopupId(id);
+  if (mode === 'clock') shareClockIn(isSms);
+  else if (id === 'mid-tag') shareMidTag();
+  else if (slotId) shareDiscard(slotId);
+  else if (id) shareItem(id, isSms);
+}
+document.getElementById('sendNowKakao').onclick = () => sendOfferedNow(false);
+document.getElementById('sendNowSms').onclick = () => sendOfferedNow(true);
 document.getElementById('sendNowClose').onclick = () => {
   document.getElementById('sendNowModal').classList.add('hidden');
 };
