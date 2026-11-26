@@ -7,7 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#6B2C91">
-<meta name="cu-version" content="v195">
+<meta name="cu-version" content="v196">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CU체크">
@@ -119,7 +119,7 @@ if (document.documentElement.classList.contains('inapp')) {
 }
 </script>
 <div class="header">
-  <h1>CU 점포 체크리스트 v195</h1>
+  <h1>CU 점포 체크리스트 v196</h1>
 </div>
 <div class="container">
   <!-- 보고 화면 -->
@@ -408,6 +408,7 @@ if (document.documentElement.classList.contains('inapp')) {
   <div class="modal-content">
     <p id="stepText" style="font-size:16px; font-weight:700; line-height:1.5; margin:0 0 14px;"></p>
     <button type="button" class="btn-primary" id="stepOk" style="width:100%;">확인</button>
+    <button type="button" class="btn-secondary hidden" id="stepPhoto" style="width:100%; margin-top:8px;">사진으로 읽기</button>
   </div>
 </div>
 <div id="barcodeModal" class="modal hidden">
@@ -415,7 +416,9 @@ if (document.documentElement.classList.contains('inapp')) {
     <h3 style="margin-top:0;">출근 QR 스캔</h3>
     <p id="qrMsg" style="font-size:14px;">포스 근무자 인증 QR을 비추세요.</p>
     <video id="qrVideo" playsinline autoplay muted style="width:100%; background:#111; border-radius:8px;"></video>
+    <button type="button" class="btn-secondary" id="qrPhotoBtn" style="width:100%; margin-top:8px;">사진으로 읽기</button>
     <button class="btn-secondary" id="cancelBarcode" style="width:100%; margin-top:8px;">취소</button>
+    <input id="qrPhoto" type="file" accept="image/*" capture="environment" class="hidden">
   </div>
 </div>
 
@@ -1624,7 +1627,7 @@ function clockReady() {
 function gapMessage(gap) {
   if (gap === 'scan') return '출근 QR을 스캔하세요.';
   if (gap === 'report') return '출근 QR을 보고하세요.';
-  if (gap === 'camera') return '카메라를 열 수 없습니다. 카메라 권한을 허용한 뒤 다시 스캔하세요.';
+  if (gap === 'camera') return '카메라를 열 수 없습니다. 주소창 자물쇠나 휴대폰 설정에서 카메라 권한을 허용한 뒤 다시 시도하세요. 그래도 안 되면 사진으로 읽기를 누르고, 포스 오른쪽 근무자 인증 QR을 찍어 올리세요.';
   if (gap === 'type') return '교육, 수습, 정식 중 하나를 고르세요.';
   if (gap === 'shift') return '근무타입을 고르세요.';
   if (gap === 'name') return '이름을 적으세요.';
@@ -1658,6 +1661,11 @@ function openStep(act, text) {
   if (!modal.classList.contains('hidden') && modal.dataset.act === act) return;
   modal.dataset.act = act;
   document.getElementById('stepText').innerHTML = biHtml(msg);
+  const photo = document.getElementById('stepPhoto');
+  const ok = document.getElementById('stepOk');
+  const usePhoto = act === 'camera' || act === 'rescan';
+  if (photo) photo.classList.toggle('hidden', !usePhoto);
+  if (ok) ok.textContent = usePhoto ? '다시 시도' : '확인';
   modal.classList.remove('hidden');
 }
 let clockEntering = false;
@@ -3416,7 +3424,7 @@ function backToStart() {
   checkAllDone();
   window.scrollTo(0, 0);
 }
-const APP_VERSION = 'v195';
+const APP_VERSION = 'v196';
 let versionReload = false;
 let versionCheckedAtStart = false;
 function checkVersionAtStart() {}
@@ -4170,6 +4178,60 @@ document.getElementById('cancelBarcode').onclick = () => {
   document.getElementById('barcodeModal').classList.add('hidden');
   if (failed) openStep('rescan', '이 휴대폰에서는 QR을 읽지 못합니다.');
   else promptFirstStep();
+};
+async function readQrFromFile(file) {
+  if (!file) return;
+  let img = null;
+  try {
+    if (window.createImageBitmap) img = await createImageBitmap(file);
+  } catch (e) { img = null; }
+  if (!img) {
+    img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = URL.createObjectURL(file);
+    }).catch(() => null);
+  }
+  if (!img) { openStep('camera', '사진을 열지 못했습니다. 다시 찍어 주세요.'); return; }
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  const scale = Math.min(1, 1600 / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  if (img.close) img.close();
+  let code = '';
+  if ('BarcodeDetector' in window) {
+    try {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const found = await detector.detect(canvas);
+      if (found && found[0]) code = found[0].rawValue || '';
+    } catch (e) {}
+  }
+  if (!code) {
+    try { await loadJsQR(); } catch (e) {}
+    if (window.jsQR) {
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const found = window.jsQR(data.data, data.width, data.height);
+      if (found) code = found.data || '';
+    }
+  }
+  if (!code) { openStep('camera', '사진에서 QR을 읽지 못했습니다. 근무자 인증 QR이 크게 나오게 다시 찍으세요.'); return; }
+  finishClockIn(code);
+}
+function pickQrPhoto() {
+  const input = document.getElementById('qrPhoto');
+  input.value = '';
+  input.click();
+}
+document.getElementById('qrPhoto').onchange = () => readQrFromFile(document.getElementById('qrPhoto').files[0]);
+document.getElementById('qrPhotoBtn').onclick = pickQrPhoto;
+document.getElementById('stepPhoto').onclick = () => {
+  document.getElementById('stepModal').classList.add('hidden');
+  pickQrPhoto();
 };
 document.getElementById('stepOk').onclick = () => {
   const modal = document.getElementById('stepModal');
